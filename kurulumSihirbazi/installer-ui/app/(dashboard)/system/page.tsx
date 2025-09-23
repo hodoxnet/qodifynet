@@ -4,6 +4,7 @@ import { SystemStatus } from "@/components/SystemStatus";
 import { SystemConfig } from "@/components/SystemConfig";
 import { useState, useEffect } from "react";
 import { Server, Database, HardDrive, Cpu, Network, RefreshCw, Activity } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 
 export default function SystemPage() {
   const [systemStatus, setSystemStatus] = useState({
@@ -29,9 +30,10 @@ export default function SystemPage() {
 
   const checkSystemStatus = async () => {
     try {
-      const response = await fetch("http://localhost:3031/api/system/status");
+      const response = await apiFetch("/api/system/status");
+      if (!response.ok) return;
       const data = await response.json();
-      setSystemStatus(data);
+      if (data && typeof data === 'object') setSystemStatus(data);
     } catch (error) {
       console.error("System status check failed:", error);
     }
@@ -39,7 +41,8 @@ export default function SystemPage() {
 
   const fetchSystemInfo = async () => {
     try {
-      const response = await fetch("http://localhost:3031/api/system/resources");
+      const response = await apiFetch("/api/system/resources");
+      if (!response.ok) return;
       const data = await response.json();
       setSystemInfo(data);
     } catch (error) {
@@ -134,19 +137,19 @@ export default function SystemPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Toplam:</span>
                   <span className="text-gray-900 font-medium">
-                    {systemInfo.memory?.totalGB?.toFixed(1) || "0"} GB
+                    {(systemInfo.memory?.totalGB ?? (systemInfo.memory?.total || 0)).toFixed ? (systemInfo.memory?.totalGB ?? systemInfo.memory?.total).toFixed(1) : (systemInfo.memory?.totalGB ?? systemInfo.memory?.total ?? 0)} GB
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Kullanılan:</span>
                   <span className="text-gray-900 font-medium">
-                    {systemInfo.memory?.usedGB?.toFixed(1) || "0"} GB
+                    {(systemInfo.memory?.usedGB ?? (systemInfo.memory?.used || 0)).toFixed ? (systemInfo.memory?.usedGB ?? systemInfo.memory?.used).toFixed(1) : (systemInfo.memory?.usedGB ?? systemInfo.memory?.used ?? 0)} GB
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Kullanım:</span>
                   <span className="text-gray-900 font-medium">
-                    {systemInfo.memory?.usedPercent?.toFixed(1) || "0"}%
+                    {(systemInfo.memory?.usedPercent ?? systemInfo.memory?.percentage ?? 0).toFixed ? (systemInfo.memory?.usedPercent ?? systemInfo.memory?.percentage).toFixed(1) : (systemInfo.memory?.usedPercent ?? systemInfo.memory?.percentage ?? 0)}%
                   </span>
                 </div>
               </div>
@@ -162,19 +165,19 @@ export default function SystemPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Toplam:</span>
                   <span className="text-gray-900 font-medium">
-                    {systemInfo.disk?.totalGB?.toFixed(1) || "0"} GB
+                    {(systemInfo.disk?.totalGB ?? 0).toFixed ? (systemInfo.disk?.totalGB).toFixed(1) : (systemInfo.disk?.totalGB ?? 0)} GB
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Kullanılan:</span>
                   <span className="text-gray-900 font-medium">
-                    {systemInfo.disk?.usedGB?.toFixed(1) || "0"} GB
+                    {(systemInfo.disk?.usedGB ?? 0).toFixed ? (systemInfo.disk?.usedGB).toFixed(1) : (systemInfo.disk?.usedGB ?? 0)} GB
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Kullanım:</span>
                   <span className="text-gray-900 font-medium">
-                    {systemInfo.disk?.usedPercent?.toFixed(1) || "0"}%
+                    {(systemInfo.disk?.usedPercent ?? (typeof systemInfo.disk?.percentage === 'string' ? parseFloat(String(systemInfo.disk?.percentage).replace('%','')) : 0)).toFixed ? (systemInfo.disk?.usedPercent ?? parseFloat(String(systemInfo.disk?.percentage || 0).toString().replace('%',''))).toFixed(1) : (systemInfo.disk?.usedPercent ?? (typeof systemInfo.disk?.percentage === 'string' ? parseFloat(String(systemInfo.disk?.percentage).replace('%','')) : 0))}%
                   </span>
                 </div>
               </div>

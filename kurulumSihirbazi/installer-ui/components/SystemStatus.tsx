@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CheckCircle, XCircle, AlertCircle, Loader2, Database, Server, Globe, Activity, RefreshCw, Download } from "lucide-react";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api";
 
 interface SystemStatusProps {
   status: {
@@ -53,9 +54,7 @@ export function SystemStatus({ status, onRefresh }: SystemStatusProps) {
   const handleRetry = async (service: string) => {
     setChecking(service);
     try {
-      const response = await fetch(`http://localhost:3031/api/system/check/${service}`, {
-        method: "POST",
-      });
+      const response = await apiFetch(`/api/system/check/${service}`, { method: "POST" });
       const data = await response.json();
 
       if (data.status === "running") {
@@ -86,7 +85,7 @@ export function SystemStatus({ status, onRefresh }: SystemStatusProps) {
     setInstalling(selectedService);
 
     try {
-      const response = await fetch(`http://localhost:3031/api/system/install/${selectedService}`, {
+      const response = await apiFetch(`/api/system/install/${selectedService}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ os }),

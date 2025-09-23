@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Database, Server, Save, TestTubes, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api";
 
 type Settings = {
   db?: { host?: string; port?: number; user?: string; password?: string };
@@ -19,7 +20,8 @@ export function SystemConfig() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("http://localhost:3031/api/system/settings");
+        const res = await apiFetch("/api/system/settings");
+        if (!res.ok) return;
         const json = await res.json();
         setSettings(json || {});
       } catch (e) {
@@ -33,7 +35,7 @@ export function SystemConfig() {
   const save = async () => {
     setSaving(true);
     try {
-      const res = await fetch("http://localhost:3031/api/system/settings", {
+      const res = await apiFetch("/api/system/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
@@ -52,7 +54,7 @@ export function SystemConfig() {
   const testDb = async () => {
     setTestingDb(true);
     try {
-      const res = await fetch("http://localhost:3031/api/system/test/db", {
+      const res = await apiFetch("/api/system/test/db", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings.db || {}),
@@ -70,7 +72,7 @@ export function SystemConfig() {
   const testRedis = async () => {
     setTestingRedis(true);
     try {
-      const res = await fetch("http://localhost:3031/api/system/test/redis", {
+      const res = await apiFetch("/api/system/test/redis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings.redis || {}),
@@ -183,4 +185,3 @@ export function SystemConfig() {
     </div>
   );
 }
-

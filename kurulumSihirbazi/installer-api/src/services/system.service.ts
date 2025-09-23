@@ -85,40 +85,68 @@ export class SystemService {
   async getSystemResources() {
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
-    const cpuUsage = os.loadavg()[0];
-    const diskUsage = await this.getDiskUsage();
+    const usedMem = totalMem - freeMem;
+    const cpuLoad = os.loadavg()[0];
+    const cpus = os.cpus();
+    const diskUsage = await this.getDiskUsageDetailed();
 
     return {
       memory: {
-        total: Math.round(totalMem / (1024 * 1024 * 1024)), // GB
-        free: Math.round(freeMem / (1024 * 1024 * 1024)), // GB
-        used: Math.round((totalMem - freeMem) / (1024 * 1024 * 1024)), // GB
-        percentage: Math.round(((totalMem - freeMem) / totalMem) * 100),
+        // legacy
+        total: totalMem / (1024 * 1024 * 1024),
+        free: freeMem / (1024 * 1024 * 1024),
+        used: usedMem / (1024 * 1024 * 1024),
+        percentage: (usedMem / totalMem) * 100,
+        // new, UI-friendly
+        totalGB: totalMem / (1024 * 1024 * 1024),
+        usedGB: usedMem / (1024 * 1024 * 1024),
+        usedPercent: (usedMem / totalMem) * 100,
       },
       cpu: {
-        usage: Math.round(cpuUsage * 100) / 100,
-        cores: os.cpus().length,
+        usage: Math.round(cpuLoad * 100) / 100,
+        cores: cpus.length,
+        model: cpus[0]?.model || undefined,
       },
       disk: diskUsage,
+      network: this.getNetworkInfo(),
     };
   }
 
-  async getDiskUsage() {
+  private async getDiskUsageDetailed() {
     try {
-      const { stdout } = await execAsync("df -h / | awk 'NR==2 {print $3, $4, $5}'");
-      const [used, available, percentage] = stdout.trim().split(" ");
+      // Portable(ish): 1024-blocks Used Available Capacity Mount
+      const { stdout } = await execAsync("df -Pk / | awk 'NR==2 {print $2, $3, $5}'");
+      const [totalKbStr, usedKbStr, capacityStr] = stdout.trim().split(/\s+/);
+      const totalKB = Number(totalKbStr || 0);
+      const usedKB = Number(usedKbStr || 0);
+      const usedPercent = Number(String(capacityStr || "0").replace("%", ""));
       return {
-        used,
-        available,
-        percentage: percentage.replace("%", ""),
-      };
+        totalGB: totalKB / (1024 * 1024),
+        usedGB: usedKB / (1024 * 1024),
+        usedPercent,
+        percentage: String(usedPercent), // legacy string compatibility
+      } as any;
     } catch {
       return {
-        used: "N/A",
-        available: "N/A",
-        percentage: "N/A",
-      };
+        totalGB: 0,
+        usedGB: 0,
+        usedPercent: 0,
+        percentage: "0",
+      } as any;
     }
+  }
+
+  private getNetworkInfo() {
+    const ifaces = os.networkInterfaces();
+    const list: Array<{ iface: string; ip: string }> = [];
+    Object.entries(ifaces).forEach(([name, infos]) => {
+      (infos || []).forEach((inf) => {
+        if (inf && inf.family === 'IPv4' && !inf.internal) {
+          list.push({ iface: name, ip: inf.address });
+        }
+      });
+    });
+    return list;
   }
 
   async testRedisConnection(host: string, port: number): Promise<{ ok: boolean; message?: string }> {
