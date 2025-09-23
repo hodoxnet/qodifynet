@@ -13,6 +13,10 @@ export type InstallerSettings = {
     port?: number;
     prefix?: string;
   };
+  paths?: {
+    templates?: string;
+    customers?: string;
+  };
 };
 
 export class SettingsService {
@@ -42,10 +46,10 @@ export class SettingsService {
       ...partial,
       db: { ...current.db, ...partial.db },
       redis: { ...current.redis, ...partial.redis },
+      paths: { ...current.paths, ...partial.paths },
     };
     await fs.ensureDir(path.dirname(this.settingsPath));
     await fs.writeJson(this.settingsPath, next, { spaces: 2 });
     return next;
   }
 }
-

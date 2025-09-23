@@ -2,8 +2,49 @@
 
 import { TemplateManager } from "@/components/TemplateManager";
 import { FileCode, Download, Upload } from "lucide-react";
+import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/api";
 
 export default function TemplatesPage() {
+  const [version, setVersion] = useState<string>("-");
+  const [files, setFiles] = useState<Record<string, { uploaded: boolean; size?: string; uploadDate?: string }>>({});
+
+  useEffect(() => {
+    (async () => {
+      try {
+        // Get available templates and pick latest
+        const listRes = await apiFetch("/api/templates");
+        if (listRes.ok) {
+          const list = await listRes.json();
+          if (Array.isArray(list) && list.length > 0) {
+            setVersion(list[0].version);
+          }
+        }
+      } catch {}
+      try {
+        const v = (prev => prev !== '-' ? prev : 'latest')(version as any);
+        const checkRes = await apiFetch("/api/templates/check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ version: v }),
+        });
+        if (checkRes.ok) {
+          const data = await checkRes.json();
+          setFiles(data?.files || {});
+          // If version was unknown, try to derive from keys
+          if (version === '-' && data?.files) {
+            const key = Object.keys(data.files)[0] || '';
+            const m = key.match(/-(.+)\.zip$/);
+            if (m) setVersion(m[1]);
+          }
+        }
+      } catch {}
+    })();
+  }, []);
+
+  const fmt = (d?: string) => d ? new Date(d).toLocaleDateString('tr-TR') : '—';
+  const F = (name: string) => files[name] || {} as any;
+  const v = version === '-' ? 'latest' : version;
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -35,17 +76,17 @@ export default function TemplatesPage() {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-gray-900">Backend Template</h3>
-              <p className="text-xs text-gray-600">v2.4.0</p>
+              <p className="text-xs text-gray-600">v{version}</p>
             </div>
           </div>
           <div className="space-y-1 text-xs">
             <div className="flex justify-between">
               <span className="text-gray-600">Boyut:</span>
-              <span className="text-gray-900 font-medium">45.2 MB</span>
+              <span className="text-gray-900 font-medium">{F(`backend-${v}.zip`).size || '—'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Son Güncelleme:</span>
-              <span className="text-gray-900 font-medium">2 gün önce</span>
+              <span className="text-gray-900 font-medium">{fmt(F(`backend-${v}.zip`).uploadDate)}</span>
             </div>
           </div>
         </div>
@@ -57,17 +98,17 @@ export default function TemplatesPage() {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-gray-900">Admin Template</h3>
-              <p className="text-xs text-gray-600">v2.4.0</p>
+              <p className="text-xs text-gray-600">v{version}</p>
             </div>
           </div>
           <div className="space-y-1 text-xs">
             <div className="flex justify-between">
               <span className="text-gray-600">Boyut:</span>
-              <span className="text-gray-900 font-medium">32.8 MB</span>
+              <span className="text-gray-900 font-medium">{F(`admin-${v}.zip`).size || '—'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Son Güncelleme:</span>
-              <span className="text-gray-900 font-medium">2 gün önce</span>
+              <span className="text-gray-900 font-medium">{fmt(F(`admin-${v}.zip`).uploadDate)}</span>
             </div>
           </div>
         </div>
@@ -79,17 +120,17 @@ export default function TemplatesPage() {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-gray-900">Store Template</h3>
-              <p className="text-xs text-gray-600">v2.4.0</p>
+              <p className="text-xs text-gray-600">v{version}</p>
             </div>
           </div>
           <div className="space-y-1 text-xs">
             <div className="flex justify-between">
               <span className="text-gray-600">Boyut:</span>
-              <span className="text-gray-900 font-medium">28.5 MB</span>
+              <span className="text-gray-900 font-medium">{F(`store-${v}.zip`).size || '—'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Son Güncelleme:</span>
-              <span className="text-gray-900 font-medium">2 gün önce</span>
+              <span className="text-gray-900 font-medium">{fmt(F(`store-${v}.zip`).uploadDate)}</span>
             </div>
           </div>
         </div>

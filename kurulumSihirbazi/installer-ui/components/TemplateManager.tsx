@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Upload, AlertTriangle, CheckCircle, XCircle, FileArchive, Loader2, RefreshCw, Check } from "lucide-react";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api";
 
 interface TemplateFile {
   name: string;
@@ -34,21 +35,35 @@ export function TemplateManager() {
   const [templateStatus, setTemplateStatus] = useState<TemplateCheckResult | null>(null);
   const [uploading, setUploading] = useState<{ [key: string]: boolean }>({});
   const [templateFiles, setTemplateFiles] = useState<{ [key: string]: TemplateFile }>({});
+  const [latestVersion, setLatestVersion] = useState<string>("2.4.0");
+
+  const detectLatestVersion = async () => {
+    try {
+      const res = await apiFetch("/api/templates");
+      if (!res.ok) return;
+      const list: Array<{ version: string } & any> = await res.json();
+      if (Array.isArray(list) && list.length > 0) {
+        // assume list sorted desc by version (as API does)
+        setLatestVersion(list[0].version);
+      }
+    } catch {}
+  };
 
   const checkTemplates = async () => {
     setChecking(true);
     try {
-      const response = await fetch("http://localhost:3031/api/templates/check", {
+      const response = await apiFetch("/api/templates/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ version: "2.4.0" }),
+        body: JSON.stringify({ version: latestVersion || "latest" }),
       });
 
       const data = await response.json();
       setTemplateStatus(data);
 
       // Create template file states from API response (real size/date)
-      const templateNames = ['backend-2.4.0.zip', 'admin-2.4.0.zip', 'store-2.4.0.zip'];
+      const v = latestVersion || '2.4.0';
+      const templateNames = [`backend-${v}.zip`, `admin-${v}.zip`, `store-${v}.zip`];
       const filesMap: { [key: string]: TemplateFile } = {};
 
       templateNames.forEach(template => {
@@ -56,7 +71,7 @@ export function TemplateManager() {
         const isUploaded = detail?.uploaded ?? !data.missing?.includes(template);
         filesMap[template] = {
           name: template,
-          version: '2.4.0',
+          version: v,
           uploaded: isUploaded,
           size: detail?.size,
           // Show a friendly date in TR locale if available
@@ -81,7 +96,10 @@ export function TemplateManager() {
   };
 
   useEffect(() => {
-    checkTemplates();
+    (async () => {
+      await detectLatestVersion();
+      await checkTemplates();
+    })();
 
     // Auto-refresh every 30 seconds (daha az agresif)
     const interval = setInterval(() => {
@@ -113,13 +131,10 @@ export function TemplateManager() {
     const formData = new FormData();
     formData.append('template', file);
     formData.append('name', templateName);
-    formData.append('version', '2.4.0');
+    formData.append('version', latestVersion || '2.4.0');
 
     try {
-      const response = await fetch("http://localhost:3031/api/templates/upload", {
-        method: "POST",
-        body: formData,
-      });
+      const response = await apiFetch("/api/templates/upload", { method: "POST", body: formData as any });
 
       if (response.ok) {
         // Update local state immediately

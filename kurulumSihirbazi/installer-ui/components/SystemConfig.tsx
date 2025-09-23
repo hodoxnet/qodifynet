@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/api";
 type Settings = {
   db?: { host?: string; port?: number; user?: string; password?: string };
   redis?: { host?: string; port?: number; prefix?: string };
+  paths?: { templates?: string; customers?: string };
 };
 
 export function SystemConfig() {
@@ -105,6 +106,22 @@ export function SystemConfig() {
         <p className="text-xs text-gray-600 mt-1">Smart Environment Management ile uyumlu varsayılan DB/Redis ayarları</p>
       </div>
       <div className="p-4 space-y-6">
+        <div>
+          <div className="flex items-center space-x-2 mb-2">
+            <Server className="w-4 h-4 text-gray-700" />
+            <h3 className="font-medium text-gray-900">Yol Ayarları</h3>
+          </div>
+          <div className="grid grid-cols-1 gap-3">
+            <input
+              placeholder="Templates Path (örn. /Users/..../templates)"
+              value={settings.paths?.templates || ""}
+              onChange={(e) => setSettings(s => ({ ...s, paths: { ...s.paths, templates: e.target.value } }))}
+              className="px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-1">Template ZIP dosyalarının bulunduğu klasör. Altında stable/beta/archived dizinleri isteğe bağlıdır.</p>
+        </div>
+
         <div>
           <div className="flex items-center space-x-2 mb-2">
             <Database className="w-4 h-4 text-gray-700" />

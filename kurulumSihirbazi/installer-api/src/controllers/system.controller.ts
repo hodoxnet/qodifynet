@@ -80,6 +80,10 @@ systemRouter.get("/settings", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_AD
         // prefix is customer-specific; keep empty by default
         prefix: "",
       },
+      paths: {
+        templates: process.env.TEMPLATES_PATH || "/var/qodify/templates",
+        customers: process.env.CUSTOMERS_PATH || "/var/qodify/customers",
+      },
     };
 
     const merged = {
@@ -93,6 +97,10 @@ systemRouter.get("/settings", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_AD
         host: saved.redis?.host ?? envDefaults.redis.host,
         port: saved.redis?.port ?? envDefaults.redis.port,
         prefix: saved.redis?.prefix ?? envDefaults.redis.prefix,
+      },
+      paths: {
+        templates: saved.paths?.templates ?? envDefaults.paths.templates,
+        customers: saved.paths?.customers ?? envDefaults.paths.customers,
       },
     };
 

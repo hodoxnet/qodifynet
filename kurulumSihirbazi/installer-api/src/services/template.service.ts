@@ -1,6 +1,7 @@
 import fs from "fs-extra";
 import path from "path";
 import AdmZip from "adm-zip";
+import { SettingsService } from "./settings.service";
 
 export interface Template {
   version: string;
@@ -16,28 +17,39 @@ export interface Template {
 }
 
 export class TemplateService {
-  private templatesPath = process.env.TEMPLATES_PATH || "/var/qodify/templates";
+  private defaultTemplatesPath = process.env.TEMPLATES_PATH || "/var/qodify/templates";
 
-  constructor() {
-    this.ensureTemplatesDirectory();
+  constructor() {}
+
+  private async resolveTemplatesPath() {
+    try {
+      const settings = new SettingsService();
+      const saved = await settings.getSettings();
+      return saved.paths?.templates || this.defaultTemplatesPath;
+    } catch {
+      return this.defaultTemplatesPath;
+    }
   }
 
-  private async ensureTemplatesDirectory() {
-    await fs.ensureDir(this.templatesPath);
-    await fs.ensureDir(path.join(this.templatesPath, "stable"));
-    await fs.ensureDir(path.join(this.templatesPath, "beta"));
-    await fs.ensureDir(path.join(this.templatesPath, "archived"));
+  private async ensureTemplatesDirectory(basePath?: string) {
+    const root = basePath || (await this.resolveTemplatesPath());
+    await fs.ensureDir(root);
+    await fs.ensureDir(path.join(root, "stable"));
+    await fs.ensureDir(path.join(root, "beta"));
+    await fs.ensureDir(path.join(root, "archived"));
   }
 
   async getAvailableTemplates(): Promise<Template[]> {
     const templates: Template[] = [];
 
     try {
+      const templatesPath = await this.resolveTemplatesPath();
+      await this.ensureTemplatesDirectory(templatesPath);
       // Scan templates directory
       const categories = ["stable", "beta", "archived"];
 
       for (const category of categories) {
-        const categoryPath = path.join(this.templatesPath, category);
+        const categoryPath = path.join(templatesPath, category);
         if (await fs.pathExists(categoryPath)) {
           const files = await fs.readdir(categoryPath);
 
@@ -108,13 +120,15 @@ export class TemplateService {
     // to be in the same category because extractTemplates() already searches
     // each category per-component.
     const categories = ["stable", "beta", "archived"];
+    const templatesPath = await this.resolveTemplatesPath();
+    await this.ensureTemplatesDirectory(templatesPath);
 
     for (const component of requiredComponents) {
       let componentFound = false;
 
       // Look for the component in categorized folders
       for (const category of categories) {
-        const categoryPath = path.join(this.templatesPath, category, `${component}-${version}.zip`);
+        const categoryPath = path.join(templatesPath, category, `${component}-${version}.zip`);
         if (await fs.pathExists(categoryPath)) {
           componentFound = true;
           break;
@@ -123,7 +137,7 @@ export class TemplateService {
 
       // If still not found, check templates root directory
       if (!componentFound) {
-        const rootPath = path.join(this.templatesPath, `${component}-${version}.zip`);
+        const rootPath = path.join(templatesPath, `${component}-${version}.zip`);
         if (await fs.pathExists(rootPath)) {
           componentFound = true;
         }
@@ -165,6 +179,8 @@ export class TemplateService {
 
     const components = ["backend", "admin", "store"] as const;
     const categories = ["stable", "beta", "archived"] as const;
+    const templatesPath = await this.resolveTemplatesPath();
+    await this.ensureTemplatesDirectory(templatesPath);
     const result: {
       [filename: string]: {
         uploaded: boolean;
@@ -180,7 +196,7 @@ export class TemplateService {
       let foundCategory: string | null = null;
 
       for (const category of categories) {
-        const candidate = path.join(this.templatesPath, category, `${component}-${version}.zip`);
+        const candidate = path.join(templatesPath, category, `${component}-${version}.zip`);
         if (await fs.pathExists(candidate)) {
           foundPath = candidate;
           foundCategory = category;
@@ -190,7 +206,7 @@ export class TemplateService {
 
       // Check root as last resort
       if (!foundPath) {
-        const candidate = path.join(this.templatesPath, `${component}-${version}.zip`);
+        const candidate = path.join(templatesPath, `${component}-${version}.zip`);
         if (await fs.pathExists(candidate)) {
           foundPath = candidate;
           foundCategory = "root";
@@ -263,10 +279,12 @@ export class TemplateService {
 
   async createTemplate(sourcePath: string, version: string, category = "stable") {
     const components = ["backend", "admin", "store"];
+    const templatesPath = await this.resolveTemplatesPath();
+    await this.ensureTemplatesDirectory(templatesPath);
 
     for (const component of components) {
       const componentPath = path.join(sourcePath, component);
-      const outputPath = path.join(this.templatesPath, category, `${component}-${version}.zip`);
+      const outputPath = path.join(templatesPath, category, `${component}-${version}.zip`);
 
       if (await fs.pathExists(componentPath)) {
         console.log(`Creating template for ${component}...`);
@@ -327,7 +345,9 @@ export class TemplateService {
   }
 
   async importTemplate(zipPath: string, version: string, category = "stable") {
-    const outputPath = path.join(this.templatesPath, category);
+    const templatesPath = await this.resolveTemplatesPath();
+    await this.ensureTemplatesDirectory(templatesPath);
+    const outputPath = path.join(templatesPath, category);
     await fs.ensureDir(outputPath);
 
     // Determine component type from filename
