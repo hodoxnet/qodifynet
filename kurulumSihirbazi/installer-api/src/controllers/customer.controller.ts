@@ -1,13 +1,14 @@
 import { Router } from "express";
 import { CustomerService } from "../services/customer.service";
 import { DeploymentService } from "../services/deployment.service";
+import { authorize } from "../middleware/authorize";
 
 export const customerRouter = Router();
 const customerService = new CustomerService();
 const deploymentService = new DeploymentService();
 
 // Get all customers
-customerRouter.get("/", async (req, res) => {
+customerRouter.get("/", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
   try {
     const customers = await customerService.getAllCustomers();
     res.json(customers);
@@ -17,11 +18,12 @@ customerRouter.get("/", async (req, res) => {
 });
 
 // Get customer by ID
-customerRouter.get("/:id", async (req, res) => {
+customerRouter.get("/:id", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const customer = await customerService.getCustomerById(req.params.id);
     if (!customer) {
-      return res.status(404).json({ error: "Customer not found" });
+      res.status(404).json({ error: "Customer not found" });
+      return;
     }
     res.json(customer);
   } catch (error) {
@@ -30,7 +32,7 @@ customerRouter.get("/:id", async (req, res) => {
 });
 
 // Deploy new customer
-customerRouter.post("/deploy", async (req, res) => {
+customerRouter.post("/deploy", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const result = await deploymentService.deployCustomer(req.body);
     res.json(result);
@@ -42,7 +44,7 @@ customerRouter.post("/deploy", async (req, res) => {
 });
 
 // Customer actions
-customerRouter.post("/:id/start", async (req, res) => {
+customerRouter.post("/:id/start", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const result = await customerService.startCustomer(req.params.id);
     res.json(result);
@@ -51,7 +53,7 @@ customerRouter.post("/:id/start", async (req, res) => {
   }
 });
 
-customerRouter.post("/:id/stop", async (req, res) => {
+customerRouter.post("/:id/stop", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const result = await customerService.stopCustomer(req.params.id);
     res.json(result);
@@ -60,7 +62,7 @@ customerRouter.post("/:id/stop", async (req, res) => {
   }
 });
 
-customerRouter.post("/:id/restart", async (req, res) => {
+customerRouter.post("/:id/restart", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const result = await customerService.restartCustomer(req.params.id);
     res.json(result);
@@ -69,7 +71,7 @@ customerRouter.post("/:id/restart", async (req, res) => {
   }
 });
 
-customerRouter.post("/:id/delete", async (req, res) => {
+customerRouter.post("/:id/delete", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const result = await customerService.deleteCustomer(req.params.id);
     res.json(result);
@@ -79,7 +81,7 @@ customerRouter.post("/:id/delete", async (req, res) => {
 });
 
 // Get customer logs
-customerRouter.get("/:id/logs", async (req, res) => {
+customerRouter.get("/:id/logs", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const service = req.query.service as string || 'backend';
     const lines = parseInt(req.query.lines as string) || 100;
@@ -91,7 +93,7 @@ customerRouter.get("/:id/logs", async (req, res) => {
 });
 
 // Get customer service health
-customerRouter.get("/:id/health", async (req, res) => {
+customerRouter.get("/:id/health", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const health = await customerService.getCustomerHealth(req.params.id);
     res.json(health);

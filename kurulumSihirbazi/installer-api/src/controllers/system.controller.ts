@@ -2,12 +2,13 @@ import { Router } from "express";
 import { SystemService } from "../services/system.service";
 import { DatabaseService } from "../services/database.service";
 import { SettingsService } from "../services/settings.service";
+import { authorize } from "../middleware/authorize";
 
 export const systemRouter = Router();
 const systemService = new SystemService();
 const settingsService = new SettingsService();
 
-systemRouter.get("/status", async (req, res) => {
+systemRouter.get("/status", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
   try {
     const status = await systemService.checkSystemStatus();
     res.json(status);
@@ -16,7 +17,7 @@ systemRouter.get("/status", async (req, res) => {
   }
 });
 
-systemRouter.get("/resources", async (req, res) => {
+systemRouter.get("/resources", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
   try {
     const resources = await systemService.getSystemResources();
     res.json(resources);
@@ -25,7 +26,7 @@ systemRouter.get("/resources", async (req, res) => {
   }
 });
 
-systemRouter.post("/check-requirements", async (req, res) => {
+systemRouter.post("/check-requirements", authorize("ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
   try {
     const requirements = await systemService.checkRequirements();
     res.json(requirements);
@@ -34,7 +35,7 @@ systemRouter.post("/check-requirements", async (req, res) => {
   }
 });
 
-systemRouter.post("/check/:service", async (req, res) => {
+systemRouter.post("/check/:service", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const { service } = req.params;
     const status = await systemService.checkSingleService(service);
@@ -44,13 +45,14 @@ systemRouter.post("/check/:service", async (req, res) => {
   }
 });
 
-systemRouter.post("/install/:service", async (req, res) => {
+systemRouter.post("/install/:service", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const { service } = req.params;
     const { os } = req.body;
 
     if (!os) {
-      return res.status(400).json({ error: "OS is required" });
+      res.status(400).json({ error: "OS is required" });
+      return;
     }
 
     const result = await systemService.installService(service, os);
@@ -61,7 +63,7 @@ systemRouter.post("/install/:service", async (req, res) => {
 });
 
 // Settings - get
-systemRouter.get("/settings", async (req, res) => {
+systemRouter.get("/settings", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
   try {
     const saved = await settingsService.getSettings();
 
@@ -101,7 +103,7 @@ systemRouter.get("/settings", async (req, res) => {
 });
 
 // Settings - save
-systemRouter.post("/settings", async (req, res) => {
+systemRouter.post("/settings", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const next = await settingsService.saveSettings(req.body || {});
     res.json(next);
@@ -111,25 +113,31 @@ systemRouter.post("/settings", async (req, res) => {
 });
 
 // DB connection test
-systemRouter.post("/test/db", async (req, res) => {
+systemRouter.post("/test/db", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const { host, port, user, password } = req.body || {};
     const db = new DatabaseService({ host, port, user, password });
     const result = await db.testConnection({ host, port, user, password });
-    if (result.ok) return res.json({ ok: true });
-    return res.status(400).json({ ok: false, message: result.message });
+    if (result.ok) {
+      res.json({ ok: true });
+      return;
+    }
+    res.status(400).json({ ok: false, message: result.message });
   } catch (error: any) {
     res.status(500).json({ ok: false, message: error?.message || "DB test failed" });
   }
 });
 
 // Redis connection test
-systemRouter.post("/test/redis", async (req, res) => {
+systemRouter.post("/test/redis", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const { host = "localhost", port = 6379 } = req.body || {};
     const result = await systemService.testRedisConnection(host, Number(port));
-    if (result.ok) return res.json({ ok: true });
-    return res.status(400).json({ ok: false, message: result.message });
+    if (result.ok) {
+      res.json({ ok: true });
+      return;
+    }
+    res.status(400).json({ ok: false, message: result.message });
   } catch (error: any) {
     res.status(500).json({ ok: false, message: error?.message || "Redis test failed" });
   }

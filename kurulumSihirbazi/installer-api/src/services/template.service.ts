@@ -1,10 +1,6 @@
 import fs from "fs-extra";
 import path from "path";
 import AdmZip from "adm-zip";
-import { exec } from "child_process";
-import { promisify } from "util";
-
-const execAsync = promisify(exec);
 
 export interface Template {
   version: string;

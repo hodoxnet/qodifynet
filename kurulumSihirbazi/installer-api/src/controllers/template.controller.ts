@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { TemplateService } from "../services/template.service";
+import { authorize } from "../middleware/authorize";
 import multer from "multer";
 import os from "os";
 import path from "path";
@@ -26,7 +27,7 @@ const upload = multer({
   },
 });
 
-templateRouter.get("/", async (req, res) => {
+templateRouter.get("/", async (_req, res): Promise<void> => {
   try {
     const templates = await templateService.getAvailableTemplates();
     res.json(templates);
@@ -35,11 +36,12 @@ templateRouter.get("/", async (req, res) => {
   }
 });
 
-templateRouter.get("/:version", async (req, res) => {
+templateRouter.get("/:version", async (req, res): Promise<void> => {
   try {
     const template = await templateService.getTemplateInfo(req.params.version);
     if (!template) {
-      return res.status(404).json({ error: "Template not found" });
+      res.status(404).json({ error: "Template not found" });
+      return;
     }
     res.json(template);
   } catch (error) {
@@ -47,7 +49,7 @@ templateRouter.get("/:version", async (req, res) => {
   }
 });
 
-templateRouter.post("/check", async (req, res) => {
+templateRouter.post("/check", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const { version = "latest" } = req.body;
     const [availability, files] = await Promise.all([
@@ -56,12 +58,13 @@ templateRouter.post("/check", async (req, res) => {
     ]);
 
     if (!availability.available) {
-      return res.status(404).json({
+      res.status(404).json({
         available: false,
         missing: availability.missing,
         message: availability.message,
         files,
       });
+      return;
     }
 
     res.json({ ...availability, files });
@@ -71,10 +74,11 @@ templateRouter.post("/check", async (req, res) => {
   }
 });
 
-templateRouter.post("/upload", upload.single("template"), async (req, res) => {
+templateRouter.post("/upload", authorize("ADMIN", "SUPER_ADMIN"), upload.single("template"), async (req, res): Promise<void> => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: "Dosya yüklenmedi" });
+      res.status(400).json({ error: "Dosya yüklenmedi" });
+      return;
     }
 
     const providedName = String(req.body.name || req.file.originalname || "");
@@ -85,20 +89,22 @@ templateRouter.post("/upload", upload.single("template"), async (req, res) => {
 
     if (!componentMatch) {
       await fs.remove(req.file.path).catch(() => {});
-      return res.status(400).json({
+      res.status(400).json({
         error: "Dosya adı hatalı",
         message: "backend-<versiyon>.zip, admin-<versiyon>.zip veya store-<versiyon>.zip formatında olmalı",
       });
+      return;
     }
 
-    const component = componentMatch[1];
+    // const component = componentMatch[1]; // currently not used
     const version = requestedVersion;
 
     // Doğrulama
     const validation = await templateService.validateTemplate(req.file.path);
     if (!validation.valid) {
       await fs.remove(req.file.path).catch(() => {});
-      return res.status(400).json({ error: "Geçersiz template", details: validation.errors });
+      res.status(400).json({ error: "Geçersiz template", details: validation.errors });
+      return;
     }
 
     // İçe aktarım (templates/<category>/<component>-<version>.zip)
@@ -109,8 +115,8 @@ templateRouter.post("/upload", upload.single("template"), async (req, res) => {
 
     // Durumu döndür
     const availability = await templateService.checkTemplateAvailability(version);
-    return res.json({ success: true, version, ...availability });
+    res.json({ success: true, version, ...availability });
   } catch (error: any) {
-    return res.status(500).json({ error: error?.message || "Upload failed" });
+    res.status(500).json({ error: error?.message || "Upload failed" });
   }
 });

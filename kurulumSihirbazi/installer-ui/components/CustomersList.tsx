@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Play, Square, RefreshCw, Trash2, ExternalLink, Loader2, Info, Terminal, AlertCircle, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { LogViewer } from "./LogViewer";
+import { apiFetch as fetcher } from "@/lib/api";
 
 interface Customer {
   id: string;
@@ -62,8 +63,10 @@ export function CustomersList({ onRefresh }: CustomersListProps) {
   const fetchCustomers = async () => {
     setLoading(true);
     try {
-      const response = await fetch("http://localhost:3031/api/customers");
+      const response = await fetcher("/api/customers");
+      if (!response.ok) throw new Error("Unauthorized or failed");
       const data = await response.json();
+      if (!Array.isArray(data)) throw new Error("Unexpected response");
       setCustomers(data);
     } catch (error) {
       toast.error("Müşteri listesi yüklenemedi");
@@ -76,7 +79,7 @@ export function CustomersList({ onRefresh }: CustomersListProps) {
   const handleAction = async (customerId: string, action: "start" | "stop" | "restart" | "delete") => {
     setActionLoading(customerId);
     try {
-      const response = await fetch(`http://localhost:3031/api/customers/${customerId}/${action}`, {
+      const response = await fetcher(`/api/customers/${customerId}/${action}`, {
         method: "POST",
       });
 
@@ -232,7 +235,7 @@ export function CustomersList({ onRefresh }: CustomersListProps) {
                               setInfoOpen(true);
                               setHealthLoading(true);
                               try {
-                                const res = await fetch(`http://localhost:3031/api/customers/${customer.id}/health`);
+                                const res = await fetcher(`/api/customers/${customer.id}/health`);
                                 const data = await res.json();
                                 setHealth(data);
                               } catch (error) {
@@ -316,7 +319,7 @@ export function CustomersList({ onRefresh }: CustomersListProps) {
                         onClick={async () => {
                           setHealthLoading(true);
                           try {
-                            const res = await fetch(`http://localhost:3031/api/customers/${infoCustomer.id}/health`);
+                            const res = await fetcher(`/api/customers/${infoCustomer.id}/health`);
                             const data = await res.json();
                             setHealth(data);
                           } catch (error) {

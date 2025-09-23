@@ -304,7 +304,7 @@ export class DeploymentService {
   }
 
   // Remove meta entries and flatten single-root-folder structures or nested roots
-  private async normalizeExtractedProject(targetPath: string, component: string) {
+  private async normalizeExtractedProject(targetPath: string, _component: string) {
     const entries = await fs.readdir(targetPath);
     const filtered = entries.filter((e) => !e.startsWith("__MACOSX") && e !== ".DS_Store" && e !== "._" && e !== "Thumbs.db");
     // If exactly one directory after filtering, flatten it
@@ -523,7 +523,7 @@ export class DeploymentService {
            domain.startsWith('local');
   }
 
-  private async rollback(customerPath: string, domain: string, customerId: string, dbName?: string) {
+  private async rollback(customerPath: string, domain: string, _customerId: string, dbName?: string) {
     console.log("🔄 Rolling back deployment...");
 
     try {

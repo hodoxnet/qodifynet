@@ -2,7 +2,6 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import fs from "fs-extra";
 import path from "path";
-import { v4 as uuidv4 } from "uuid";
 import { parse as parseDotenv } from "dotenv";
 
 const execAsync = promisify(exec);

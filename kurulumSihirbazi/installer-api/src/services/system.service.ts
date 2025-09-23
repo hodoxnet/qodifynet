@@ -1,7 +1,6 @@
 import { exec } from "child_process";
 import { promisify } from "util";
 import os from "os";
-import { Client } from "pg";
 
 const execAsync = promisify(exec) as (
   command: string,
@@ -70,7 +69,7 @@ export class SystemService {
 
       // If we get here, PM2 is installed. Check if daemon is running
       try {
-        const { stdout } = await execAsync("pm2 list");
+        await execAsync("pm2 list");
         // If pm2 list works, daemon is running
         return "running";
       } catch {

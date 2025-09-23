@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
+import { apiFetch } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 
 export default function DashboardPage() {
@@ -35,11 +36,13 @@ export default function DashboardPage() {
     const fetchData = async () => {
       try {
         // Sistem kaynakları
-        const resourcesRes = await fetch("http://localhost:3031/api/system/resources")
+        const resourcesRes = await apiFetch("/api/system/resources")
+        if (!resourcesRes.ok) return
         const resources = await resourcesRes.json()
 
         // Müşteri istatistikleri
-        const customersRes = await fetch("http://localhost:3031/api/customers")
+        const customersRes = await apiFetch("/api/customers")
+        if (!customersRes.ok) return
         const customers = await customersRes.json()
 
         setSystemResources({
@@ -48,10 +51,11 @@ export default function DashboardPage() {
           disk: resources.disk?.usedPercent || 0,
         })
 
+        const list = Array.isArray(customers) ? customers : []
         setCustomerStats({
-          total: customers.length,
-          active: customers.filter((c: any) => c.status === "running").length,
-          inactive: customers.filter((c: any) => c.status !== "running").length,
+          total: list.length,
+          active: list.filter((c: any) => c?.status === "running").length,
+          inactive: list.filter((c: any) => c?.status !== "running").length,
         })
       } catch (error) {
         console.error("Dashboard data fetch failed:", error)

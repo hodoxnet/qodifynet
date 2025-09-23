@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  OPERATOR
+  VIEWER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  role         Role     @default(VIEWER)
+  status       String   @default("active")
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  sessions     Session[]
+  apiKeys      ApiKey[]
+  auditLogs    AuditLog[] @relation("AuditActor")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  user         User     @relation(fields: [userId], references: [id])
+  userId       String
+  refreshJti   String   @unique
+  userAgent    String?
+  ip           String?
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+  revokedAt    DateTime?
+}
+
+model ApiKey {
+  id          String   @id @default(cuid())
+  name        String
+  tokenHash   String   @unique
+  scopes      String[]
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  lastUsedAt  DateTime?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Customer {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  companyName  String?
+  domain       String   @unique
+  mode         String   @default("local")
+  portsBackend Int
+  portsAdmin   Int
+  portsStore   Int
+  dbName       String?
+  dbUser       String?
+  dbHost       String?
+  dbPort       Int?
+  dbSchema     String?  @default("public")
+  redisHost    String?
+  redisPort    Int?
+  redisPrefix  String?
+  status       String   @default("stopped")
+  version      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deployments  Deployment[]
+}
+
+model Deployment {
+  id         String   @id @default(cuid())
+  customer   Customer @relation(fields: [customerId], references: [id])
+  customerId String
+  step       String
+  status     String
+  log        Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id])
+  actorId    String?
+  action     String
+  targetType String?
+  targetId   String?
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+}
+

@@ -1,15 +1,17 @@
 import { Router } from "express";
 import { DnsService } from "../services/dns.service";
+import { authorize } from "../middleware/authorize";
 
 export const dnsRouter = Router();
 const dnsService = new DnsService();
 
-dnsRouter.post("/check", async (req, res) => {
+dnsRouter.post("/check", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const { domain } = req.body;
 
     if (!domain) {
-      return res.status(400).json({ error: "Domain is required" });
+      res.status(400).json({ error: "Domain is required" });
+      return;
     }
 
     const result = await dnsService.checkDomainDNS(domain);
@@ -20,7 +22,7 @@ dnsRouter.post("/check", async (req, res) => {
   }
 });
 
-dnsRouter.get("/server-ip", async (req, res) => {
+dnsRouter.get("/server-ip", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
   try {
     const ip = await dnsService.getServerIP();
     res.json({ ip });

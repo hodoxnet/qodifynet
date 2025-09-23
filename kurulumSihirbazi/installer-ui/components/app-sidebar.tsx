@@ -41,9 +41,9 @@ import {
 
 const data = {
   user: {
-    name: "Admin User",
-    email: "admin@qodify.com",
-    avatar: "/avatars/admin.jpg",
+    name: "",
+    email: "",
+    avatar: "/api/avatar",
   },
   navMain: [
     {
@@ -132,6 +132,64 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const [user, setUser] = React.useState(data.user)
+
+  React.useEffect(() => {
+    const defaultAvatar = process.env.NEXT_PUBLIC_USER_AVATAR || "/api/avatar"
+    const stored = typeof window !== 'undefined' ? window.localStorage.getItem('qid_user') : null
+    if (stored) {
+      try {
+        const u = JSON.parse(stored)
+        setUser({
+          name: u?.name || u?.email || 'Kullanıcı',
+          email: u?.email || '',
+          avatar: u?.avatar || defaultAvatar,
+        })
+      } catch {}
+    }
+
+    // Fetch from API for fresh data
+    ;(async () => {
+      try {
+        const res = await fetch((process.env.NEXT_PUBLIC_INSTALLER_API_URL || 'http://localhost:3031') + '/api/auth/me', {
+          credentials: 'include',
+          headers: (() => {
+            try {
+              const t = typeof window !== 'undefined' ? window.localStorage.getItem('qid_access') : null
+              return t ? { Authorization: 'Bearer ' + t } : {}
+            } catch { return {} }
+          })(),
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        const u = data?.user || {}
+        const avatar = (typeof window !== 'undefined' ? window.localStorage.getItem('qid_avatar') : null) || defaultAvatar
+        const next = {
+          name: u?.name || u?.email || 'Kullanıcı',
+          email: u?.email || '',
+          avatar,
+        }
+        setUser(next)
+        try { window.localStorage.setItem('qid_user', JSON.stringify(next)) } catch {}
+      } catch {}
+    })()
+  }, [])
+
+  async function handleLogout() {
+    try {
+      await fetch((process.env.NEXT_PUBLIC_INSTALLER_API_URL || 'http://localhost:3031') + '/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      })
+    } catch {}
+    try {
+      window.localStorage.removeItem('qid_access')
+      window.localStorage.removeItem('qid_user')
+      window.localStorage.removeItem('qid_avatar')
+    } catch {}
+    window.location.href = '/login'
+  }
+
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
@@ -157,7 +215,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={user} onLogout={handleLogout} />
       </SidebarFooter>
     </Sidebar>
   )
