@@ -68,10 +68,9 @@ export function TemplateManager() {
 
       setTemplateFiles(filesMap);
 
-      if (!data.available) {
-        toast.error(data.message || "Template dosyaları eksik!");
-      } else {
-        toast.success("Tüm template dosyaları hazır!");
+      // Sadece başarılı durumda bildirim göster, eksik dosyalarda sessiz kal
+      if (data.available) {
+        console.log("Tüm template dosyaları hazır!");
       }
     } catch (error) {
       console.error("Template check error:", error);
@@ -84,10 +83,10 @@ export function TemplateManager() {
   useEffect(() => {
     checkTemplates();
 
-    // Auto-refresh every 10 seconds
+    // Auto-refresh every 30 seconds (daha az agresif)
     const interval = setInterval(() => {
       checkTemplates();
-    }, 10000);
+    }, 30000);
 
     return () => clearInterval(interval);
   }, []);
@@ -135,7 +134,8 @@ export function TemplateManager() {
           }
         }));
 
-        toast.success(`${getTemplateComponent(templateName)} başarıyla yüklendi!`);
+        // Sessiz başarı - sadece konsola log
+        console.log(`${getTemplateComponent(templateName)} başarıyla yüklendi!`);
 
         // Force refresh after successful upload
         setTimeout(async () => {
