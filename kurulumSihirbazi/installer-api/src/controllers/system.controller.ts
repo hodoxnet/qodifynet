@@ -42,6 +42,15 @@ systemRouter.get("/pm2/info", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_AD
   }
 });
 
+systemRouter.get("/pm2/list", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+  try {
+    const list = await pm2Service.pm2List();
+    res.json(list);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to get PM2 process list" });
+  }
+});
+
 systemRouter.post("/pm2/save", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
   const result = await pm2Service.pm2Save();
   res.status(result.success ? 200 : 500).json(result);

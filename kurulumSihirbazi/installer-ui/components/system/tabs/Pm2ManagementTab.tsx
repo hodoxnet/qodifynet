@@ -15,19 +15,27 @@ import {
   Settings,
   Loader2,
   Terminal,
-  AlertCircle
+  AlertCircle,
+  PlayCircle,
+  PauseCircle,
+  Cpu,
+  HardDrive,
+  Clock
 } from "lucide-react";
 
 export function Pm2ManagementTab() {
   const {
     pm2Info,
+    processes,
     output,
     loading,
+    listLoading,
     savePm2,
     setupStartup,
     updatePm2,
     restartAll,
     stopAll,
+    refreshProcessList,
   } = usePm2();
 
   const pm2Actions = [
@@ -78,6 +86,19 @@ export function Pm2ManagementTab() {
     },
   ];
 
+  const getStatusBadge = (status: string) => {
+    const statusLower = status?.toLowerCase();
+    if (statusLower === "online") {
+      return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400">Online</Badge>;
+    } else if (statusLower === "stopped") {
+      return <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400">Stopped</Badge>;
+    } else if (statusLower === "errored") {
+      return <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400">Error</Badge>;
+    } else {
+      return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* PM2 Info */}
@@ -102,6 +123,94 @@ export function Pm2ManagementTab() {
           </div>
         )}
       </div>
+
+      {/* Active Processes List */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Activity className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              <CardTitle>Aktif Prosesler</CardTitle>
+            </div>
+            <Button
+              onClick={refreshProcessList}
+              variant="outline"
+              size="sm"
+              disabled={listLoading}
+            >
+              <RefreshCw className={`h-4 w-4 ${listLoading ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
+          <CardDescription>
+            PM2 ile yönetilen tüm proseslerin durumu
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {processes.length === 0 ? (
+            <div className="flex items-center justify-center h-32 text-gray-500 dark:text-gray-400">
+              <div className="text-center">
+                <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Aktif PM2 prosesi bulunmuyor</p>
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b dark:border-gray-700">
+                    <th className="text-left py-2 px-3">ID</th>
+                    <th className="text-left py-2 px-3">İsim</th>
+                    <th className="text-left py-2 px-3">Durum</th>
+                    <th className="text-left py-2 px-3">CPU</th>
+                    <th className="text-left py-2 px-3">RAM</th>
+                    <th className="text-left py-2 px-3">Uptime</th>
+                    <th className="text-left py-2 px-3">Restart</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {processes.map((process) => (
+                    <tr key={process.id} className="border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                      <td className="py-2 px-3 font-mono">{process.id}</td>
+                      <td className="py-2 px-3">
+                        <div className="flex items-center space-x-2">
+                          {process.status?.toLowerCase() === "online" ? (
+                            <PlayCircle className="h-4 w-4 text-emerald-500" />
+                          ) : (
+                            <PauseCircle className="h-4 w-4 text-red-500" />
+                          )}
+                          <span className="font-medium">{process.name}</span>
+                        </div>
+                      </td>
+                      <td className="py-2 px-3">{getStatusBadge(process.status)}</td>
+                      <td className="py-2 px-3">
+                        <div className="flex items-center space-x-1">
+                          <Cpu className="h-3 w-3 text-gray-400" />
+                          <span>{process.cpu || 0}%</span>
+                        </div>
+                      </td>
+                      <td className="py-2 px-3">
+                        <div className="flex items-center space-x-1">
+                          <HardDrive className="h-3 w-3 text-gray-400" />
+                          <span>{process.memory || "0 MB"}</span>
+                        </div>
+                      </td>
+                      <td className="py-2 px-3">
+                        <div className="flex items-center space-x-1">
+                          <Clock className="h-3 w-3 text-gray-400" />
+                          <span className="text-xs">{process.uptime || "0s"}</span>
+                        </div>
+                      </td>
+                      <td className="py-2 px-3">
+                        <Badge variant="outline">{process.restarts || 0}</Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* PM2 Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -7,13 +7,30 @@ export interface Pm2Info {
   version: string | null;
 }
 
+export interface Pm2Process {
+  id: number;
+  name: string;
+  status: string;
+  cpu: number;
+  memory: string;
+  uptime: string;
+  restarts: number;
+}
+
 export function usePm2() {
   const [pm2Info, setPm2Info] = useState<Pm2Info | null>(null);
+  const [processes, setProcesses] = useState<Pm2Process[]>([]);
   const [output, setOutput] = useState<string>("");
   const [loading, setLoading] = useState<string | null>(null);
+  const [listLoading, setListLoading] = useState(false);
 
   useEffect(() => {
     fetchPm2Info();
+    fetchProcessList();
+
+    // Auto refresh process list every 5 seconds
+    const interval = setInterval(fetchProcessList, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchPm2Info = async () => {
@@ -24,6 +41,20 @@ export function usePm2() {
       setPm2Info(data);
     } catch (error) {
       console.error("Failed to fetch PM2 info:", error);
+    }
+  };
+
+  const fetchProcessList = async () => {
+    try {
+      setListLoading(true);
+      const response = await apiFetch("/api/system/pm2/list");
+      if (!response.ok) return;
+      const data = await response.json();
+      setProcesses(data || []);
+    } catch (error) {
+      console.error("Failed to fetch PM2 process list:", error);
+    } finally {
+      setListLoading(false);
     }
   };
 
@@ -86,13 +117,16 @@ export function usePm2() {
 
   return {
     pm2Info,
+    processes,
     output,
     loading,
+    listLoading,
     savePm2,
     setupStartup,
     updatePm2,
     restartAll,
     stopAll,
     refreshInfo: fetchPm2Info,
+    refreshProcessList: fetchProcessList,
   };
 }

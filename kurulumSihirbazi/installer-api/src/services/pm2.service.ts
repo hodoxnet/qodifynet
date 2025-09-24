@@ -326,4 +326,38 @@ export class PM2Service {
       return { success: false, output: String(error?.message || error) };
     }
   }
+
+  async pm2List() {
+    try {
+      const info = await detectPm2();
+      const bin = info?.bin || "pm2";
+      const { stdout } = await execAsync(`${bin} jlist`);
+      const processes = parseJsonFromMixedOutput(stdout);
+
+      return processes.map((p: any) => ({
+        id: p.pm_id,
+        name: p.name,
+        status: p.pm2_env.status,
+        cpu: p.monit.cpu,
+        memory: `${Math.round(p.monit.memory / (1024 * 1024))} MB`,
+        uptime: this.formatUptime(Date.now() - p.pm2_env.pm_uptime),
+        restarts: p.pm2_env.restart_time,
+      }));
+    } catch (error) {
+      console.error("Failed to get PM2 list:", error);
+      return [];
+    }
+  }
+
+  private formatUptime(ms: number): string {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days}d ${hours % 24}h`;
+    if (hours > 0) return `${hours}h ${minutes % 60}m`;
+    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+    return `${seconds}s`;
+  }
 }
