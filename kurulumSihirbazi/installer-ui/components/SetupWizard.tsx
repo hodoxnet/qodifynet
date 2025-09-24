@@ -19,6 +19,7 @@ import { InstallationStep } from '@/components/setup/steps/InstallationStep';
 
 // Types
 import { WizardStep, STEP_TITLES } from '@/lib/types/setup';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export function SetupWizard() {
   const {
@@ -84,16 +85,21 @@ export function SetupWizard() {
   const progressPercentage = ((currentStep - 1) / (STEP_TITLES.length - 1)) * 100;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 p-4 md:p-6 lg:p-8">
       <div className="mx-auto max-w-5xl">
         {/* Header */}
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900 md:text-4xl">
-            Qodify Kurulum Sihirbazı
-          </h1>
-          <p className="mt-2 text-gray-600">
-            Yeni bir e-ticaret sitesi kurun
-          </p>
+        <div className="mb-8 relative">
+          <div className="absolute right-0 top-0">
+            <ThemeToggle />
+          </div>
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 md:text-4xl">
+              Qodify Kurulum Sihirbazı
+            </h1>
+            <p className="mt-2 text-gray-600 dark:text-gray-400">
+              Yeni bir e-ticaret sitesi kurun
+            </p>
+          </div>
         </div>
 
         {/* Progress Indicator */}
@@ -117,9 +123,9 @@ export function SetupWizard() {
                   <div
                     className={cn(
                       "flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-medium transition-all duration-300",
-                      isActive && "border-indigo-500 bg-indigo-500 text-white shadow-lg shadow-indigo-200",
-                      isCompleted && "border-emerald-500 bg-gradient-to-br from-emerald-400 to-emerald-500 text-white",
-                      !isActive && !isCompleted && "border-gray-200 bg-white text-gray-400"
+                      isActive && "border-indigo-500 bg-indigo-500 text-white shadow-lg shadow-indigo-200 dark:border-indigo-400 dark:bg-indigo-600 dark:shadow-indigo-900/50",
+                      isCompleted && "border-emerald-500 bg-gradient-to-br from-emerald-400 to-emerald-500 text-white dark:from-emerald-500 dark:to-emerald-600",
+                      !isActive && !isCompleted && "border-gray-200 bg-white text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500"
                     )}
                   >
                     {isCompleted ? "✓" : stepNumber}
@@ -127,9 +133,9 @@ export function SetupWizard() {
                   <span
                     className={cn(
                       "mt-2 text-xs font-medium transition-colors",
-                      isActive && "text-indigo-600",
-                      isCompleted && "text-emerald-600",
-                      !isActive && !isCompleted && "text-gray-400"
+                      isActive && "text-indigo-600 dark:text-indigo-400",
+                      isCompleted && "text-emerald-600 dark:text-emerald-400",
+                      !isActive && !isCompleted && "text-gray-400 dark:text-gray-500"
                     )}
                   >
                     {title}
@@ -161,7 +167,7 @@ export function SetupWizard() {
         </AnimatePresence>
 
         {/* Footer */}
-        <div className="mt-8 text-center text-sm text-gray-500">
+        <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
           <p>© 2024 Qodify. Tüm hakları saklıdır.</p>
         </div>
       </div>
