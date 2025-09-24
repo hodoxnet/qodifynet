@@ -131,10 +131,11 @@ export class DeploymentService {
         await this.seedData(path.join(customerPath, "backend"));
       }
 
-      // 7. Build applications (in local mode build only backend, run frontends in dev via PM2)
+      // 7. Build applications (skip in dev mode since we'll use start:dev)
       if (isLocalMode) {
-        this.emitProgress(config.domain, "build", "🏗️ Backend derleniyor (local mod)...");
-        await this.buildApplications(customerPath, { buildAdmin: false, buildStore: false, prune: false });
+        this.emitProgress(config.domain, "build", "🏗️ Development modu - build atlanıyor...");
+        // Development modda build yapmıyoruz, PM2 direkt start:dev kullanacak
+        console.log("📝 Development modu aktif, build atlanıyor (PM2 start:dev kullanacak)");
       } else {
         this.emitProgress(config.domain, "build", "🏗️ Uygulamalar derleniyor...");
         await this.buildApplications(customerPath, { buildAdmin: true, buildStore: true, prune: true });
@@ -152,8 +153,21 @@ export class DeploymentService {
         this.emitProgress(config.domain, "nginx-skip", "🏠 Local mod - Nginx atlandı");
       }
 
-      // 10. Start services
+      // 10. Start/Restart services
       this.emitProgress(config.domain, "start", "✅ Servisler başlatılıyor...");
+
+      // Önce mevcut prosesleri kontrol et
+      const existingProcesses = await this.pm2Service.getProcessStatus(config.domain);
+
+      if (existingProcesses && existingProcesses.length > 0) {
+        // Prosesler varsa önce durdur, sonra yeniden başlat
+        console.log(`🔄 Mevcut PM2 prosesleri bulundu (${config.domain}), yeniden başlatılıyor...`);
+        await this.pm2Service.stopCustomer(config.domain);
+        await new Promise(resolve => setTimeout(resolve, 2000)); // 2 saniye bekle
+        await this.pm2Service.deleteCustomer(config.domain); // Temiz başlangıç için sil
+      }
+
+      // Yeni ecosystem config ile başlat
       await this.pm2Service.startCustomer(config.domain);
 
       // 11. Save customer data
@@ -190,6 +204,8 @@ export class DeploymentService {
         api: `https://${config.domain}/api`,
       };
 
+      this.emitProgress(config.domain, "done", "🎉 Kurulum tamamlandı");
+
       return {
         success: true,
         customerId,
@@ -198,7 +214,6 @@ export class DeploymentService {
         ports,
         mode: isLocalMode ? "local" : "production",
       };
-      this.emitProgress(config.domain, "done", "🎉 Kurulum tamamlandı");
     } catch (error) {
       console.error("Deployment failed:", error);
 
@@ -483,8 +498,18 @@ export class DeploymentService {
   }
 
   private async runMigrations(backendPath: string) {
-    await execAsync(`cd ${backendPath} && npx prisma generate`);
-    await execAsync(`cd ${backendPath} && npx prisma migrate deploy`);
+    try {
+      console.log("📦 Prisma client generate ediliyor...");
+      await execAsync(`cd ${backendPath} && npx prisma generate`);
+
+      console.log("🗄️ Veritabanı migration'ları uygulanıyor...");
+      await execAsync(`cd ${backendPath} && npx prisma migrate deploy`);
+
+      console.log("✅ Migration'lar başarıyla tamamlandı");
+    } catch (error) {
+      console.error("❌ Migration hatası:", error);
+      throw error;
+    }
   }
 
   private async seedData(backendPath: string) {
