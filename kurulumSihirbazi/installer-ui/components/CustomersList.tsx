@@ -46,13 +46,13 @@ export function CustomersList({ onRefresh }: CustomersListProps) {
       return {
         store: `http://localhost:${c.ports.store}`,
         admin: `http://localhost:${c.ports.admin}/admin/login`,
-        api: `http://localhost:${c.ports.backend}/api`,
+        api: `http://localhost:${c.ports.backend}/api/health`,
       };
     }
     return {
       store: `https://${c.domain}`,
       admin: `https://${c.domain}/admin/login`,
-      api: `https://${c.domain}/api`,
+      api: `https://${c.domain}/api/health`,
     };
   };
 
