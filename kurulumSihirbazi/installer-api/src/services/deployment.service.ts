@@ -5,6 +5,7 @@ import path from "path";
 import AdmZip from "adm-zip";
 import { v4 as uuidv4 } from "uuid";
 import { parse as parseDotenv } from "dotenv";
+import { mergeEnvFile } from "../utils/env-merge";
 import { CustomerService } from "./customer.service";
 import { DatabaseService, PgAdminConfig } from "./database.service";
 import { NginxService } from "./nginx.service";
@@ -398,10 +399,8 @@ export class DeploymentService {
     };
 
     const writeEnv = async (filePath: string, envObj: Record<string, string>) => {
-      const lines = Object.entries(envObj)
-        .filter(([k, v]) => k && v !== undefined && v !== null)
-        .map(([k, v]) => `${k}=${String(v)}`);
-      await fs.writeFile(filePath, lines.join("\n"));
+      // Preserve comments and ordering; only replace provided keys or append missing
+      await mergeEnvFile(filePath, envObj);
     };
 
     // Backend .env: merge with existing instead of overwriting
@@ -411,9 +410,6 @@ export class DeploymentService {
       NODE_ENV: isLocal ? "development" : "production",
       PORT: String(ports.backend),
       DATABASE_URL: `postgresql://${appDb?.user || "hodox_user"}:${appDb?.password || "hodox_pass"}@${db?.host || "localhost"}:${db?.port || 5432}/${dbName}?schema=public`,
-      // Ensure both local/prod URLs align with selected mode to avoid confusion
-      LOCAL_DATABASE_URL: `postgresql://${appDb?.user || "hodox_user"}:${appDb?.password || "hodox_pass"}@${db?.host || "localhost"}:${db?.port || 5432}/${dbName}?schema=public`,
-      PROD_DATABASE_URL: `postgresql://${appDb?.user || "hodox_user"}:${appDb?.password || "hodox_pass"}@${db?.host || "localhost"}:${db?.port || 5432}/${dbName}?schema=public`,
       AUTO_DETECT_DOMAIN: String(!isLocal),
       PROD_DOMAIN: domain,
       BEHIND_REVERSE_PROXY: String(!isLocal),
@@ -438,6 +434,10 @@ export class DeploymentService {
     if (!backendEnvExisting["SMTP_USER"]) backendUpdates["SMTP_USER"] = `noreply@${domain}`;
     if (!backendEnvExisting["SMTP_PASS"]) backendUpdates["SMTP_PASS"] = isLocal ? "devpass" : "changeme";
     if (!backendEnvExisting["SMTP_FROM"]) backendUpdates["SMTP_FROM"] = `noreply@${domain}`;
+
+    // If LOCAL/PROD_DATABASE_URL missing, provide sane defaults; otherwise preserve original
+    if (!backendEnvExisting["LOCAL_DATABASE_URL"]) backendUpdates["LOCAL_DATABASE_URL"] = backendUpdates["DATABASE_URL"];
+    if (!backendEnvExisting["PROD_DATABASE_URL"]) backendUpdates["PROD_DATABASE_URL"] = backendUpdates["DATABASE_URL"];
 
     const backendMerged = { ...backendEnvExisting, ...backendUpdates };
     await writeEnv(backendEnvPath, backendMerged);

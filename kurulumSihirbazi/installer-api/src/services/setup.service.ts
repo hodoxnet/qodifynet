@@ -382,11 +382,9 @@ export class SetupService {
         return {};
       };
 
+      const { mergeEnvFile } = await import("../utils/env-merge");
       const writeEnv = async (filePath: string, envObj: Record<string, string>) => {
-        const lines = Object.entries(envObj)
-          .filter(([k, v]) => k && v !== undefined && v !== null)
-          .map(([k, v]) => `${k}=${String(v)}`);
-        await fs.writeFile(filePath, lines.join("\n"));
+        await mergeEnvFile(filePath, envObj);
       };
 
       // Compute URLs
@@ -403,8 +401,6 @@ export class SetupService {
         NODE_ENV: isLocal ? "development" : "production",
         PORT: String(config.ports.backend),
         DATABASE_URL: `postgresql://${config.dbUser}:${config.dbPassword}@${config.dbHost}:${config.dbPort}/${config.dbName}?schema=public`,
-        LOCAL_DATABASE_URL: `postgresql://${config.dbUser}:${config.dbPassword}@${config.dbHost}:${config.dbPort}/${config.dbName}?schema=public`,
-        PROD_DATABASE_URL: `postgresql://${config.dbUser}:${config.dbPassword}@${config.dbHost}:${config.dbPort}/${config.dbName}?schema=public`,
         REDIS_HOST: String(config.redisHost),
         REDIS_PORT: String(config.redisPort),
         REDIS_PREFIX: customerDomain.replace(/\./g, "_"),
@@ -426,6 +422,10 @@ export class SetupService {
       if (!backendExisting["SMTP_USER"]) backendUpdates["SMTP_USER"] = `noreply@${customerDomain}`;
       if (!backendExisting["SMTP_PASS"]) backendUpdates["SMTP_PASS"] = isLocal ? "devpass" : "changeme";
       if (!backendExisting["SMTP_FROM"]) backendUpdates["SMTP_FROM"] = `noreply@${customerDomain}`;
+
+      // Only set LOCAL/PROD_DATABASE_URL if missing; otherwise preserve original
+      if (!backendExisting["LOCAL_DATABASE_URL"]) backendUpdates["LOCAL_DATABASE_URL"] = backendUpdates["DATABASE_URL"];
+      if (!backendExisting["PROD_DATABASE_URL"]) backendUpdates["PROD_DATABASE_URL"] = backendUpdates["DATABASE_URL"];
 
       const backendMerged = { ...backendExisting, ...backendUpdates };
       await writeEnv(backendEnvPath, backendMerged);
