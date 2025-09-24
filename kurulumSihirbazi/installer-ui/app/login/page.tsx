@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { login } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Lock } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,26 +33,58 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="w-full max-w-sm bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-        <h1 className="text-xl font-semibold mb-1">Kurulum Sihirbazı</h1>
-        <p className="text-sm text-gray-500 mb-6">Yönetim paneline giriş yapın</p>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label className="text-sm mb-1 block">E-posta</label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="admin@example.com" />
-          </div>
-          <div>
-            <label className="text-sm mb-1 block">Parola</label>
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
-          </Button>
-        </form>
-        <p className="text-xs text-gray-500 mt-4">İlk kullanıcı kayıt için API: POST /api/auth/register</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+      {/* Theme Toggle - Top Right */}
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
       </div>
+
+      <Card className="w-full max-w-sm">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/50 dark:to-purple-900/50">
+            <Lock className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <CardTitle className="text-xl">Kurulum Sihirbazı</CardTitle>
+          <CardDescription>Yönetim paneline giriş yapın</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="email">E-posta</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="admin@example.com"
+              />
+            </div>
+            <div>
+              <Label htmlFor="password">Parola</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="••••••••"
+              />
+            </div>
+            {error && (
+              <Alert variant="destructive" className="py-2">
+                <AlertDescription className="text-sm">{error}</AlertDescription>
+              </Alert>
+            )}
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
+            </Button>
+          </form>
+          <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-4">
+            İlk kullanıcı kayıt için API: POST /api/auth/register
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

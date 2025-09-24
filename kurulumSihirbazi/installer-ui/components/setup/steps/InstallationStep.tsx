@@ -214,7 +214,7 @@ export function InstallationStep({
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => copyToClipboard(completedInfo.credentials.password, "Şifre")}
+                      onClick={() => copyToClipboard(completedInfo.credentials?.password || "", "Şifre")}
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
