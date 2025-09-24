@@ -55,8 +55,8 @@ export function SummaryStep({
   return (
     <Card className="w-full">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-violet-100 to-purple-100">
-          <Settings className="h-10 w-10 text-violet-600" />
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/50 dark:to-purple-900/50">
+          <Settings className="h-10 w-10 text-violet-600 dark:text-violet-400" />
         </div>
         <CardTitle className="text-2xl">Kurulum Özeti</CardTitle>
         <CardDescription>
@@ -65,12 +65,12 @@ export function SummaryStep({
       </CardHeader>
 
       <CardContent className="space-y-6">
-        <div className="rounded-lg bg-gray-50 p-6">
+        <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-6">
           <div className="grid gap-4 md:grid-cols-2">
             {summaryItems.map((item) => (
               <div key={item.label} className="space-y-1">
-                <p className="text-sm font-medium text-gray-600">{item.label}</p>
-                <div className="font-medium text-gray-900">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{item.label}</p>
+                <div className="font-medium text-gray-900 dark:text-gray-100">
                   {item.badge ? (
                     <Badge variant={isLocal ? "secondary" : "default"}>
                       {item.value}

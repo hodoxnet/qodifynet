@@ -37,8 +37,8 @@ export function SiteConfigStep({ config, onConfigUpdate, onNext, onBack }: SiteC
   return (
     <Card className="w-full">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-teal-100 to-green-100">
-          <Globe className="h-10 w-10 text-teal-600" />
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-teal-100 to-green-100 dark:from-teal-900/50 dark:to-green-900/50">
+          <Globe className="h-10 w-10 text-teal-600 dark:text-teal-400" />
         </div>
         <CardTitle className="text-2xl">Site Bilgileri</CardTitle>
         <CardDescription>

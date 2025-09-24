@@ -39,8 +39,8 @@ export function DatabaseStep({ config, onConfigUpdate, onNext, onBack }: Databas
   return (
     <Card className="w-full">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-cyan-100">
-          <Database className="h-10 w-10 text-blue-600" />
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/50 dark:to-cyan-900/50">
+          <Database className="h-10 w-10 text-blue-600 dark:text-blue-400" />
         </div>
         <CardTitle className="text-2xl">PostgreSQL Yapılandırması</CardTitle>
         <CardDescription>

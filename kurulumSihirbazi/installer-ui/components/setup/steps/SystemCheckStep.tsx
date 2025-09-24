@@ -55,8 +55,8 @@ export function SystemCheckStep({ onNext }: SystemCheckStepProps) {
   return (
     <Card className="w-full">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-indigo-100 to-purple-100">
-          <HardDrive className="h-10 w-10 text-indigo-600" />
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/50 dark:to-purple-900/50">
+          <HardDrive className="h-10 w-10 text-indigo-600 dark:text-indigo-400" />
         </div>
         <CardTitle className="text-2xl">Sistem Kontrolü</CardTitle>
         <CardDescription>
@@ -75,13 +75,13 @@ export function SystemCheckStep({ onNext }: SystemCheckStepProps) {
               {requirements.map((req) => (
                 <div
                   key={req.name}
-                  className="flex items-center justify-between rounded-lg border bg-white p-4 transition-colors hover:bg-gray-50"
+                  className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   <div className="flex items-center space-x-3">
                     {getStatusIcon(req.status)}
                     <div className="space-y-1">
                       <div className="flex items-center space-x-2">
-                        <span className="font-medium text-gray-900">
+                        <span className="font-medium text-gray-900 dark:text-gray-100">
                           {req.name}
                         </span>
                         {!req.required && (
@@ -91,13 +91,13 @@ export function SystemCheckStep({ onNext }: SystemCheckStepProps) {
                         )}
                       </div>
                       {req.message && (
-                        <p className="text-sm text-gray-600">{req.message}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{req.message}</p>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
                     {req.version && (
-                      <span className="text-sm text-gray-500">{req.version}</span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400">{req.version}</span>
                     )}
                     {getStatusBadge(req.status)}
                   </div>

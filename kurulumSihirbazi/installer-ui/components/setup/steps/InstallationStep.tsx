@@ -77,7 +77,7 @@ export function InstallationStep({
   return (
     <Card className="w-full">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-indigo-100 to-purple-100">
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/50 dark:to-purple-900/50">
           {getStatusIcon()}
         </div>
         <CardTitle className="text-2xl">{getStatusTitle()}</CardTitle>
@@ -94,18 +94,18 @@ export function InstallationStep({
               {installProgress.length} işlem
             </Badge>
           </div>
-          <ScrollArea className="h-64 w-full rounded-lg border bg-gray-50 p-4">
+          <ScrollArea className="h-64 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-4">
             <div className="space-y-1">
               {installProgress.map((log, index) => (
                 <div key={index} className="flex items-start space-x-2 text-sm">
-                  <span className="text-gray-400">•</span>
-                  <span className="text-gray-700">{log}</span>
+                  <span className="text-gray-400 dark:text-gray-500">•</span>
+                  <span className="text-gray-700 dark:text-gray-300">{log}</span>
                 </div>
               ))}
               {installStatus === "running" && (
                 <div className="mt-2 flex items-center space-x-2">
-                  <Loader2 className="h-3 w-3 animate-spin text-gray-500" />
-                  <span className="text-sm text-gray-500">İşlem devam ediyor...</span>
+                  <Loader2 className="h-3 w-3 animate-spin text-gray-500 dark:text-gray-400" />
+                  <span className="text-sm text-gray-500 dark:text-gray-400">İşlem devam ediyor...</span>
                 </div>
               )}
             </div>

@@ -32,8 +32,8 @@ export function RedisStep({ config, onConfigUpdate, onNext, onBack }: RedisStepP
   return (
     <Card className="w-full">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-orange-100 to-red-100">
-          <Database className="h-10 w-10 text-orange-600" />
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-orange-100 to-red-100 dark:from-orange-900/50 dark:to-red-900/50">
+          <Database className="h-10 w-10 text-orange-600 dark:text-orange-400" />
         </div>
         <CardTitle className="text-2xl">Redis Yapılandırması</CardTitle>
         <CardDescription>
