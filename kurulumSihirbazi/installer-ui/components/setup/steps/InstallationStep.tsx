@@ -38,11 +38,11 @@ export function InstallationStep({
   const getStatusIcon = () => {
     switch (installStatus) {
       case "running":
-        return <Loader2 className="h-10 w-10 animate-spin text-gray-600" />;
+        return <Loader2 className="h-10 w-10 animate-spin text-indigo-600" />;
       case "completed":
-        return <CheckCircle className="h-10 w-10 text-green-500" />;
+        return <CheckCircle className="h-10 w-10 text-emerald-500" />;
       case "error":
-        return <XCircle className="h-10 w-10 text-red-500" />;
+        return <XCircle className="h-10 w-10 text-rose-500" />;
       default:
         return null;
     }
@@ -77,7 +77,7 @@ export function InstallationStep({
   return (
     <Card className="w-full">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-indigo-100 to-purple-100">
           {getStatusIcon()}
         </div>
         <CardTitle className="text-2xl">{getStatusTitle()}</CardTitle>
@@ -114,9 +114,9 @@ export function InstallationStep({
 
         {/* Completed Info */}
         {completedInfo && installStatus === "completed" && (
-          <Alert className="border-green-200 bg-green-50">
-            <CheckCircle className="h-5 w-5 text-green-600" />
-            <AlertTitle className="text-green-900">Site Bilgileri</AlertTitle>
+          <Alert className="border-emerald-200 bg-emerald-50">
+            <CheckCircle className="h-5 w-5 text-emerald-600" />
+            <AlertTitle className="text-emerald-900">Site Bilgileri</AlertTitle>
             <AlertDescription className="mt-4 space-y-4">
               {/* URLs */}
               <div className="space-y-3">
@@ -227,10 +227,10 @@ export function InstallationStep({
 
         {/* Error State */}
         {installStatus === "error" && (
-          <Alert className="border-red-200 bg-red-50">
-            <XCircle className="h-5 w-5 text-red-600" />
-            <AlertTitle className="text-red-900">Kurulum Hatası</AlertTitle>
-            <AlertDescription className="text-red-700">
+          <Alert className="border-rose-200 bg-rose-50">
+            <XCircle className="h-5 w-5 text-rose-600" />
+            <AlertTitle className="text-rose-900">Kurulum Hatası</AlertTitle>
+            <AlertDescription className="text-rose-700">
               Kurulum sırasında bir hata oluştu. Lütfen logları kontrol edip tekrar deneyin.
             </AlertDescription>
           </Alert>

@@ -116,19 +116,19 @@ export function SetupWizard() {
                 >
                   <div
                     className={cn(
-                      "flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-medium transition-colors",
-                      isActive && "border-gray-900 bg-gray-900 text-white",
-                      isCompleted && "border-green-600 bg-green-600 text-white",
-                      !isActive && !isCompleted && "border-gray-300 bg-white text-gray-400"
+                      "flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-medium transition-all duration-300",
+                      isActive && "border-indigo-500 bg-indigo-500 text-white shadow-lg shadow-indigo-200",
+                      isCompleted && "border-emerald-500 bg-gradient-to-br from-emerald-400 to-emerald-500 text-white",
+                      !isActive && !isCompleted && "border-gray-200 bg-white text-gray-400"
                     )}
                   >
                     {isCompleted ? "✓" : stepNumber}
                   </div>
                   <span
                     className={cn(
-                      "mt-2 text-xs font-medium",
-                      isActive && "text-gray-900",
-                      isCompleted && "text-green-600",
+                      "mt-2 text-xs font-medium transition-colors",
+                      isActive && "text-indigo-600",
+                      isCompleted && "text-emerald-600",
                       !isActive && !isCompleted && "text-gray-400"
                     )}
                   >

@@ -55,8 +55,8 @@ export function SummaryStep({
   return (
     <Card className="w-full">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
-          <Settings className="h-10 w-10 text-gray-600" />
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-violet-100 to-purple-100">
+          <Settings className="h-10 w-10 text-violet-600" />
         </div>
         <CardTitle className="text-2xl">Kurulum Özeti</CardTitle>
         <CardDescription>
@@ -84,9 +84,9 @@ export function SummaryStep({
           </div>
         </div>
 
-        <Alert className="border-yellow-200 bg-yellow-50">
-          <AlertCircle className="h-4 w-4 text-yellow-600" />
-          <AlertDescription className="text-yellow-800">
+        <Alert className="border-amber-200 bg-amber-50">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-700">
             <strong>Önemli:</strong> Kurulum başlatıldıktan sonra geri alınamaz.
             Tüm bilgilerin doğru olduğundan emin olun.
           </AlertDescription>
@@ -103,7 +103,7 @@ export function SummaryStep({
           <Button
             onClick={handleStartInstallation}
             disabled={installStatus === "running"}
-            className="min-w-[160px] bg-gradient-to-r from-gray-900 to-slate-800 hover:from-gray-800 hover:to-slate-700"
+            className="min-w-[160px] bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl"
           >
             {installStatus === "running" ? (
               <>

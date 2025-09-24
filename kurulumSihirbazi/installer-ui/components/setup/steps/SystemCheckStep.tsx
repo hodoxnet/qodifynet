@@ -29,11 +29,11 @@ export function SystemCheckStep({ onNext }: SystemCheckStepProps) {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "ok":
-        return <CheckCircle className="w-5 h-5 text-green-500" />;
+        return <CheckCircle className="w-5 h-5 text-emerald-500" />;
       case "warning":
-        return <AlertCircle className="w-5 h-5 text-yellow-500" />;
+        return <AlertCircle className="w-5 h-5 text-amber-500" />;
       case "error":
-        return <XCircle className="w-5 h-5 text-red-500" />;
+        return <XCircle className="w-5 h-5 text-rose-500" />;
       default:
         return null;
     }
@@ -42,11 +42,11 @@ export function SystemCheckStep({ onNext }: SystemCheckStepProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "ok":
-        return <Badge variant="success">Hazır</Badge>;
+        return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Hazır</Badge>;
       case "warning":
-        return <Badge variant="warning">Uyarı</Badge>;
+        return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Uyarı</Badge>;
       case "error":
-        return <Badge variant="destructive">Eksik</Badge>;
+        return <Badge className="bg-rose-100 text-rose-700 hover:bg-rose-100">Eksik</Badge>;
       default:
         return null;
     }
@@ -55,8 +55,8 @@ export function SystemCheckStep({ onNext }: SystemCheckStepProps) {
   return (
     <Card className="w-full">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
-          <HardDrive className="h-10 w-10 text-gray-600" />
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-indigo-100 to-purple-100">
+          <HardDrive className="h-10 w-10 text-indigo-600" />
         </div>
         <CardTitle className="text-2xl">Sistem Kontrolü</CardTitle>
         <CardDescription>
@@ -115,9 +115,9 @@ export function SystemCheckStep({ onNext }: SystemCheckStepProps) {
               Yeniden Kontrol Et
             </Button>
 
-            <Alert className="bg-blue-50 border-blue-200">
-              <AlertCircle className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-blue-800">
+            <Alert className="bg-sky-50 border-sky-200">
+              <AlertCircle className="h-4 w-4 text-sky-600" />
+              <AlertDescription className="text-sky-700">
                 <strong>Not:</strong> Sarı uyarılar production kurulum için gereklidir.
                 Localhost testi için sadece yeşil olan bileşenler yeterlidir.
               </AlertDescription>

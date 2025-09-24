@@ -37,8 +37,8 @@ export function SiteConfigStep({ config, onConfigUpdate, onNext, onBack }: SiteC
   return (
     <Card className="w-full">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
-          <Globe className="h-10 w-10 text-gray-600" />
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-teal-100 to-green-100">
+          <Globe className="h-10 w-10 text-teal-600" />
         </div>
         <CardTitle className="text-2xl">Site Bilgileri</CardTitle>
         <CardDescription>
@@ -59,9 +59,9 @@ export function SiteConfigStep({ config, onConfigUpdate, onNext, onBack }: SiteC
               placeholder="example.com veya test1 (local)"
             />
             {isLocal && (
-              <Alert className="mt-2 border-blue-200 bg-blue-50">
-                <Home className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-blue-800">
+              <Alert className="mt-2 border-sky-200 bg-sky-50">
+                <Home className="h-4 w-4 text-sky-600" />
+                <AlertDescription className="text-sky-700">
                   Local Mode - DNS kontrolü atlanacak
                 </AlertDescription>
               </Alert>

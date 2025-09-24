@@ -32,8 +32,8 @@ export function RedisStep({ config, onConfigUpdate, onNext, onBack }: RedisStepP
   return (
     <Card className="w-full">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
-          <Database className="h-10 w-10 text-gray-600" />
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-orange-100 to-red-100">
+          <Database className="h-10 w-10 text-orange-600" />
         </div>
         <CardTitle className="text-2xl">Redis Yapılandırması</CardTitle>
         <CardDescription>
@@ -89,18 +89,18 @@ export function RedisStep({ config, onConfigUpdate, onNext, onBack }: RedisStepP
           <Alert
             className={
               testResult.ok
-                ? "border-green-200 bg-green-50"
-                : "border-red-200 bg-red-50"
+                ? "border-emerald-200 bg-emerald-50"
+                : "border-rose-200 bg-rose-50"
             }
           >
             <div className="flex items-center space-x-2">
               {testResult.ok ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
+                <CheckCircle className="h-5 w-5 text-emerald-500" />
               ) : (
-                <XCircle className="h-5 w-5 text-red-600" />
+                <XCircle className="h-5 w-5 text-rose-500" />
               )}
               <AlertDescription
-                className={testResult.ok ? "text-green-800" : "text-red-800"}
+                className={testResult.ok ? "text-emerald-700" : "text-rose-700"}
               >
                 <strong>{testResult.message}</strong>
                 {testResult.version && (
@@ -113,9 +113,9 @@ export function RedisStep({ config, onConfigUpdate, onNext, onBack }: RedisStepP
           </Alert>
         )}
 
-        <Alert className="border-yellow-200 bg-yellow-50">
-          <AlertCircle className="h-4 w-4 text-yellow-600" />
-          <AlertDescription className="text-yellow-800">
+        <Alert className="border-amber-200 bg-amber-50">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-700">
             <strong>Not:</strong> Redis bağlantısı başarısız olursa uygulama yine çalışır
             ancak performans düşük olabilir.
           </AlertDescription>
