@@ -500,11 +500,15 @@ export class SetupService {
       const customerPath = path.join(this.customersPath, customerDomain.replace(/\./g, "-"));
       const backendPath = path.join(customerPath, "backend");
 
+      // Installer API'nin DATABASE_URL'ünü temizleyerek backend/.env'in kullanılmasını sağla
+      const env = { ...process.env } as Record<string, any>;
+      delete env.DATABASE_URL;
+
       // Prisma generate
-      await execAsync(`cd "${backendPath}" && npx prisma generate`);
+      await execAsync(`npx prisma generate`, { cwd: backendPath, env });
 
       // Prisma migrate
-      await execAsync(`cd "${backendPath}" && npx prisma migrate deploy`);
+      await execAsync(`npx prisma migrate deploy`, { cwd: backendPath, env });
 
       return {
         ok: true,
