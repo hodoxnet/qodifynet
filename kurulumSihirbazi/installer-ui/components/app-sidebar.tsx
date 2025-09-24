@@ -11,17 +11,13 @@ import {
   Map,
   PieChart,
   Send,
-  Settings2,
   SquareTerminal,
   Users,
-  Wand2,
   Server,
   FileCode,
   Activity,
   Package,
   Rocket,
-  History,
-  FileText,
   Database,
 } from "lucide-react"
 
@@ -53,36 +49,9 @@ const data = {
       isActive: true,
     },
     {
-      title: "WordPress Tarzı Setup",
+      title: "Kurulum Sihirbazı",
       url: "/setup",
       icon: Rocket,
-    },
-    {
-      title: "Kurulum Sihirbazı",
-      url: "#",
-      icon: Wand2,
-      items: [
-        {
-          title: "Yeni Kurulum",
-          url: "/wizard/new",
-          icon: Rocket,
-        },
-        {
-          title: "Devam Eden Kurulumlar",
-          url: "/wizard",
-          icon: Settings2,
-        },
-        {
-          title: "Tamamlanan Kurulumlar",
-          url: "/wizard/completed",
-          icon: History,
-        },
-        {
-          title: "Kurulum Şablonları",
-          url: "/wizard/templates",
-          icon: FileText,
-        },
-      ],
     },
     {
       title: "Sistem Durumu",
@@ -158,12 +127,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       try {
         const res = await fetch((process.env.NEXT_PUBLIC_INSTALLER_API_URL || 'http://localhost:3031') + '/api/auth/me', {
           credentials: 'include',
-          headers: (() => {
+          ...((() => {
             try {
               const t = typeof window !== 'undefined' ? window.localStorage.getItem('qid_access') : null
-              return t ? { Authorization: 'Bearer ' + t } : {}
+              return t ? { headers: { Authorization: 'Bearer ' + t } } : {}
             } catch { return {} }
-          })(),
+          })()),
         })
         if (!res.ok) return
         const data = await res.json()
