@@ -35,7 +35,7 @@ export function SiteConfigStep({ config, onConfigUpdate, onNext, onBack }: SiteC
     config.appDbPassword;
 
   return (
-    <Card className="w-full">
+    <Card className="w-full max-w-3xl mx-auto">
       <CardHeader className="text-center">
         <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-teal-100 to-green-100 dark:from-teal-900/50 dark:to-green-900/50">
           <Globe className="h-10 w-10 text-teal-600 dark:text-teal-400" />

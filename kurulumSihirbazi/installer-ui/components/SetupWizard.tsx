@@ -84,26 +84,25 @@ export function SetupWizard() {
   const progressPercentage = ((currentStep - 1) / (STEP_TITLES.length - 1)) * 100;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 p-4 md:p-6 lg:p-8">
-      <div className="mx-auto max-w-5xl">
-        {/* Header */}
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 md:text-4xl">
-            Qodify Kurulum Sihirbazı
-          </h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Yeni bir e-ticaret sitesi kurun
-          </p>
+    <div className="w-full">
+      {/* Header */}
+      <div className="mb-8 text-center">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 md:text-4xl">
+          Qodify Kurulum Sihirbazı
+        </h1>
+        <p className="mt-2 text-gray-600 dark:text-gray-400">
+          Yeni bir e-ticaret sitesi kurun
+        </p>
+      </div>
+
+      {/* Progress Indicator */}
+      <div className="mb-8">
+        <div className="mb-4">
+          <Progress value={progressPercentage} className="h-2" />
         </div>
 
-        {/* Progress Indicator */}
-        <div className="mb-8">
-          <div className="mb-4">
-            <Progress value={progressPercentage} className="h-2" />
-          </div>
-
-          {/* Step Labels - Mobile Responsive */}
-          <div className="hidden md:flex items-center justify-between">
+        {/* Step Labels - Mobile Responsive */}
+        <div className="hidden md:flex items-center justify-between">
             {STEP_TITLES.map((title, index) => {
               const stepNumber = index + 1;
               const isActive = currentStep === stepNumber;
@@ -137,33 +136,36 @@ export function SetupWizard() {
                 </div>
               );
             })}
-          </div>
+        </div>
 
-          {/* Mobile Step Indicator */}
-          <div className="flex items-center justify-center md:hidden">
+        {/* Mobile Step Indicator */}
+        <div className="flex items-center justify-center md:hidden">
             <Badge variant="outline" className="px-3 py-1">
               Adım {currentStep} / {STEP_TITLES.length}: {STEP_TITLES[currentStep - 1]}
             </Badge>
-          </div>
         </div>
+      </div>
 
-        {/* Step Content with Animation */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentStep}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            {renderStep()}
-          </motion.div>
-        </AnimatePresence>
-
-        {/* Footer */}
-        <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
-          <p>© 2024 Qodify. Tüm hakları saklıdır.</p>
+      {/* Step Content with Animation */}
+      <div className="w-full">
+        <div className="w-full">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentStep}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                {renderStep()}
+              </motion.div>
+          </AnimatePresence>
         </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
+        <p>© 2024 Qodify. Tüm hakları saklıdır.</p>
       </div>
     </div>
   );

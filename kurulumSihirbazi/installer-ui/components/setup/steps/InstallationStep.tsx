@@ -75,7 +75,7 @@ export function InstallationStep({
   };
 
   return (
-    <Card className="w-full">
+    <Card className="w-full max-w-3xl mx-auto">
       <CardHeader className="text-center">
         <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/50 dark:to-purple-900/50">
           {getStatusIcon()}
