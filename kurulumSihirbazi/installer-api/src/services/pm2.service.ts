@@ -11,7 +11,13 @@ export class PM2Service {
   private async pm2Exec(args: string) {
     const info = await detectPm2();
     const bin = info?.bin || "pm2";
-    return execAsync(`${bin} ${args}`);
+    // PM2'ye installer-api'nin JWT_* env değişkenlerini taşımayalım (çakışmayı engelle)
+    const cleanEnv = { ...process.env } as Record<string, any>;
+    delete cleanEnv.JWT_SECRET;
+    delete cleanEnv.JWT_REFRESH_SECRET;
+    // Bazı ortamlarda SESSION_SECRET da çakışabilir; tedbir amaçlı temizleyelim
+    delete cleanEnv.SESSION_SECRET;
+    return execAsync(`${bin} ${args}`, { env: cleanEnv });
   }
   async createEcosystem(
     domain: string,
@@ -40,8 +46,11 @@ export class PM2Service {
           env: {
             NODE_ENV: devMode ? "development" : "production",
             PORT: ports.backend,
+            // Dotenv'i her zaman doğru dosyadan yüklemek için mutlak yol kullan
             NODE_OPTIONS: "-r dotenv/config",
-            DOTENV_CONFIG_PATH: ".env",
+            DOTENV_CONFIG_PATH: path.join(beCwd, ".env"),
+            // Üst süreçten gelen değişkenleri ezebilmek için override aç
+            DOTENV_CONFIG_OVERRIDE: "true",
           },
           error_file: path.join(logsDir, `${domain}-backend-error.log`),
           out_file: path.join(logsDir, `${domain}-backend-out.log`),
@@ -115,7 +124,8 @@ export class PM2Service {
       const customerPath = path.join(customersPath, domain.replace(/\./g, "-"));
       const configPath = path.join(customerPath, `ecosystem-${domain}.config.js`);
 
-      await this.pm2Exec(`start ${configPath}`);
+      // Ortam değişkenlerinin güncel .env'den okunması için --update-env ekle
+      await this.pm2Exec(`start ${configPath} --update-env`);
       await this.pm2Exec("save");
 
       console.log(`Customer ${domain} started with PM2`);
@@ -139,7 +149,8 @@ export class PM2Service {
 
   async restartCustomer(domain: string) {
     try {
-      await this.pm2Exec(`restart ${domain}-backend ${domain}-admin ${domain}-store`);
+      // .env değişikliklerini yansıtmak için restart'ta da --update-env kullan
+      await this.pm2Exec(`restart ${domain}-backend ${domain}-admin ${domain}-store --update-env`);
       console.log(`Customer ${domain} restarted`);
       return { success: true };
     } catch (error) {

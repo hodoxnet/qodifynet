@@ -499,11 +499,16 @@ export class DeploymentService {
 
   private async runMigrations(backendPath: string) {
     try {
+      // Installer API'nin DATABASE_URL'ü Prisma CLI'yi yanlış DB'ye yönlendirebilir.
+      // Çözüm: CWD'yi backend'e al ve üst süreçteki DATABASE_URL'ü temizle ki backend/.env yüklensin.
+      const env = { ...process.env } as Record<string, any>;
+      delete env.DATABASE_URL;
+
       console.log("📦 Prisma client generate ediliyor...");
-      await execAsync(`cd ${backendPath} && npx prisma generate`);
+      await execAsync(`npx prisma generate`, { cwd: backendPath, env });
 
       console.log("🗄️ Veritabanı migration'ları uygulanıyor...");
-      await execAsync(`cd ${backendPath} && npx prisma migrate deploy`);
+      await execAsync(`npx prisma migrate deploy`, { cwd: backendPath, env });
 
       console.log("✅ Migration'lar başarıyla tamamlandı");
     } catch (error) {
@@ -513,7 +518,9 @@ export class DeploymentService {
   }
 
   private async seedData(backendPath: string) {
-    await execAsync(`cd ${backendPath} && npm run db:seed`);
+    const env = { ...process.env } as Record<string, any>;
+    delete env.DATABASE_URL;
+    await execAsync(`npm run db:seed`, { cwd: backendPath, env });
   }
 
   private async buildApplications(customerPath: string, opts?: { buildAdmin?: boolean; buildStore?: boolean; prune?: boolean }) {
