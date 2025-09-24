@@ -187,3 +187,12 @@ customerRouter.post("/:id/database/migrate", authorize("ADMIN", "SUPER_ADMIN"), 
     res.status(500).json({ error: "Failed to run Prisma migrate" });
   }
 });
+
+customerRouter.post("/:id/database/seed", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const result = await customerService.runSeed(req.params.id);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to run seed" });
+  }
+});

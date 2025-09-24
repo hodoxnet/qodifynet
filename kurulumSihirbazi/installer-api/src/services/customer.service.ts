@@ -878,4 +878,36 @@ getAdmins();
       };
     }
   }
+
+  async runSeed(customerId: string): Promise<any> {
+    try {
+      const customer = await this.getCustomerById(customerId);
+      if (!customer) throw new Error("Customer not found");
+
+      const customerPath = path.join(this.customersPath, customer.domain);
+      const backendPath = path.join(customerPath, "backend");
+
+      // Seed çalıştır
+      const env = { ...process.env } as Record<string, any>;
+      delete env.DATABASE_URL;
+
+      const result = await execAsync("npm run db:seed", {
+        cwd: backendPath,
+        env
+      });
+
+      return {
+        success: true,
+        message: "Seed verileri başarıyla yüklendi",
+        output: result.stdout
+      };
+    } catch (error: any) {
+      console.error("Error running seed:", error);
+      return {
+        success: false,
+        message: error.message,
+        error: error.toString()
+      };
+    }
+  }
 }

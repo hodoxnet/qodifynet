@@ -40,8 +40,8 @@ export default function CustomerConfigPage() {
   const [loadingAdmins, setLoadingAdmins] = useState(false);
   const [creatingAdmin, setCreatingAdmin] = useState(false);
   const [newAdmin, setNewAdmin] = useState({ email: "", password: "", name: "" });
-  const [dbOperations, setDbOperations] = useState({ generating: false, pushing: false, migrating: false });
-  const [dbOutput, setDbOutput] = useState<{ generate?: string; push?: string; migrate?: string }>({});
+  const [dbOperations, setDbOperations] = useState({ generating: false, pushing: false, migrating: false, seeding: false });
+  const [dbOutput, setDbOutput] = useState<{ generate?: string; push?: string; migrate?: string; seed?: string }>({});
 
   useEffect(() => {
     fetchEnvConfig();
@@ -634,12 +634,61 @@ export default function CustomerConfigPage() {
                   )}
                 </div>
 
+                {/* Seed Data */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-medium text-gray-900">Seed Verilerini Yükle</h4>
+                      <p className="text-sm text-gray-600 mt-1">
+                        <code className="bg-gray-100 px-2 py-1 rounded text-xs">npm run db:seed</code> - Başlangıç verilerini yükler (kategoriler, iller, admin vs.)
+                      </p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        setDbOperations({ ...dbOperations, seeding: true });
+                        try {
+                          const res = await apiFetch(`/api/customers/${customerId}/database/seed`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                          });
+                          const result = await res.json();
+                          if (result.success) {
+                            toast.success(result.message);
+                            setDbOutput({ ...dbOutput, seed: result.output });
+                          } else {
+                            toast.error(result.message);
+                          }
+                        } catch (error) {
+                          toast.error("Seed başarısız oldu");
+                        } finally {
+                          setDbOperations({ ...dbOperations, seeding: false });
+                        }
+                      }}
+                      disabled={dbOperations.seeding}
+                      className={`px-4 py-2 rounded-lg text-white flex items-center gap-2 ${
+                        dbOperations.seeding
+                          ? "bg-gray-400 cursor-not-allowed"
+                          : "bg-orange-600 hover:bg-orange-700"
+                      }`}
+                    >
+                      <Database className="h-4 w-4" />
+                      {dbOperations.seeding ? "Yükleniyor..." : "Seed Çalıştır"}
+                    </button>
+                  </div>
+                  {dbOutput.seed && (
+                    <pre className="mt-3 p-3 bg-gray-900 text-gray-100 rounded text-xs font-mono overflow-x-auto">
+                      {dbOutput.seed}
+                    </pre>
+                  )}
+                </div>
+
                 {/* Recommended Steps */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h4 className="font-medium text-blue-900 mb-2">Önerilen Adımlar</h4>
                   <ol className="list-decimal list-inside text-sm text-blue-800 space-y-1">
                     <li>Önce "Prisma Client Oluştur" komutunu çalıştırın</li>
                     <li>Sonra "Veritabanı Şemasını Güncelle" ile şema değişikliklerini uygulayın</li>
+                    <li>Gerekirse "Seed Çalıştır" ile başlangıç verilerini yükleyin</li>
                     <li>İşlemler tamamlandıktan sonra backend servisini yeniden başlatın</li>
                   </ol>
                 </div>
