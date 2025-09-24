@@ -374,6 +374,19 @@ export class DeploymentService {
     const { domain, dbName, ports, storeName, db, appDb, redis } = config;
     const isLocal = this.isLocalDomain(domain);
 
+    // Config.module.ts dosyasını düzelt - sadece .env okusun
+    const configModulePath = path.join(customerPath, "backend", "src", "config", "config.module.ts");
+    if (await fs.pathExists(configModulePath)) {
+      let configContent = await fs.readFile(configModulePath, "utf8");
+      // Multiline regex ile düzelt
+      configContent = configContent.replace(
+        /envFilePath:\s*\[[\s\S]*?\]/,
+        'envFilePath: ".env"'
+      );
+      await fs.writeFile(configModulePath, configContent);
+      console.log("✅ config.module.ts updated to use only .env file");
+    }
+
     // URL configuration based on mode
     const urls = isLocal ? {
       app: `http://localhost:${ports.backend}`,

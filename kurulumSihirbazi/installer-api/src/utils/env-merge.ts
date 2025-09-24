@@ -32,7 +32,9 @@ export async function mergeEnvFile(
 
     const key = m[1];
     if (updates.hasOwnProperty(key)) {
-      out.push(`${key}=${String(updates[key])}`);
+      const value = updates[key];
+      // String() kullanmadan direkt değeri yazıyoruz
+      out.push(`${key}=${value}`);
       done.add(key);
     } else {
       out.push(line);
@@ -45,7 +47,8 @@ export async function mergeEnvFile(
     if (out.length > 0 && out[out.length - 1].trim() !== "") out.push("");
     out.push("# --- Appended by Qodify Installer ---");
     for (const k of missing) {
-      out.push(`${k}=${String(updates[k])}`);
+      const value = updates[k];
+      out.push(`${k}=${value}`);
     }
   }
 
