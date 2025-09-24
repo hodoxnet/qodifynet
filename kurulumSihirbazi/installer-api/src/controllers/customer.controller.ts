@@ -159,3 +159,31 @@ customerRouter.post("/:id/admins", authorize("ADMIN", "SUPER_ADMIN"), async (req
     res.status(500).json({ error: "Failed to create admin user" });
   }
 });
+
+// Prisma database operations
+customerRouter.post("/:id/database/generate", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const result = await customerService.runPrismaGenerate(req.params.id);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to run Prisma generate" });
+  }
+});
+
+customerRouter.post("/:id/database/push", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const result = await customerService.runPrismaDbPush(req.params.id);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to run Prisma db push" });
+  }
+});
+
+customerRouter.post("/:id/database/migrate", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const result = await customerService.runPrismaMigrate(req.params.id);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to run Prisma migrate" });
+  }
+});

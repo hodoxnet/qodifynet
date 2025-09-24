@@ -782,4 +782,100 @@ getAdmins();
       };
     }
   }
+
+  async runPrismaGenerate(customerId: string): Promise<any> {
+    try {
+      const customer = await this.getCustomerById(customerId);
+      if (!customer) throw new Error("Customer not found");
+
+      const customerPath = path.join(this.customersPath, customer.domain);
+      const backendPath = path.join(customerPath, "backend");
+
+      // Prisma generate çalıştır
+      const env = { ...process.env } as Record<string, any>;
+      delete env.DATABASE_URL;
+
+      const result = await execAsync("npx prisma generate", {
+        cwd: backendPath,
+        env
+      });
+
+      return {
+        success: true,
+        message: "Prisma Client başarıyla oluşturuldu",
+        output: result.stdout
+      };
+    } catch (error: any) {
+      console.error("Error running prisma generate:", error);
+      return {
+        success: false,
+        message: error.message,
+        error: error.toString()
+      };
+    }
+  }
+
+  async runPrismaDbPush(customerId: string): Promise<any> {
+    try {
+      const customer = await this.getCustomerById(customerId);
+      if (!customer) throw new Error("Customer not found");
+
+      const customerPath = path.join(this.customersPath, customer.domain);
+      const backendPath = path.join(customerPath, "backend");
+
+      // Prisma db push çalıştır
+      const env = { ...process.env } as Record<string, any>;
+      delete env.DATABASE_URL;
+
+      const result = await execAsync("npx prisma db push --skip-generate --accept-data-loss", {
+        cwd: backendPath,
+        env
+      });
+
+      return {
+        success: true,
+        message: "Veritabanı şeması başarıyla güncellendi",
+        output: result.stdout
+      };
+    } catch (error: any) {
+      console.error("Error running prisma db push:", error);
+      return {
+        success: false,
+        message: error.message,
+        error: error.toString()
+      };
+    }
+  }
+
+  async runPrismaMigrate(customerId: string): Promise<any> {
+    try {
+      const customer = await this.getCustomerById(customerId);
+      if (!customer) throw new Error("Customer not found");
+
+      const customerPath = path.join(this.customersPath, customer.domain);
+      const backendPath = path.join(customerPath, "backend");
+
+      // Prisma migrate deploy çalıştır (production için)
+      const env = { ...process.env } as Record<string, any>;
+      delete env.DATABASE_URL;
+
+      const result = await execAsync("npx prisma migrate deploy", {
+        cwd: backendPath,
+        env
+      });
+
+      return {
+        success: true,
+        message: "Veritabanı migration'ları başarıyla uygulandı",
+        output: result.stdout
+      };
+    } catch (error: any) {
+      console.error("Error running prisma migrate:", error);
+      return {
+        success: false,
+        message: error.message,
+        error: error.toString()
+      };
+    }
+  }
 }

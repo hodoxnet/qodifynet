@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { RefreshCw, Save, AlertCircle, Server, Monitor, ShoppingBag, UserPlus, Users } from "lucide-react";
+import { RefreshCw, Save, AlertCircle, Server, Monitor, ShoppingBag, UserPlus, Users, Database, Terminal } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 
@@ -35,11 +35,13 @@ export default function CustomerConfigPage() {
   const [restarting, setRestarting] = useState<string | null>(null);
   const [envConfig, setEnvConfig] = useState<CustomerEnvConfig | null>(null);
   const [modifiedValues, setModifiedValues] = useState<Record<string, Record<string, string>>>({});
-  const [activeTab, setActiveTab] = useState<"backend" | "admin" | "store" | "admins">("backend");
+  const [activeTab, setActiveTab] = useState<"backend" | "admin" | "store" | "admins" | "database">("backend");
   const [admins, setAdmins] = useState<any[]>([]);
   const [loadingAdmins, setLoadingAdmins] = useState(false);
   const [creatingAdmin, setCreatingAdmin] = useState(false);
   const [newAdmin, setNewAdmin] = useState({ email: "", password: "", name: "" });
+  const [dbOperations, setDbOperations] = useState({ generating: false, pushing: false, migrating: false });
+  const [dbOutput, setDbOutput] = useState<{ generate?: string; push?: string; migrate?: string }>({});
 
   useEffect(() => {
     fetchEnvConfig();
@@ -177,6 +179,8 @@ export default function CustomerConfigPage() {
         return <ShoppingBag className="w-4 h-4" />;
       case "admins":
         return <Users className="w-4 h-4" />;
+      case "database":
+        return <Database className="w-4 h-4" />;
       default:
         return null;
     }
@@ -303,7 +307,7 @@ export default function CustomerConfigPage() {
         {/* Tabs */}
         <div className="border-b border-gray-200">
           <div className="flex">
-            {["backend", "admin", "store", "admins"].map((service) => (
+            {["backend", "admin", "store", "admins", "database"].map((service) => (
               <button
                 key={service}
                 onClick={() => setActiveTab(service as any)}
@@ -315,7 +319,7 @@ export default function CustomerConfigPage() {
               >
                 {getServiceIcon(service)}
                 <span className="capitalize">
-                  {service === "backend" ? "Backend" : service === "admin" ? "Admin Panel" : service === "store" ? "Store" : "Yöneticiler"}
+                  {service === "backend" ? "Backend" : service === "admin" ? "Admin Panel" : service === "store" ? "Store" : service === "admins" ? "Yöneticiler" : "Veritabanı"}
                 </span>
               </button>
             ))}
@@ -461,6 +465,184 @@ export default function CustomerConfigPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Database Tab */}
+          <div className={activeTab === "database" ? "block" : "hidden"}>
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                <Database className="h-5 w-5" />
+                Veritabanı İşlemleri
+              </h3>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-yellow-800 font-medium">Dikkat</p>
+                    <p className="text-xs text-yellow-700 mt-1">
+                      Bu işlemler veritabanı şemasını günceller. İşlem sırasında backend servisi yeniden başlatılabilir.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {/* Prisma Generate */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-medium text-gray-900">Prisma Client Oluştur</h4>
+                      <p className="text-sm text-gray-600 mt-1">
+                        <code className="bg-gray-100 px-2 py-1 rounded text-xs">npx prisma generate</code> - Prisma Client'ı yeniden oluşturur
+                      </p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        setDbOperations({ ...dbOperations, generating: true });
+                        try {
+                          const res = await apiFetch(`/api/customers/${customerId}/database/generate`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                          });
+                          const result = await res.json();
+                          if (result.success) {
+                            toast.success(result.message);
+                            setDbOutput({ ...dbOutput, generate: result.output });
+                          } else {
+                            toast.error(result.message);
+                          }
+                        } catch (error) {
+                          toast.error("Prisma generate başarısız oldu");
+                        } finally {
+                          setDbOperations({ ...dbOperations, generating: false });
+                        }
+                      }}
+                      disabled={dbOperations.generating}
+                      className={`px-4 py-2 rounded-lg text-white flex items-center gap-2 ${
+                        dbOperations.generating
+                          ? "bg-gray-400 cursor-not-allowed"
+                          : "bg-blue-600 hover:bg-blue-700"
+                      }`}
+                    >
+                      <Terminal className="h-4 w-4" />
+                      {dbOperations.generating ? "Çalışıyor..." : "Çalıştır"}
+                    </button>
+                  </div>
+                  {dbOutput.generate && (
+                    <pre className="mt-3 p-3 bg-gray-900 text-gray-100 rounded text-xs font-mono overflow-x-auto">
+                      {dbOutput.generate}
+                    </pre>
+                  )}
+                </div>
+
+                {/* Prisma DB Push */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-medium text-gray-900">Veritabanı Şemasını Güncelle</h4>
+                      <p className="text-sm text-gray-600 mt-1">
+                        <code className="bg-gray-100 px-2 py-1 rounded text-xs">npx prisma db push</code> - Schema değişikliklerini veritabanına uygular
+                      </p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        setDbOperations({ ...dbOperations, pushing: true });
+                        try {
+                          const res = await apiFetch(`/api/customers/${customerId}/database/push`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                          });
+                          const result = await res.json();
+                          if (result.success) {
+                            toast.success(result.message);
+                            setDbOutput({ ...dbOutput, push: result.output });
+                          } else {
+                            toast.error(result.message);
+                          }
+                        } catch (error) {
+                          toast.error("Prisma db push başarısız oldu");
+                        } finally {
+                          setDbOperations({ ...dbOperations, pushing: false });
+                        }
+                      }}
+                      disabled={dbOperations.pushing}
+                      className={`px-4 py-2 rounded-lg text-white flex items-center gap-2 ${
+                        dbOperations.pushing
+                          ? "bg-gray-400 cursor-not-allowed"
+                          : "bg-green-600 hover:bg-green-700"
+                      }`}
+                    >
+                      <Database className="h-4 w-4" />
+                      {dbOperations.pushing ? "Güncelleniyor..." : "Güncelle"}
+                    </button>
+                  </div>
+                  {dbOutput.push && (
+                    <pre className="mt-3 p-3 bg-gray-900 text-gray-100 rounded text-xs font-mono overflow-x-auto">
+                      {dbOutput.push}
+                    </pre>
+                  )}
+                </div>
+
+                {/* Prisma Migrate */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-medium text-gray-900">Migration'ları Uygula (Production)</h4>
+                      <p className="text-sm text-gray-600 mt-1">
+                        <code className="bg-gray-100 px-2 py-1 rounded text-xs">npx prisma migrate deploy</code> - Production migration'larını uygular
+                      </p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        setDbOperations({ ...dbOperations, migrating: true });
+                        try {
+                          const res = await apiFetch(`/api/customers/${customerId}/database/migrate`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                          });
+                          const result = await res.json();
+                          if (result.success) {
+                            toast.success(result.message);
+                            setDbOutput({ ...dbOutput, migrate: result.output });
+                          } else {
+                            toast.error(result.message);
+                          }
+                        } catch (error) {
+                          toast.error("Prisma migrate başarısız oldu");
+                        } finally {
+                          setDbOperations({ ...dbOperations, migrating: false });
+                        }
+                      }}
+                      disabled={dbOperations.migrating}
+                      className={`px-4 py-2 rounded-lg text-white flex items-center gap-2 ${
+                        dbOperations.migrating
+                          ? "bg-gray-400 cursor-not-allowed"
+                          : "bg-purple-600 hover:bg-purple-700"
+                      }`}
+                    >
+                      <Database className="h-4 w-4" />
+                      {dbOperations.migrating ? "Uygulanıyor..." : "Migration Uygula"}
+                    </button>
+                  </div>
+                  {dbOutput.migrate && (
+                    <pre className="mt-3 p-3 bg-gray-900 text-gray-100 rounded text-xs font-mono overflow-x-auto">
+                      {dbOutput.migrate}
+                    </pre>
+                  )}
+                </div>
+
+                {/* Recommended Steps */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-medium text-blue-900 mb-2">Önerilen Adımlar</h4>
+                  <ol className="list-decimal list-inside text-sm text-blue-800 space-y-1">
+                    <li>Önce "Prisma Client Oluştur" komutunu çalıştırın</li>
+                    <li>Sonra "Veritabanı Şemasını Güncelle" ile şema değişikliklerini uygulayın</li>
+                    <li>İşlemler tamamlandıktan sonra backend servisini yeniden başlatın</li>
+                  </ol>
+                </div>
               </div>
             </div>
           </div>
