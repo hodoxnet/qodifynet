@@ -45,13 +45,13 @@ export function CustomersList({ onRefresh }: CustomersListProps) {
     if (isLocalCustomer(c)) {
       return {
         store: `http://localhost:${c.ports.store}`,
-        admin: `http://localhost:${c.ports.admin}`,
-        api: `http://localhost:${c.ports.backend}`,
+        admin: `http://localhost:${c.ports.admin}/admin/login`,
+        api: `http://localhost:${c.ports.backend}/api`,
       };
     }
     return {
       store: `https://${c.domain}`,
-      admin: `https://${c.domain}/qpanel`,
+      admin: `https://${c.domain}/admin/login`,
       api: `https://${c.domain}/api`,
     };
   };

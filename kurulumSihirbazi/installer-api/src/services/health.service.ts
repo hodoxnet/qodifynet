@@ -75,7 +75,7 @@ export class HealthService {
     // Backend kontrolü
     if (health.backend.status !== 'stopped') {
       health.backend.url = customer.mode === 'local'
-        ? `${baseUrl}:${customer.ports.backend}/health`
+        ? `${baseUrl}:${customer.ports.backend}/api/health`
         : `${baseUrl}/api/health`;
       await this.checkEndpoint(health.backend);
     }
@@ -83,9 +83,9 @@ export class HealthService {
     // Admin kontrolü
     if (health.admin.status !== 'stopped') {
       health.admin.url = customer.mode === 'local'
-        ? `${baseUrl}:${customer.ports.admin}`
-        : `${baseUrl}/admin`;
-      await this.checkEndpoint(health.admin, ['200', '404']);
+        ? `${baseUrl}:${customer.ports.admin}/admin/login`
+        : `${baseUrl}/admin/login`;
+      await this.checkEndpoint(health.admin, ['200', '302', '301']);
     }
 
     // Store kontrolü
@@ -103,11 +103,15 @@ export class HealthService {
   ): Promise<void> {
     try {
       const { stdout } = await execAsync(
-        `curl -s -o /dev/null -w "%{http_code}" "${service.url}" --connect-timeout 5`
+        `curl -s -o /dev/null -w "%{http_code}" "${service.url}" --connect-timeout 5 --max-time 10 -L`
       );
-      const httpCode = parseInt(stdout);
+      const httpCode = parseInt(stdout.trim());
       service.httpCode = httpCode;
-      service.status = validCodes.includes(stdout) ? 'healthy' : 'error';
+      service.status = validCodes.includes(stdout.trim()) ? 'healthy' : 'error';
+
+      if (service.status === 'error') {
+        service.error = `HTTP ${httpCode}`;
+      }
     } catch (error) {
       service.status = 'error';
       service.error = `Health check failed: ${error}`;
