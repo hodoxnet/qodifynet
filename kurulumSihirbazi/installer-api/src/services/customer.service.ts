@@ -3,8 +3,10 @@ import { promisify } from "util";
 import fs from "fs-extra";
 import path from "path";
 import { parse as parseDotenv } from "dotenv";
+import { parseJsonFromMixedOutput } from "../utils/json-utils";
 
 const execAsync = promisify(exec);
+import { detectPm2 } from "../utils/pm2-utils";
 
 export interface Customer {
   id: string;
@@ -75,10 +77,19 @@ export class CustomerService {
 
   async getCustomerStatus(domain: string): Promise<"running" | "stopped" | "error"> {
     try {
-      const { stdout } = await execAsync(`pm2 list | grep ${domain}`);
-      if (stdout.includes("online")) return "running";
-      if (stdout.includes("stopped")) return "stopped";
-      return "error";
+      const info = await detectPm2();
+      const bin = info?.bin || "pm2";
+      const { stdout } = await execAsync(`${bin} jlist`);
+      const processes = parseJsonFromMixedOutput(stdout);
+
+      const names = [`${domain}-backend`, `${domain}-admin`, `${domain}-store`];
+      const matches = processes.filter((p: any) => names.includes(p.name));
+      if (matches.length === 0) return "stopped";
+      const anyOnline = matches.some((p: any) => p.pm2_env?.status === 'online');
+      const anyErrored = matches.some((p: any) => p.pm2_env?.status === 'errored' || p.pm2_env?.status === 'stopped');
+      if (anyOnline) return "running";
+      if (anyErrored) return "error";
+      return "stopped";
     } catch {
       return "stopped";
     }
@@ -86,8 +97,10 @@ export class CustomerService {
 
   async getCustomerResources(domain: string) {
     try {
-      const { stdout } = await execAsync(`pm2 jlist`);
-      const processes = JSON.parse(stdout);
+      const info = await detectPm2();
+      const bin = info?.bin || "pm2";
+      const { stdout } = await execAsync(`${bin} jlist`);
+      const processes = parseJsonFromMixedOutput(stdout);
 
       const customerProcesses = processes.filter((p: any) =>
         p.name.startsWith(domain)
@@ -119,7 +132,9 @@ export class CustomerService {
     if (!customer) throw new Error("Customer not found");
 
     try {
-      await execAsync(`pm2 start ecosystem-${customer.domain}.config.js`);
+      const { PM2Service } = await import("./pm2.service");
+      const pm2 = new PM2Service();
+      await pm2.startCustomer(customer.domain);
       return { success: true, message: "Customer started" };
     } catch (error) {
       throw new Error(`Failed to start customer: ${error}`);
@@ -131,7 +146,9 @@ export class CustomerService {
     if (!customer) throw new Error("Customer not found");
 
     try {
-      await execAsync(`pm2 stop ${customer.domain}-backend ${customer.domain}-admin ${customer.domain}-store`);
+      const { PM2Service } = await import("./pm2.service");
+      const pm2 = new PM2Service();
+      await pm2.stopCustomer(customer.domain);
       return { success: true, message: "Customer stopped" };
     } catch (error) {
       throw new Error(`Failed to stop customer: ${error}`);
@@ -143,7 +160,9 @@ export class CustomerService {
     if (!customer) throw new Error("Customer not found");
 
     try {
-      await execAsync(`pm2 restart ${customer.domain}-backend ${customer.domain}-admin ${customer.domain}-store`);
+      const { PM2Service } = await import("./pm2.service");
+      const pm2 = new PM2Service();
+      await pm2.restartCustomer(customer.domain);
       return { success: true, message: "Customer restarted" };
     } catch (error) {
       throw new Error(`Failed to restart customer: ${error}`);
@@ -156,7 +175,13 @@ export class CustomerService {
 
     try {
       // Stop PM2 processes
-      await execAsync(`pm2 delete ${customer.domain}-backend ${customer.domain}-admin ${customer.domain}-store`).catch(() => {});
+      try {
+        const { PM2Service } = await import("./pm2.service");
+        const pm2 = new PM2Service();
+        await pm2.deleteCustomer(customer.domain);
+      } catch {
+        // ignore
+      }
 
       // Remove customer directory
       const customerPath = path.join(this.customersPath, customer.domain.replace(/\./g, "-"));
@@ -212,20 +237,76 @@ export class CustomerService {
       throw new Error(`Invalid service. Must be one of: ${validServices.join(', ')}`);
     }
 
+    // PM2 kurulu mu kontrol et
+    const isPM2Available = await this.checkPM2Available();
+
+    if (isPM2Available) {
+      // PM2 varsa PM2 loglarını kullan, boşsa dosyaya fallback yap
+      try {
+        const processName = `${customer.domain}-${service}`;
+        const info = await detectPm2();
+        const bin = info?.bin || "pm2";
+        const { stdout } = await execAsync(`${bin} logs ${processName} --lines ${lines} --nostream`);
+        const trimmed = (stdout || "").trim();
+        if (trimmed.length > 0) {
+          return { logs: stdout, service, processName };
+        }
+        // fallthrough to file read
+      } catch (error) {
+        // fallthrough to file read
+      }
+    }
+
+    // PM2 yoksa veya log komutu başarısız/boş ise dosyadan oku
     try {
-      const processName = `${customer.domain}-${service}`;
-      const { stdout } = await execAsync(`pm2 logs ${processName} --lines ${lines} --nostream`);
+      const customerPath = path.join(this.customersPath, customer.domain.replace(/\./g, "-"));
+      const logDir = path.join(customerPath, "logs");
+      const logFileOut = path.join(logDir, `${customer.domain}-${service}-out.log`);
+      const logFileErr = path.join(logDir, `${customer.domain}-${service}-error.log`);
+
+      await fs.ensureDir(logDir);
+
+      const hasOut = await fs.pathExists(logFileOut);
+      const hasErr = await fs.pathExists(logFileErr);
+
+      if (!hasOut && !hasErr) {
+        return {
+          logs: `Log dosyaları henüz oluşmamış. Servis yeni başlıyorsa birkaç saniye bekleyin.\nBeklenen dosyalar:\n- ${logFileOut}\n- ${logFileErr}`,
+          service,
+          processName: `${customer.domain}-${service}`,
+        };
+      }
+
+      let collected = "";
+      if (hasOut) {
+        const { stdout } = await execAsync(`tail -n ${lines} "${logFileOut}"`);
+        collected += `# OUT (${logFileOut})\n${stdout}\n`;
+      }
+      if (hasErr) {
+        const { stdout } = await execAsync(`tail -n ${lines} "${logFileErr}"`);
+        collected += `# ERROR (${logFileErr})\n${stdout}\n`;
+      }
+
       return {
-        logs: stdout,
+        logs: collected.trim() || "Log dosyaları boş",
         service,
-        processName
+        processName: `${customer.domain}-${service}`,
       };
     } catch (error) {
       return {
-        logs: `Failed to get logs for ${service}: ${error}`,
+        logs: `Log okuma hatası: ${error}`,
         service,
-        processName: `${customer.domain}-${service}`
+        processName: `${customer.domain}-${service}`,
       };
+    }
+  }
+
+  private async checkPM2Available(): Promise<boolean> {
+    try {
+      const info = await detectPm2();
+      return !!info;
+    } catch {
+      return false;
     }
   }
 
@@ -241,8 +322,10 @@ export class CustomerService {
 
     // Check PM2 processes first
     try {
-      const { stdout } = await execAsync(`pm2 jlist`);
-      const processes = JSON.parse(stdout);
+      const info = await detectPm2();
+      const bin = info?.bin || "pm2";
+      const { stdout } = await execAsync(`${bin} jlist`);
+      const processes = parseJsonFromMixedOutput(stdout);
 
       const backendProcess = processes.find((p: any) => p.name === `${customer.domain}-backend`);
       const adminProcess = processes.find((p: any) => p.name === `${customer.domain}-admin`);

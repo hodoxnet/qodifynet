@@ -2,10 +2,17 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import fs from "fs-extra";
 import path from "path";
+import { detectPm2 } from "../utils/pm2-utils";
+import { parseJsonFromMixedOutput } from "../utils/json-utils";
 
 const execAsync = promisify(exec);
 
 export class PM2Service {
+  private async pm2Exec(args: string) {
+    const info = await detectPm2();
+    const bin = info?.bin || "pm2";
+    return execAsync(`${bin} ${args}`);
+  }
   async createEcosystem(
     domain: string,
     customerPath: string,
@@ -105,8 +112,8 @@ export class PM2Service {
       const customerPath = path.join(customersPath, domain.replace(/\./g, "-"));
       const configPath = path.join(customerPath, `ecosystem-${domain}.config.js`);
 
-      await execAsync(`pm2 start ${configPath}`);
-      await execAsync("pm2 save");
+      await this.pm2Exec(`start ${configPath}`);
+      await this.pm2Exec("save");
 
       console.log(`Customer ${domain} started with PM2`);
       return { success: true };
@@ -118,7 +125,7 @@ export class PM2Service {
 
   async stopCustomer(domain: string) {
     try {
-      await execAsync(`pm2 stop ${domain}-backend ${domain}-admin ${domain}-store`);
+      await this.pm2Exec(`stop ${domain}-backend ${domain}-admin ${domain}-store`);
       console.log(`Customer ${domain} stopped`);
       return { success: true };
     } catch (error) {
@@ -129,7 +136,7 @@ export class PM2Service {
 
   async restartCustomer(domain: string) {
     try {
-      await execAsync(`pm2 restart ${domain}-backend ${domain}-admin ${domain}-store`);
+      await this.pm2Exec(`restart ${domain}-backend ${domain}-admin ${domain}-store`);
       console.log(`Customer ${domain} restarted`);
       return { success: true };
     } catch (error) {
@@ -140,8 +147,8 @@ export class PM2Service {
 
   async deleteCustomer(domain: string) {
     try {
-      await execAsync(`pm2 delete ${domain}-backend ${domain}-admin ${domain}-store`).catch(() => {});
-      await execAsync("pm2 save");
+      await this.pm2Exec(`delete ${domain}-backend ${domain}-admin ${domain}-store`).catch(() => {});
+      await this.pm2Exec("save");
       console.log(`Customer ${domain} removed from PM2`);
       return { success: true };
     } catch (error) {
@@ -152,8 +159,10 @@ export class PM2Service {
 
   async getProcessStatus(domain: string) {
     try {
-      const { stdout } = await execAsync(`pm2 jlist`);
-      const processes = JSON.parse(stdout);
+      const info = await detectPm2();
+      const bin = info?.bin || "pm2";
+      const { stdout } = await execAsync(`${bin} jlist`);
+      const processes = parseJsonFromMixedOutput(stdout);
 
       const customerProcesses = processes.filter((p: any) =>
         p.name.startsWith(domain)
@@ -175,7 +184,9 @@ export class PM2Service {
 
   async getLogs(processName: string, lines = 100) {
     try {
-      const { stdout } = await execAsync(`pm2 logs ${processName} --lines ${lines} --nostream`);
+      const info = await detectPm2();
+      const bin = info?.bin || "pm2";
+      const { stdout } = await execAsync(`${bin} logs ${processName} --lines ${lines} --nostream`);
       return stdout;
     } catch (error) {
       console.error("Failed to get logs:", error);
@@ -185,8 +196,10 @@ export class PM2Service {
 
   async monitorResources() {
     try {
-      const { stdout } = await execAsync("pm2 jlist");
-      const processes = JSON.parse(stdout);
+      const info = await detectPm2();
+      const bin = info?.bin || "pm2";
+      const { stdout } = await execAsync(`${bin} jlist`);
+      const processes = parseJsonFromMixedOutput(stdout);
 
       const summary = {
         totalCpu: 0,
@@ -240,8 +253,8 @@ export class PM2Service {
 
   async setupStartup() {
     try {
-      await execAsync("pm2 startup");
-      await execAsync("pm2 save");
+      await this.pm2Exec("startup");
+      await this.pm2Exec("save");
       console.log("PM2 startup configured");
       return { success: true };
     } catch (error) {

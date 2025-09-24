@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X, Terminal, RefreshCw, Download } from "lucide-react";
+import { apiFetch as fetcher } from "@/lib/api";
 
 interface LogViewerProps {
   customerId: string;
@@ -20,9 +21,14 @@ export function LogViewer({ customerId, customerDomain, service, isOpen, onClose
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        `http://localhost:3031/api/customers/${customerId}/logs?service=${service}&lines=${lines}`
+      const response = await fetcher(
+        `/api/customers/${customerId}/logs?service=${service}&lines=${lines}`
       );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        setLogs(`Error fetching logs (${response.status}): ${err?.error || 'Unauthorized or failed'}`);
+        return;
+      }
       const data = await response.json();
       setLogs(data.logs || "No logs available");
     } catch (error) {

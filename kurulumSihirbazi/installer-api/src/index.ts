@@ -13,6 +13,7 @@ import { customerRouter } from "./controllers/customer.controller";
 import { dnsRouter } from "./controllers/dns.controller";
 import { templateRouter } from "./controllers/template.controller";
 import { authRouter } from "./controllers/auth.controller";
+import { setupRouter } from "./controllers/setup.controller";
 import { authenticate } from "./middleware/auth";
 import { authorize } from "./middleware/authorize";
 
@@ -41,6 +42,7 @@ app.use("/api/system", authenticate, authorize("VIEWER", "OPERATOR", "ADMIN", "S
 app.use("/api/customers", authenticate, authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), customerRouter);
 app.use("/api/dns", authenticate, authorize("ADMIN", "SUPER_ADMIN"), dnsRouter);
 app.use("/api/templates", authenticate, authorize("ADMIN", "SUPER_ADMIN"), templateRouter);
+app.use("/api/setup", authenticate, setupRouter);
 
 // Health check
 app.get("/health", (_req, res) => {

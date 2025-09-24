@@ -53,6 +53,11 @@ const data = {
       isActive: true,
     },
     {
+      title: "WordPress Tarzı Setup",
+      url: "/setup",
+      icon: Rocket,
+    },
+    {
       title: "Kurulum Sihirbazı",
       url: "#",
       icon: Wand2,

@@ -64,20 +64,29 @@ export class SystemService {
 
   async checkPM2(): Promise<string> {
     try {
-      // Try to get PM2 version to check if installed
-      await execAsync("pm2 --version");
-
-      // If we get here, PM2 is installed. Check if daemon is running
+      // Prefer a global PM2 binary when checking status
       try {
-        await execAsync("pm2 list");
-        // If pm2 list works, daemon is running
-        return "running";
+        const { detectPm2 } = await import("../utils/pm2-utils");
+        const info = await detectPm2();
+        if (!info) throw new Error("pm2 not found");
+        // PM2 installed. Check daemon
+        try {
+          await execAsync(`${info.bin} list`);
+          return "running";
+        } catch {
+          return "warning";
+        }
       } catch {
-        // PM2 installed but daemon not running
-        return "warning";
+        // Fallback to PATH
+        await execAsync("pm2 --version");
+        try {
+          await execAsync("pm2 list");
+          return "running";
+        } catch {
+          return "warning";
+        }
       }
     } catch (error: any) {
-      // PM2 not installed or not found
       return "error";
     }
   }
@@ -229,8 +238,10 @@ export class SystemService {
 
   async checkPM2Installed() {
     try {
-      const { stdout } = await execAsync("pm2 --version");
-      return { installed: true, version: stdout.trim() };
+      const { detectPm2 } = await import("../utils/pm2-utils");
+      const info = await detectPm2();
+      if (!info) return { installed: false, version: null };
+      return { installed: true, version: info.version };
     } catch {
       return { installed: false, version: null };
     }
