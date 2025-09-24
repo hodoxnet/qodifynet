@@ -262,4 +262,43 @@ export class PM2Service {
       throw error;
     }
   }
+
+  async pm2Save() {
+    try {
+      const { stdout, stderr } = await this.pm2Exec("save");
+      return { success: true, output: (stdout || "") + (stderr || "") };
+    } catch (error: any) {
+      return { success: false, output: String(error?.message || error) };
+    }
+  }
+
+  async pm2Startup() {
+    try {
+      const info = await detectPm2();
+      const bin = info?.bin || "pm2";
+      const { stdout, stderr } = await execAsync(`${bin} startup 2>&1`);
+      // PM2 often prints a command that requires sudo. Return it to UI.
+      return { success: true, output: (stdout || "") + (stderr || "") };
+    } catch (error: any) {
+      return { success: false, output: String(error?.message || error) };
+    }
+  }
+
+  async pm2StopAll() {
+    try {
+      const { stdout, stderr } = await this.pm2Exec("stop all");
+      return { success: true, output: (stdout || "") + (stderr || "") };
+    } catch (error: any) {
+      return { success: false, output: String(error?.message || error) };
+    }
+  }
+
+  async pm2RestartAll() {
+    try {
+      const { stdout, stderr } = await this.pm2Exec("restart all");
+      return { success: true, output: (stdout || "") + (stderr || "") };
+    } catch (error: any) {
+      return { success: false, output: String(error?.message || error) };
+    }
+  }
 }

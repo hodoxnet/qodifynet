@@ -3,10 +3,13 @@ import { SystemService } from "../services/system.service";
 import { DatabaseService } from "../services/database.service";
 import { SettingsService } from "../services/settings.service";
 import { authorize } from "../middleware/authorize";
+import { PM2Service } from "../services/pm2.service";
+import { detectPm2 } from "../utils/pm2-utils";
 
 export const systemRouter = Router();
 const systemService = new SystemService();
 const settingsService = new SettingsService();
+const pm2Service = new PM2Service();
 
 systemRouter.get("/status", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
   try {
@@ -24,6 +27,39 @@ systemRouter.get("/resources", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_A
   } catch (error) {
     res.status(500).json({ error: "Failed to get system resources" });
   }
+});
+
+// PM2 controls
+systemRouter.get("/pm2/info", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+  try {
+    const info = await detectPm2();
+    res.json({
+      bin: info?.bin || null,
+      version: info?.version || null,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to get PM2 info" });
+  }
+});
+
+systemRouter.post("/pm2/save", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+  const result = await pm2Service.pm2Save();
+  res.status(result.success ? 200 : 500).json(result);
+});
+
+systemRouter.post("/pm2/startup", authorize("ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+  const result = await pm2Service.pm2Startup();
+  res.status(result.success ? 200 : 500).json(result);
+});
+
+systemRouter.post("/pm2/stop-all", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+  const result = await pm2Service.pm2StopAll();
+  res.status(result.success ? 200 : 500).json(result);
+});
+
+systemRouter.post("/pm2/restart-all", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+  const result = await pm2Service.pm2RestartAll();
+  res.status(result.success ? 200 : 500).json(result);
 });
 
 systemRouter.post("/check-requirements", authorize("ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {

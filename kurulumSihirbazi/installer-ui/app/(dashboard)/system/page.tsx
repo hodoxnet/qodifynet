@@ -2,6 +2,7 @@
 
 import { SystemStatus } from "@/components/SystemStatus";
 import { SystemConfig } from "@/components/SystemConfig";
+import { Pm2Controls } from "@/components/Pm2Controls";
 import { useState, useEffect } from "react";
 import { Server, Database, HardDrive, Cpu, Network, RefreshCw, Activity } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -87,6 +88,9 @@ export default function SystemPage() {
           <SystemConfig />
         </div>
       </div>
+
+      {/* PM2 Controls */}
+      <Pm2Controls />
 
       {/* System Resources Details */}
       {systemInfo && (
