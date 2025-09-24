@@ -132,3 +132,30 @@ customerRouter.post("/:id/restart-service", authorize("OPERATOR", "ADMIN", "SUPE
     res.status(500).json({ error: "Failed to restart service" });
   }
 });
+
+// Get admin users
+customerRouter.get("/:id/admins", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const result = await customerService.getAdmins(req.params.id);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch admin users" });
+  }
+});
+
+// Create admin user
+customerRouter.post("/:id/admins", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const { email, password, name } = req.body;
+
+    if (!email || !password) {
+      res.status(400).json({ error: "Email and password are required" });
+      return;
+    }
+
+    const result = await customerService.createAdmin(req.params.id, { email, password, name });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create admin user" });
+  }
+});

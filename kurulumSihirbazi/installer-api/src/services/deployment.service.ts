@@ -117,6 +117,12 @@ export class DeploymentService {
         },
       });
 
+      // 3.5. Update seed file to use admin credentials
+      if (config.adminEmail && config.adminPassword) {
+        this.emitProgress(config.domain, "seed-config", "🔧 Admin kullanıcı bilgileri ayarlanıyor...");
+        await this.updateSeedFile(customerPath, config.adminEmail, config.adminPassword);
+      }
+
       // 4. Install dependencies
       this.emitProgress(config.domain, "deps", "📥 Bağımlılıklar yükleniyor...");
       await this.installDependencies(customerPath);
@@ -125,11 +131,9 @@ export class DeploymentService {
       this.emitProgress(config.domain, "migrate", "🔄 Migration'lar uygulanıyor...");
       await this.runMigrations(path.join(customerPath, "backend"));
 
-      // 6. Seed initial data
-      if (config.initialData === "demo") {
-        this.emitProgress(config.domain, "seed", "🌱 Demo verileri yükleniyor...");
-        await this.seedData(path.join(customerPath, "backend"));
-      }
+      // 6. Seed initial data (always seed at least admin user)
+      this.emitProgress(config.domain, "seed", "🌱 Veritabanı hazırlanıyor...");
+      await this.seedData(path.join(customerPath, "backend"), config);
 
       // 7. Build applications (skip in dev mode since we'll use start:dev)
       if (isLocalMode) {
@@ -531,10 +535,62 @@ export class DeploymentService {
     }
   }
 
-  private async seedData(backendPath: string) {
+  private async updateSeedFile(customerPath: string, adminEmail: string, adminPassword: string) {
+    try {
+      const seedFilePath = path.join(customerPath, "backend", "prisma", "seed", "seeds", "core.seed.ts");
+
+      if (await fs.pathExists(seedFilePath)) {
+        let content = await fs.readFile(seedFilePath, "utf8");
+
+        // Admin email ve password'u güncelle
+        content = content.replace(
+          "email: 'admin@hodoxpro.com',",
+          `email: process.env.ADMIN_EMAIL || '${adminEmail}',`
+        );
+        content = content.replace(
+          "password: 'Admin123!',",
+          `password: process.env.ADMIN_PASSWORD || '${adminPassword}',`
+        );
+
+        // Diğer default admin'i kaldır veya güncelle
+        content = content.replace(
+          "email: 'manager@hodoxpro.com',",
+          `email: 'manager_${adminEmail}',`
+        );
+
+        await fs.writeFile(seedFilePath, content);
+        console.log(`✅ Seed dosyası güncellendi: ${adminEmail}`);
+      } else {
+        console.log("⚠️ Seed dosyası bulunamadı, default değerler kullanılacak");
+      }
+    } catch (error) {
+      console.error("Seed dosyası güncellenirken hata:", error);
+      // Hata olsa bile devam et
+    }
+  }
+
+  private async seedData(backendPath: string, config?: DeploymentConfig) {
     const env = { ...process.env } as Record<string, any>;
     delete env.DATABASE_URL;
-    await execAsync(`npm run db:seed`, { cwd: backendPath, env });
+
+    // Admin credentials'ı environment variable olarak ekle
+    if (config?.adminEmail) {
+      env.ADMIN_EMAIL = config.adminEmail;
+    }
+    if (config?.adminPassword) {
+      env.ADMIN_PASSWORD = config.adminPassword;
+    }
+
+    console.log(`🌱 Seeding data with admin: ${config?.adminEmail || 'default'}`);
+
+    try {
+      await execAsync(`npm run db:seed`, { cwd: backendPath, env });
+      console.log("✅ Seed completed successfully");
+    } catch (seedError: any) {
+      console.warn(`⚠️ Seed failed: ${seedError.message}`);
+      console.warn("⚠️ Admin kullanıcısı oluşturulamadı. Kurulum sonrası konfigürasyon panelinden oluşturabilirsiniz.");
+      // Seed hatası deployment'ı durdurmasın
+    }
   }
 
   private async buildApplications(customerPath: string, opts?: { buildAdmin?: boolean; buildStore?: boolean; prune?: boolean }) {

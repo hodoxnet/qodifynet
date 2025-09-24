@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { RefreshCw, Save, AlertCircle, Server, Monitor, ShoppingBag } from "lucide-react";
+import { RefreshCw, Save, AlertCircle, Server, Monitor, ShoppingBag, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 
@@ -35,10 +35,15 @@ export default function CustomerConfigPage() {
   const [restarting, setRestarting] = useState<string | null>(null);
   const [envConfig, setEnvConfig] = useState<CustomerEnvConfig | null>(null);
   const [modifiedValues, setModifiedValues] = useState<Record<string, Record<string, string>>>({});
-  const [activeTab, setActiveTab] = useState<"backend" | "admin" | "store">("backend");
+  const [activeTab, setActiveTab] = useState<"backend" | "admin" | "store" | "admins">("backend");
+  const [admins, setAdmins] = useState<any[]>([]);
+  const [loadingAdmins, setLoadingAdmins] = useState(false);
+  const [creatingAdmin, setCreatingAdmin] = useState(false);
+  const [newAdmin, setNewAdmin] = useState({ email: "", password: "", name: "" });
 
   useEffect(() => {
     fetchEnvConfig();
+    fetchAdmins();
   }, [customerId]);
 
   const fetchEnvConfig = async () => {
@@ -116,6 +121,52 @@ export default function CustomerConfigPage() {
     }
   };
 
+  const fetchAdmins = async () => {
+    try {
+      setLoadingAdmins(true);
+      const res = await apiFetch(`/api/customers/${customerId}/admins`);
+      if (!res.ok) throw new Error("Failed to fetch admins");
+      const data = await res.json();
+      setAdmins(data.admins || []);
+    } catch (error) {
+      console.error("Failed to fetch admins:", error);
+      setAdmins([]);
+    } finally {
+      setLoadingAdmins(false);
+    }
+  };
+
+  const createAdmin = async () => {
+    if (!newAdmin.email || !newAdmin.password) {
+      toast.error("Email ve şifre zorunludur");
+      return;
+    }
+
+    try {
+      setCreatingAdmin(true);
+      const res = await apiFetch(`/api/customers/${customerId}/admins`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newAdmin),
+      });
+
+      if (!res.ok) throw new Error("Failed to create admin");
+
+      const result = await res.json();
+      if (result.success) {
+        toast.success("Admin kullanıcısı başarıyla oluşturuldu");
+        setNewAdmin({ email: "", password: "", name: "" });
+        fetchAdmins();
+      } else {
+        toast.error(result.message || "Admin oluşturulamadı");
+      }
+    } catch (error) {
+      toast.error("Admin oluşturulamadı");
+    } finally {
+      setCreatingAdmin(false);
+    }
+  };
+
   const getServiceIcon = (service: string) => {
     switch (service) {
       case "backend":
@@ -124,6 +175,8 @@ export default function CustomerConfigPage() {
         return <Monitor className="w-4 h-4" />;
       case "store":
         return <ShoppingBag className="w-4 h-4" />;
+      case "admins":
+        return <Users className="w-4 h-4" />;
       default:
         return null;
     }
@@ -250,7 +303,7 @@ export default function CustomerConfigPage() {
         {/* Tabs */}
         <div className="border-b border-gray-200">
           <div className="flex">
-            {["backend", "admin", "store"].map((service) => (
+            {["backend", "admin", "store", "admins"].map((service) => (
               <button
                 key={service}
                 onClick={() => setActiveTab(service as any)}
@@ -262,7 +315,7 @@ export default function CustomerConfigPage() {
               >
                 {getServiceIcon(service)}
                 <span className="capitalize">
-                  {service === "backend" ? "Backend" : service === "admin" ? "Admin Panel" : "Store"}
+                  {service === "backend" ? "Backend" : service === "admin" ? "Admin Panel" : service === "store" ? "Store" : "Yöneticiler"}
                 </span>
               </button>
             ))}
@@ -301,6 +354,116 @@ export default function CustomerConfigPage() {
               )}
             </div>
           ))}
+
+          {/* Admins Tab */}
+          <div className={activeTab === "admins" ? "block" : "hidden"}>
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                <Users className="h-5 w-5" />
+                Yönetici Kullanıcıları
+              </h3>
+
+              {/* Create Admin Form */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Yeni Yönetici Ekle</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                    <input
+                      type="email"
+                      value={newAdmin.email}
+                      onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="admin@example.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Şifre *</label>
+                    <input
+                      type="password"
+                      value={newAdmin.password}
+                      onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">İsim</label>
+                    <input
+                      type="text"
+                      value={newAdmin.name}
+                      onChange={(e) => setNewAdmin({ ...newAdmin, name: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Admin User"
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={createAdmin}
+                  disabled={creatingAdmin || !newAdmin.email || !newAdmin.password}
+                  className={`mt-4 px-4 py-2 rounded-lg text-white flex items-center gap-2 ${
+                    creatingAdmin || !newAdmin.email || !newAdmin.password
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700"
+                  }`}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  {creatingAdmin ? "Oluşturuluyor..." : "Yönetici Ekle"}
+                </button>
+              </div>
+
+              {/* Admins List */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İsim</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Oluşturulma</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {loadingAdmins ? (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
+                          <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                          Yöneticiler yükleniyor...
+                        </td>
+                      </tr>
+                    ) : admins.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
+                          <Users className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                          <p>Henüz yönetici kullanıcı bulunmuyor.</p>
+                          <p className="text-sm mt-1">Yukarıdaki formu kullanarak yeni bir yönetici ekleyin.</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      admins.map((admin) => (
+                        <tr key={admin.id}>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{admin.email}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{admin.name || "-"}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              admin.isActive
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }`}>
+                              {admin.isActive ? "Aktif" : "Pasif"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {admin.createdAt ? new Date(admin.createdAt).toLocaleDateString("tr-TR") : "-"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

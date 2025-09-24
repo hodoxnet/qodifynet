@@ -628,4 +628,158 @@ export class CustomerService {
       throw error;
     }
   }
+
+  async createAdmin(customerId: string, adminData: { email: string; password: string; name?: string }): Promise<any> {
+    try {
+      const customer = await this.getCustomerById(customerId);
+      if (!customer) throw new Error("Customer not found");
+
+      const customerPath = path.join(this.customersPath, customer.domain);
+      const backendPath = path.join(customerPath, "backend");
+
+      // Admin oluşturma script'i
+      const adminScript = `
+import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+
+const prisma = new PrismaClient();
+
+async function createAdmin() {
+  const hashedPassword = await bcrypt.hash('${adminData.password}', 10);
+
+  try {
+    const admin = await prisma.admin.upsert({
+      where: { email: '${adminData.email}' },
+      update: {
+        password: hashedPassword,
+        name: '${adminData.name || 'Admin User'}',
+        isActive: true
+      },
+      create: {
+        email: '${adminData.email}',
+        password: hashedPassword,
+        name: '${adminData.name || 'Admin User'}',
+        isActive: true
+      }
+    });
+
+    console.log('✅ Admin created/updated:', admin.email);
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Error creating admin:', error);
+    process.exit(1);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+createAdmin();
+      `;
+
+      // Geçici dosya oluştur
+      const scriptPath = path.join(backendPath, 'create-admin-temp.ts');
+      await fs.writeFile(scriptPath, adminScript);
+
+      try {
+        // Script'i çalıştır
+        const env = { ...process.env } as Record<string, any>;
+        delete env.DATABASE_URL;
+
+        const result = await execAsync(`npx ts-node ${scriptPath}`, {
+          cwd: backendPath,
+          env
+        });
+
+        return {
+          success: true,
+          message: `Admin user ${adminData.email} created successfully`,
+          output: result.stdout
+        };
+      } finally {
+        // Temizle
+        await fs.remove(scriptPath);
+      }
+    } catch (error: any) {
+      console.error("Error creating admin:", error);
+      return {
+        success: false,
+        message: error.message,
+        error: error.toString()
+      };
+    }
+  }
+
+  async getAdmins(customerId: string): Promise<any> {
+    try {
+      const customer = await this.getCustomerById(customerId);
+      if (!customer) throw new Error("Customer not found");
+
+      const customerPath = path.join(this.customersPath, customer.domain);
+      const backendPath = path.join(customerPath, "backend");
+
+      // Admin listesini getiren script
+      const getAdminsScript = `
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+async function getAdmins() {
+  try {
+    const admins = await prisma.admin.findMany({
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        isActive: true,
+        createdAt: true
+      }
+    });
+
+    console.log(JSON.stringify(admins));
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Error getting admins:', error);
+    process.exit(1);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+getAdmins();
+      `;
+
+      // Geçici dosya oluştur
+      const scriptPath = path.join(backendPath, 'get-admins-temp.ts');
+      await fs.writeFile(scriptPath, getAdminsScript);
+
+      try {
+        // Script'i çalıştır
+        const env = { ...process.env } as Record<string, any>;
+        delete env.DATABASE_URL;
+
+        const result = await execAsync(`npx ts-node ${scriptPath}`, {
+          cwd: backendPath,
+          env
+        });
+
+        // JSON parse et
+        const admins = JSON.parse(result.stdout.trim());
+
+        return {
+          success: true,
+          admins
+        };
+      } finally {
+        // Temizle
+        await fs.remove(scriptPath);
+      }
+    } catch (error: any) {
+      console.error("Error getting admins:", error);
+      return {
+        success: false,
+        message: error.message,
+        admins: []
+      };
+    }
+  }
 }
