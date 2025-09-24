@@ -370,45 +370,89 @@ export class SetupService {
       const customerPath = path.join(this.customersPath, customerDomain.replace(/\./g, "-"));
       const isLocal = this.isLocalDomain(customerDomain);
 
-      // Backend .env
-      const backendEnv = `
-NODE_ENV=${isLocal ? "development" : "production"}
-PORT=${config.ports.backend}
-DATABASE_URL=postgresql://${config.dbUser}:${config.dbPassword}@${config.dbHost}:${config.dbPort}/${config.dbName}?schema=public
-REDIS_HOST=${config.redisHost}
-REDIS_PORT=${config.redisPort}
-REDIS_PREFIX=${customerDomain.replace(/\./g, "_")}
-JWT_ACCESS_SECRET=${this.generateSecret()}
-JWT_REFRESH_SECRET=${this.generateSecret()}
-STORE_NAME=${config.storeName}
-AUTO_DETECT_DOMAIN=${!isLocal}
-PROD_DOMAIN=${customerDomain}
-APP_URL=${isLocal ? `http://localhost:${config.ports.backend}` : `https://${customerDomain}`}
-STORE_URL=${isLocal ? `http://localhost:${config.ports.store}` : `https://${customerDomain}`}
-ADMIN_URL=${isLocal ? `http://localhost:${config.ports.admin}` : `https://${customerDomain}/qpanel`}
-`.trim();
+      // Helpers to read/merge env files without clobbering existing values
+      const readEnv = async (filePath: string): Promise<Record<string, string>> => {
+        try {
+          if (await fs.pathExists(filePath)) {
+            const raw = await fs.readFile(filePath, "utf8");
+            const parsed = require("dotenv").parse(raw) as Record<string, string>;
+            return parsed || {};
+          }
+        } catch {}
+        return {};
+      };
 
-      await fs.writeFile(path.join(customerPath, "backend", ".env"), backendEnv);
+      const writeEnv = async (filePath: string, envObj: Record<string, string>) => {
+        const lines = Object.entries(envObj)
+          .filter(([k, v]) => k && v !== undefined && v !== null)
+          .map(([k, v]) => `${k}=${String(v)}`);
+        await fs.writeFile(filePath, lines.join("\n"));
+      };
 
-      // Admin .env
-      const adminEnv = `
-NEXT_PUBLIC_API_URL=${isLocal ? `http://localhost:${config.ports.backend}` : `https://${customerDomain}/api`}
-NEXT_PUBLIC_AUTO_DETECT_DOMAIN=${!isLocal}
-NEXT_PUBLIC_PROD_DOMAIN=${customerDomain}
-NEXT_PUBLIC_PROD_API_URL=${isLocal ? `http://localhost:${config.ports.backend}` : `https://${customerDomain}/api`}
-`.trim();
+      // Compute URLs
+      const appUrl = isLocal ? `http://localhost:${config.ports.backend}` : `https://${customerDomain}`;
+      const storeUrl = isLocal ? `http://localhost:${config.ports.store}` : `https://${customerDomain}`;
+      const adminUrl = isLocal ? `http://localhost:${config.ports.admin}` : `https://${customerDomain}/qpanel`;
 
-      await fs.writeFile(path.join(customerPath, "admin", ".env"), adminEnv);
+      // Backend .env: merge existing with required updates
+      const backendEnvPath = path.join(customerPath, "backend", ".env");
+      const backendExisting = await readEnv(backendEnvPath);
 
-      // Store .env
-      const storeEnv = `
-NEXT_PUBLIC_API_URL=${isLocal ? `http://localhost:${config.ports.backend}` : `https://${customerDomain}/api`}
-NEXT_PUBLIC_AUTO_DETECT_DOMAIN=${!isLocal}
-NEXT_PUBLIC_PROD_DOMAIN=${customerDomain}
-NEXT_PUBLIC_PROD_API_URL=${isLocal ? `http://localhost:${config.ports.backend}` : `https://${customerDomain}/api`}
-`.trim();
+      const tooShort = (v?: string) => !v || String(v).length < 32;
+      const backendUpdates: Record<string, string> = {
+        NODE_ENV: isLocal ? "development" : "production",
+        PORT: String(config.ports.backend),
+        DATABASE_URL: `postgresql://${config.dbUser}:${config.dbPassword}@${config.dbHost}:${config.dbPort}/${config.dbName}?schema=public`,
+        LOCAL_DATABASE_URL: `postgresql://${config.dbUser}:${config.dbPassword}@${config.dbHost}:${config.dbPort}/${config.dbName}?schema=public`,
+        PROD_DATABASE_URL: `postgresql://${config.dbUser}:${config.dbPassword}@${config.dbHost}:${config.dbPort}/${config.dbName}?schema=public`,
+        REDIS_HOST: String(config.redisHost),
+        REDIS_PORT: String(config.redisPort),
+        REDIS_PREFIX: customerDomain.replace(/\./g, "_"),
+        AUTO_DETECT_DOMAIN: String(!isLocal),
+        PROD_DOMAIN: customerDomain,
+        APP_URL: appUrl,
+        STORE_URL: storeUrl,
+        ADMIN_URL: adminUrl,
+        STORE_NAME: config.storeName,
+      };
+      // Only generate secrets if missing/too short
+      if (tooShort(backendExisting["JWT_ACCESS_SECRET"])) backendUpdates["JWT_ACCESS_SECRET"] = this.generateSecret();
+      if (tooShort(backendExisting["JWT_REFRESH_SECRET"])) backendUpdates["JWT_REFRESH_SECRET"] = this.generateSecret();
+      if (tooShort(backendExisting["SESSION_SECRET"])) backendUpdates["SESSION_SECRET"] = this.generateSecret();
+      // SMTP defaults only if missing
+      if (!backendExisting["SMTP_HOST"]) backendUpdates["SMTP_HOST"] = isLocal ? "localhost" : `smtp.${customerDomain}`;
+      if (!backendExisting["SMTP_PORT"]) backendUpdates["SMTP_PORT"] = String(isLocal ? 1025 : 587);
+      if (!backendExisting["SMTP_SECURE"]) backendUpdates["SMTP_SECURE"] = String(false);
+      if (!backendExisting["SMTP_USER"]) backendUpdates["SMTP_USER"] = `noreply@${customerDomain}`;
+      if (!backendExisting["SMTP_PASS"]) backendUpdates["SMTP_PASS"] = isLocal ? "devpass" : "changeme";
+      if (!backendExisting["SMTP_FROM"]) backendUpdates["SMTP_FROM"] = `noreply@${customerDomain}`;
 
-      await fs.writeFile(path.join(customerPath, "store", ".env"), storeEnv);
+      const backendMerged = { ...backendExisting, ...backendUpdates };
+      await writeEnv(backendEnvPath, backendMerged);
+
+      // Admin .env: merge
+      const adminEnvPath = path.join(customerPath, "admin", ".env");
+      const adminExisting = await readEnv(adminEnvPath);
+      const adminUpdates: Record<string, string> = {
+        NEXT_PUBLIC_AUTO_DETECT_DOMAIN: String(!isLocal),
+        NEXT_PUBLIC_PROD_DOMAIN: customerDomain,
+        NEXT_PUBLIC_PROD_API_URL: isLocal ? appUrl : `https://${customerDomain}/api`,
+      };
+      if (isLocal) adminUpdates["NEXT_PUBLIC_API_URL"] = appUrl;
+      const adminMerged = { ...adminExisting, ...adminUpdates };
+      await writeEnv(adminEnvPath, adminMerged);
+
+      // Store .env: merge
+      const storeEnvPath = path.join(customerPath, "store", ".env");
+      const storeExisting = await readEnv(storeEnvPath);
+      const storeUpdates: Record<string, string> = {
+        NEXT_PUBLIC_AUTO_DETECT_DOMAIN: String(!isLocal),
+        NEXT_PUBLIC_PROD_DOMAIN: customerDomain,
+        NEXT_PUBLIC_PROD_API_URL: isLocal ? appUrl : `https://${customerDomain}/api`,
+      };
+      if (isLocal) storeUpdates["NEXT_PUBLIC_API_URL"] = appUrl;
+      const storeMerged = { ...storeExisting, ...storeUpdates };
+      await writeEnv(storeEnvPath, storeMerged);
 
       return {
         ok: true,

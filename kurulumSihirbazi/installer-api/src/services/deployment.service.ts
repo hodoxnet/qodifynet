@@ -411,6 +411,9 @@ export class DeploymentService {
       NODE_ENV: isLocal ? "development" : "production",
       PORT: String(ports.backend),
       DATABASE_URL: `postgresql://${appDb?.user || "hodox_user"}:${appDb?.password || "hodox_pass"}@${db?.host || "localhost"}:${db?.port || 5432}/${dbName}?schema=public`,
+      // Ensure both local/prod URLs align with selected mode to avoid confusion
+      LOCAL_DATABASE_URL: `postgresql://${appDb?.user || "hodox_user"}:${appDb?.password || "hodox_pass"}@${db?.host || "localhost"}:${db?.port || 5432}/${dbName}?schema=public`,
+      PROD_DATABASE_URL: `postgresql://${appDb?.user || "hodox_user"}:${appDb?.password || "hodox_pass"}@${db?.host || "localhost"}:${db?.port || 5432}/${dbName}?schema=public`,
       AUTO_DETECT_DOMAIN: String(!isLocal),
       PROD_DOMAIN: domain,
       BEHIND_REVERSE_PROXY: String(!isLocal),
@@ -423,8 +426,18 @@ export class DeploymentService {
       STORE_NAME: storeName,
     };
     // Ensure JWT secrets exist; generate only if missing
-    if (!backendEnvExisting["JWT_ACCESS_SECRET"]) backendUpdates["JWT_ACCESS_SECRET"] = this.generateSecret();
-    if (!backendEnvExisting["JWT_REFRESH_SECRET"]) backendUpdates["JWT_REFRESH_SECRET"] = this.generateSecret();
+    const tooShort = (v?: string) => !v || String(v).length < 32;
+    if (tooShort(backendEnvExisting["JWT_ACCESS_SECRET"])) backendUpdates["JWT_ACCESS_SECRET"] = this.generateSecret();
+    if (tooShort(backendEnvExisting["JWT_REFRESH_SECRET"])) backendUpdates["JWT_REFRESH_SECRET"] = this.generateSecret();
+
+    // Security + SMTP defaults
+    if (tooShort(backendEnvExisting["SESSION_SECRET"])) backendUpdates["SESSION_SECRET"] = this.generateSecret();
+    if (!backendEnvExisting["SMTP_HOST"]) backendUpdates["SMTP_HOST"] = isLocal ? "localhost" : `smtp.${domain}`;
+    if (!backendEnvExisting["SMTP_PORT"]) backendUpdates["SMTP_PORT"] = String(isLocal ? 1025 : 587);
+    if (!backendEnvExisting["SMTP_SECURE"]) backendUpdates["SMTP_SECURE"] = String(false);
+    if (!backendEnvExisting["SMTP_USER"]) backendUpdates["SMTP_USER"] = `noreply@${domain}`;
+    if (!backendEnvExisting["SMTP_PASS"]) backendUpdates["SMTP_PASS"] = isLocal ? "devpass" : "changeme";
+    if (!backendEnvExisting["SMTP_FROM"]) backendUpdates["SMTP_FROM"] = `noreply@${domain}`;
 
     const backendMerged = { ...backendEnvExisting, ...backendUpdates };
     await writeEnv(backendEnvPath, backendMerged);

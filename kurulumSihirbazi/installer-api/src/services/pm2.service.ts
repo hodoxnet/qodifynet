@@ -36,10 +36,12 @@ export class PM2Service {
           instances: 1,
           exec_mode: "fork",
           max_memory_restart: "500M",
-          env: {
-            NODE_ENV: devMode ? "development" : "production",
-            PORT: ports.backend,
-          },
+        env: {
+          NODE_ENV: devMode ? "development" : "production",
+          PORT: ports.backend,
+          NODE_OPTIONS: "-r dotenv/config",
+          DOTENV_CONFIG_PATH: ".env",
+        },
           error_file: path.join(logsDir, `${domain}-backend-error.log`),
           out_file: path.join(logsDir, `${domain}-backend-out.log`),
           log_date_format: "YYYY-MM-DD HH:mm:ss Z",
