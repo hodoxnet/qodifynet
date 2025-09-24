@@ -374,52 +374,6 @@ export class DeploymentService {
     const { domain, dbName, ports, storeName, db, appDb, redis } = config;
     const isLocal = this.isLocalDomain(domain);
 
-    // Config.module.ts dosyasını düzelt - sadece .env okusun
-    const configModulePath = path.join(customerPath, "backend", "src", "config", "config.module.ts");
-    if (await fs.pathExists(configModulePath)) {
-      let configContent = await fs.readFile(configModulePath, "utf8");
-      // Multiline regex ile düzelt
-      configContent = configContent.replace(
-        /envFilePath:\s*\[[\s\S]*?\]/,
-        'envFilePath: ".env"'
-      );
-      await fs.writeFile(configModulePath, configContent);
-      console.log("✅ config.module.ts updated to use only .env file");
-    }
-
-    // Environment.config.ts dosyasını düzelt - güvenli boolean parsing
-    const envConfigPath = path.join(customerPath, "backend", "src", "config", "environment.config.ts");
-    if (await fs.pathExists(envConfigPath)) {
-      let envConfigContent = await fs.readFile(envConfigPath, "utf8");
-
-      // AUTO_DETECT_DOMAIN için güvenli parsing
-      envConfigContent = envConfigContent.replace(
-        /AUTO_DETECT_DOMAIN:\s*z\.string\(\)\.transform\(val => val === "true"\)\.default\("false" as any\)/,
-        `AUTO_DETECT_DOMAIN: z
-    .union([z.boolean(), z.string()])
-    .transform((val) => {
-      if (typeof val === 'boolean') return val;
-      return val === 'true' || val === '1';
-    })
-    .default(false)`
-      );
-
-      // DETECT_PRODUCTION_IP için güvenli parsing
-      envConfigContent = envConfigContent.replace(
-        /DETECT_PRODUCTION_IP:\s*z\.string\(\)\.transform\(val => val === "true"\)\.default\("true" as any\)/,
-        `DETECT_PRODUCTION_IP: z
-    .union([z.boolean(), z.string()])
-    .transform((val) => {
-      if (typeof val === 'boolean') return val;
-      return val === 'true' || val === '1';
-    })
-    .default(true)`
-      );
-
-      await fs.writeFile(envConfigPath, envConfigContent);
-      console.log("✅ environment.config.ts updated with safe boolean parsing");
-    }
-
     // URL configuration based on mode
     const urls = isLocal ? {
       app: `http://localhost:${ports.backend}`,
