@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, Settings, Save, Power, RefreshCw, Play, StopCircle } from "lucide-react";
+import { Activity, Settings, Save, RefreshCw, StopCircle, Upload } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -92,6 +92,23 @@ export function Pm2Controls() {
 
           <div className="p-3 bg-gray-50 rounded">
             <div className="flex items-center gap-2 mb-1">
+              <Upload className="w-4 h-4 text-gray-700" />
+              <span className="font-medium text-gray-900">pm2 update</span>
+            </div>
+            <p className="text-xs text-gray-600 mb-2">
+              "In-memory PM2 is out-of-date" uyarısını giderir. Daemon'ı güncel sürüme reload eder ve süreçleri yeni PM2 ile yeniden başlatır.
+            </p>
+            <button
+              onClick={() => run("update", "/api/system/pm2/update", "PM2 güncellendi (daemon reload)")}
+              disabled={loading === "update"}
+              className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded disabled:opacity-50"
+            >
+              {loading === "update" ? "Güncelleniyor..." : "Güncelle (pm2 update)"}
+            </button>
+          </div>
+
+          <div className="p-3 bg-gray-50 rounded">
+            <div className="flex items-center gap-2 mb-1">
               <RefreshCw className="w-4 h-4 text-gray-700" />
               <span className="font-medium text-gray-900">Restart All</span>
             </div>
@@ -135,4 +152,3 @@ export function Pm2Controls() {
     </div>
   );
 }
-

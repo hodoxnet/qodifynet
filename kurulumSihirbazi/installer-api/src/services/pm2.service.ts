@@ -301,4 +301,15 @@ export class PM2Service {
       return { success: false, output: String(error?.message || error) };
     }
   }
+
+  async pm2Update() {
+    try {
+      const info = await detectPm2();
+      const bin = info?.bin || "pm2";
+      const { stdout, stderr } = await execAsync(`${bin} update 2>&1`);
+      return { success: true, output: (stdout || "") + (stderr || "") };
+    } catch (error: any) {
+      return { success: false, output: String(error?.message || error) };
+    }
+  }
 }

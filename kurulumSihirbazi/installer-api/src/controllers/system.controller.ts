@@ -62,6 +62,11 @@ systemRouter.post("/pm2/restart-all", authorize("OPERATOR", "ADMIN", "SUPER_ADMI
   res.status(result.success ? 200 : 500).json(result);
 });
 
+systemRouter.post("/pm2/update", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+  const result = await pm2Service.pm2Update();
+  res.status(result.success ? 200 : 500).json(result);
+});
+
 systemRouter.post("/check-requirements", authorize("ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
   try {
     const requirements = await systemService.checkRequirements();
