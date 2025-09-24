@@ -450,9 +450,13 @@ export class DeploymentService {
     if (!backendEnvExisting["SMTP_PASS"]) backendUpdates["SMTP_PASS"] = isLocal ? "devpass" : "changeme";
     if (!backendEnvExisting["SMTP_FROM"]) backendUpdates["SMTP_FROM"] = `noreply@${domain}`;
 
-    // If LOCAL/PROD_DATABASE_URL missing, provide sane defaults; otherwise preserve original
-    if (!backendEnvExisting["LOCAL_DATABASE_URL"]) backendUpdates["LOCAL_DATABASE_URL"] = backendUpdates["DATABASE_URL"];
-    if (!backendEnvExisting["PROD_DATABASE_URL"]) backendUpdates["PROD_DATABASE_URL"] = backendUpdates["DATABASE_URL"];
+    // Local modda kafa karışıklığını önlemek için LOCAL_DATABASE_URL'ı her zaman aktif DATABASE_URL ile eşitle
+    if (isLocal) {
+      backendUpdates["LOCAL_DATABASE_URL"] = backendUpdates["DATABASE_URL"];
+    } else {
+      // Production modda PROD_DATABASE_URL'ı aktif DATABASE_URL ile eşitle
+      backendUpdates["PROD_DATABASE_URL"] = backendUpdates["DATABASE_URL"];
+    }
 
     const backendMerged = { ...backendEnvExisting, ...backendUpdates };
     await writeEnv(backendEnvPath, backendMerged);
@@ -466,9 +470,15 @@ export class DeploymentService {
       NEXT_PUBLIC_PROD_API_URL: urls.api,
       NEXT_PUBLIC_PROD_APP_URL: urls.admin,
       NEXT_PUBLIC_PROD_STORE_URL: urls.store,
+      NEXT_PUBLIC_BACKEND_PORT: String(ports.backend), // Yeni port sistemi
+      NEXT_PUBLIC_API_BASE_URL: urls.api, // Backend URL'yi her zaman güncelle
     };
-    if (isLocal) adminUpdates["NEXT_PUBLIC_API_URL"] = urls.api;
+    if (isLocal) {
+      adminUpdates["NEXT_PUBLIC_API_URL"] = urls.api;
+    }
     const adminMerged = { ...adminEnvExisting, ...adminUpdates };
+    console.log("📝 Admin env updates:", adminUpdates);
+    console.log("📝 Admin merged env (first 5 keys):", Object.entries(adminMerged).slice(0, 5));
     await writeEnv(adminEnvPath, adminMerged);
 
     // Store .env: merge
@@ -480,8 +490,12 @@ export class DeploymentService {
       NEXT_PUBLIC_PROD_API_URL: urls.api,
       NEXT_PUBLIC_PROD_SITE_URL: urls.store,
       NEXT_PUBLIC_PROD_ADMIN_URL: urls.admin,
+      NEXT_PUBLIC_BACKEND_PORT: String(ports.backend), // Yeni port sistemi
+      NEXT_PUBLIC_API_BASE_URL: urls.api, // Backend URL'yi her zaman güncelle
     };
-    if (isLocal) storeUpdates["NEXT_PUBLIC_API_URL"] = urls.api;
+    if (isLocal) {
+      storeUpdates["NEXT_PUBLIC_API_URL"] = urls.api;
+    }
     const storeMerged = { ...storeEnvExisting, ...storeUpdates };
     await writeEnv(storeEnvPath, storeMerged);
   }

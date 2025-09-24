@@ -423,9 +423,13 @@ export class SetupService {
       if (!backendExisting["SMTP_PASS"]) backendUpdates["SMTP_PASS"] = isLocal ? "devpass" : "changeme";
       if (!backendExisting["SMTP_FROM"]) backendUpdates["SMTP_FROM"] = `noreply@${customerDomain}`;
 
-      // Only set LOCAL/PROD_DATABASE_URL if missing; otherwise preserve original
-      if (!backendExisting["LOCAL_DATABASE_URL"]) backendUpdates["LOCAL_DATABASE_URL"] = backendUpdates["DATABASE_URL"];
-      if (!backendExisting["PROD_DATABASE_URL"]) backendUpdates["PROD_DATABASE_URL"] = backendUpdates["DATABASE_URL"];
+      // Local modda kafa karışıklığını önlemek için LOCAL_DATABASE_URL'ı her zaman aktif DATABASE_URL ile eşitle
+      if (isLocal) {
+        backendUpdates["LOCAL_DATABASE_URL"] = backendUpdates["DATABASE_URL"];
+      } else {
+        // Production modda PROD_DATABASE_URL'ı aktif DATABASE_URL ile eşitle
+        backendUpdates["PROD_DATABASE_URL"] = backendUpdates["DATABASE_URL"];
+      }
 
       const backendMerged = { ...backendExisting, ...backendUpdates };
       await writeEnv(backendEnvPath, backendMerged);
