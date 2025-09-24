@@ -38,7 +38,7 @@ export interface Customer {
 }
 
 export class CustomerService {
-  private customersPath = process.env.CUSTOMERS_PATH || "/var/qodify/customers";
+  private customersPath = process.env.CUSTOMERS_PATH || path.join(process.cwd(), "../customers");
   private customerDataPath = path.join(process.cwd(), "data", "customers.json");
 
   constructor() {
@@ -475,6 +475,157 @@ export class CustomerService {
       return { user, password, host, port, database, schema };
     } catch (e) {
       return null;
+    }
+  }
+
+  async getEnvConfig(customerId: string): Promise<any> {
+    try {
+      const customer = await this.getCustomerById(customerId);
+      if (!customer) throw new Error("Customer not found");
+
+      const customerPath = path.join(this.customersPath, customer.domain);
+      const services = ["backend", "admin", "store"];
+      const config: any = {};
+
+      for (const service of services) {
+        const envPath = path.join(customerPath, service, ".env");
+        if (await fs.pathExists(envPath)) {
+          const envContent = await fs.readFile(envPath, "utf8");
+          const parsed = parseDotenv(envContent);
+
+          // Only return important config vars, not secrets
+          config[service] = {
+            NODE_ENV: parsed.NODE_ENV,
+            PORT: parsed.PORT,
+            DATABASE_URL: parsed.DATABASE_URL ? "***HIDDEN***" : undefined,
+            NEXT_PUBLIC_API_URL: parsed.NEXT_PUBLIC_API_URL,
+            NEXT_PUBLIC_API_BASE_URL: parsed.NEXT_PUBLIC_API_BASE_URL,
+            NEXT_PUBLIC_BACKEND_PORT: parsed.NEXT_PUBLIC_BACKEND_PORT,
+            NEXT_PUBLIC_APP_URL: parsed.NEXT_PUBLIC_APP_URL,
+            NEXT_PUBLIC_STORE_URL: parsed.NEXT_PUBLIC_STORE_URL,
+            NEXT_PUBLIC_PROD_API_URL: parsed.NEXT_PUBLIC_PROD_API_URL,
+            NEXT_PUBLIC_PROD_APP_URL: parsed.NEXT_PUBLIC_PROD_APP_URL,
+            NEXT_PUBLIC_PROD_STORE_URL: parsed.NEXT_PUBLIC_PROD_STORE_URL,
+            APP_URL: parsed.APP_URL,
+            STORE_URL: parsed.STORE_URL,
+            ADMIN_URL: parsed.ADMIN_URL,
+            REDIS_HOST: parsed.REDIS_HOST,
+            REDIS_PORT: parsed.REDIS_PORT,
+            STORE_NAME: parsed.STORE_NAME,
+          };
+        }
+      }
+
+      return {
+        customerId,
+        domain: customer.domain,
+        ports: customer.ports,
+        config
+      };
+    } catch (error) {
+      console.error("Error getting env config:", error);
+      throw error;
+    }
+  }
+
+  async updateEnvConfig(customerId: string, updates: any): Promise<any> {
+    try {
+      const customer = await this.getCustomerById(customerId);
+      if (!customer) throw new Error("Customer not found");
+
+      const customerPath = path.join(this.customersPath, customer.domain);
+      const results: any = {};
+
+      // Update each service's env file
+      for (const [service, envUpdates] of Object.entries(updates)) {
+        if (!envUpdates || typeof envUpdates !== 'object') continue;
+
+        const envPath = path.join(customerPath, service, ".env");
+        if (await fs.pathExists(envPath)) {
+          // Read existing env
+          const envContent = await fs.readFile(envPath, "utf8");
+          const lines = envContent.split("\n");
+          const newLines: string[] = [];
+          const updatedKeys = new Set<string>();
+
+          // Update existing keys
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith("#") || trimmed === "") {
+              newLines.push(line);
+              continue;
+            }
+
+            const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+            if (!match) {
+              newLines.push(line);
+              continue;
+            }
+
+            const key = match[1];
+            if ((envUpdates as any).hasOwnProperty(key)) {
+              newLines.push(`${key}=${(envUpdates as any)[key]}`);
+              updatedKeys.add(key);
+            } else {
+              newLines.push(line);
+            }
+          }
+
+          // Append new keys that weren't present
+          for (const [key, value] of Object.entries(envUpdates as any)) {
+            if (!updatedKeys.has(key)) {
+              newLines.push(`${key}=${value}`);
+            }
+          }
+
+          // Write back
+          await fs.writeFile(envPath, newLines.join("\n"));
+          results[service] = { success: true, updated: Object.keys(envUpdates as any).length };
+        }
+      }
+
+      return {
+        success: true,
+        results,
+        message: "Environment configuration updated successfully"
+      };
+    } catch (error) {
+      console.error("Error updating env config:", error);
+      throw error;
+    }
+  }
+
+  async restartService(customerId: string, service?: string): Promise<any> {
+    try {
+      const customer = await this.getCustomerById(customerId);
+      if (!customer) throw new Error("Customer not found");
+
+      const info = await detectPm2();
+      const pm2Bin = info?.bin || "pm2";
+
+      if (service) {
+        // Restart specific service
+        const serviceName = `${customer.domain}-${service}`;
+        await execAsync(`${pm2Bin} restart ${serviceName} --update-env`);
+        return {
+          success: true,
+          message: `Service ${serviceName} restarted successfully`
+        };
+      } else {
+        // Restart all services for the customer
+        const services = ["backend", "admin", "store"];
+        for (const svc of services) {
+          const serviceName = `${customer.domain}-${svc}`;
+          await execAsync(`${pm2Bin} restart ${serviceName} --update-env`);
+        }
+        return {
+          success: true,
+          message: `All services for ${customer.domain} restarted successfully`
+        };
+      }
+    } catch (error) {
+      console.error("Error restarting service:", error);
+      throw error;
     }
   }
 }

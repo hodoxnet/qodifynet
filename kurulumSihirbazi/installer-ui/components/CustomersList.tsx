@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Play, Square, RefreshCw, Trash2, ExternalLink, Loader2, Info, Terminal, AlertCircle, CheckCircle } from "lucide-react";
+import { Play, Square, RefreshCw, Trash2, ExternalLink, Loader2, Info, Terminal, AlertCircle, CheckCircle, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { LogViewer } from "./LogViewer";
 import { apiFetch as fetcher } from "@/lib/api";
@@ -249,6 +249,13 @@ export function CustomersList({ onRefresh }: CustomersListProps) {
                           >
                             <Info className="w-4 h-4" />
                           </button>
+                          <a
+                            href={`/customers/${customer.id}/config`}
+                            className="p-1 text-purple-600 hover:bg-purple-100 rounded inline-block"
+                            title="Konfigürasyon"
+                          >
+                            <Settings className="w-4 h-4" />
+                          </a>
                           {customer.status === "stopped" ? (
                             <button
                               onClick={() => handleAction(customer.id, "start")}

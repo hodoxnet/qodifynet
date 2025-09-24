@@ -101,3 +101,34 @@ customerRouter.get("/:id/health", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPE
     res.status(500).json({ error: "Failed to check health" });
   }
 });
+
+// Get environment configuration
+customerRouter.get("/:id/env-config", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const envConfig = await customerService.getEnvConfig(req.params.id);
+    res.json(envConfig);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch environment configuration" });
+  }
+});
+
+// Update environment configuration
+customerRouter.put("/:id/env-config", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const result = await customerService.updateEnvConfig(req.params.id, req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update environment configuration" });
+  }
+});
+
+// Restart specific service with PM2
+customerRouter.post("/:id/restart-service", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const { service } = req.body; // 'backend', 'admin', or 'store'
+    const result = await customerService.restartService(req.params.id, service);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to restart service" });
+  }
+});
