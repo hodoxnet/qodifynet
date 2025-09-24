@@ -1,1 +1,30 @@
-[]
+[
+  {
+    "id": "c44dfd6c-13e6-479c-a5f7-ce3ef9fa0563",
+    "domain": "qodify",
+    "status": "running",
+    "createdAt": "2025-09-24T21:15:49.300Z",
+    "ports": {
+      "backend": 4000,
+      "admin": 4001,
+      "store": 4002
+    },
+    "resources": {
+      "cpu": 0,
+      "memory": 0
+    },
+    "mode": "local",
+    "db": {
+      "name": "qodify_qodify",
+      "user": "qodify_user",
+      "host": "localhost",
+      "port": 5432,
+      "schema": "public"
+    },
+    "redis": {
+      "host": "localhost",
+      "port": 6379,
+      "prefix": "qodify"
+    }
+  }
+]
