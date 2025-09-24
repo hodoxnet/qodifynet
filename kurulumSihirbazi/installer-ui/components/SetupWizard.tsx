@@ -84,7 +84,7 @@ export function SetupWizard() {
   const progressPercentage = ((currentStep - 1) / (STEP_TITLES.length - 1)) * 100;
 
   return (
-    <div className="w-full">
+    <>
       {/* Header */}
       <div className="mb-8 text-center">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 md:text-4xl">
@@ -167,6 +167,6 @@ export function SetupWizard() {
       <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
         <p>© 2024 Qodify. Tüm hakları saklıdır.</p>
       </div>
-    </div>
+    </>
   );
 }

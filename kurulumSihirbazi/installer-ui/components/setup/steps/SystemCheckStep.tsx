@@ -53,7 +53,7 @@ export function SystemCheckStep({ onNext }: SystemCheckStepProps) {
   };
 
   return (
-    <Card className="w-full max-w-3xl mx-auto">
+    <Card className="w-full">
       <CardHeader className="text-center">
         <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/50 dark:to-purple-900/50">
           <HardDrive className="h-10 w-10 text-indigo-600 dark:text-indigo-400" />
