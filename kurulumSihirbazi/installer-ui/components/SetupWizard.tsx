@@ -19,7 +19,6 @@ import { InstallationStep } from '@/components/setup/steps/InstallationStep';
 
 // Types
 import { WizardStep, STEP_TITLES } from '@/lib/types/setup';
-import { ThemeToggle } from '@/components/theme-toggle';
 
 export function SetupWizard() {
   const {
@@ -88,18 +87,13 @@ export function SetupWizard() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 p-4 md:p-6 lg:p-8">
       <div className="mx-auto max-w-5xl">
         {/* Header */}
-        <div className="mb-8 relative">
-          <div className="absolute right-0 top-0">
-            <ThemeToggle />
-          </div>
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 md:text-4xl">
-              Qodify Kurulum Sihirbazı
-            </h1>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">
-              Yeni bir e-ticaret sitesi kurun
-            </p>
-          </div>
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 md:text-4xl">
+            Qodify Kurulum Sihirbazı
+          </h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">
+            Yeni bir e-ticaret sitesi kurun
+          </p>
         </div>
 
         {/* Progress Indicator */}
