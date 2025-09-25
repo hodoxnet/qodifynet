@@ -66,16 +66,8 @@ export function useCustomerActions(onRefresh?: () => void) {
   );
 
   const deleteCustomer = useCallback(
-    async (customerId: string, customerDomain: string) => {
-      const confirmed = confirm(
-        `${customerDomain} müşterisini silmek istediğinize emin misiniz?\n\nBu işlem geri alınamaz!`
-      );
-
-      if (confirmed) {
-        return handleAction(customerId, "delete", customerDomain);
-      }
-      return false;
-    },
+    (customerId: string, customerDomain?: string) =>
+      handleAction(customerId, "delete", customerDomain),
     [handleAction]
   );
 

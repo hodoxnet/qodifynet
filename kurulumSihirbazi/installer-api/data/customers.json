@@ -1,9 +1,9 @@
 [
   {
-    "id": "c44dfd6c-13e6-479c-a5f7-ce3ef9fa0563",
-    "domain": "qodify",
+    "id": "24f533b2-d509-4031-9f5c-a3964d913c5f",
+    "domain": "erpakambalaj",
     "status": "running",
-    "createdAt": "2025-09-24T21:15:49.300Z",
+    "createdAt": "2025-09-25T08:05:11.351Z",
     "ports": {
       "backend": 4000,
       "admin": 4001,
@@ -15,7 +15,7 @@
     },
     "mode": "local",
     "db": {
-      "name": "qodify_qodify",
+      "name": "qodify_erpakambalaj",
       "user": "qodify_user",
       "host": "localhost",
       "port": 5432,
@@ -24,7 +24,7 @@
     "redis": {
       "host": "localhost",
       "port": 6379,
-      "prefix": "qodify"
+      "prefix": "erpakambalaj"
     }
   }
 ]

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CustomersTable } from "@/components/customers/CustomersTable";
 import { CustomerInfoDialog } from "@/components/customers/CustomerInfoDialog";
 import { CustomerLogViewer } from "@/components/customers/CustomerLogViewer";
+import { DeleteCustomerDialog } from "@/components/customers/DeleteCustomerDialog";
 import { useCustomerList, Customer } from "@/hooks/customers/useCustomerList";
 import { useCustomerActions } from "@/hooks/customers/useCustomerActions";
 import { ServiceType } from "@/hooks/customers/useCustomerLogs";
@@ -29,6 +30,8 @@ export function CustomersList({ onRefresh }: CustomersListProps) {
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [logViewerOpen, setLogViewerOpen] = useState(false);
   const [logService, setLogService] = useState<ServiceType>("backend");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
 
   const handleRefresh = useCallback(async () => {
     await refreshCustomers();
@@ -45,6 +48,22 @@ export function CustomersList({ onRefresh }: CustomersListProps) {
     setLogViewerOpen(true);
     setInfoDialogOpen(false);
   }, []);
+
+  const handleDeleteClick = useCallback((customerId: string, customerDomain: string) => {
+    const customer = customers.find(c => c.id === customerId);
+    if (customer) {
+      setCustomerToDelete(customer);
+      setDeleteDialogOpen(true);
+    }
+  }, [customers]);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (customerToDelete) {
+      await deleteCustomer(customerToDelete.id, customerToDelete.domain);
+      setDeleteDialogOpen(false);
+      setCustomerToDelete(null);
+    }
+  }, [customerToDelete, deleteCustomer]);
 
   return (
     <>
@@ -69,7 +88,7 @@ export function CustomersList({ onRefresh }: CustomersListProps) {
             onStart={startCustomer}
             onStop={stopCustomer}
             onRestart={restartCustomer}
-            onDelete={deleteCustomer}
+            onDelete={handleDeleteClick}
             onInfo={handleOpenInfo}
           />
         </CardContent>
@@ -91,6 +110,14 @@ export function CustomersList({ onRefresh }: CustomersListProps) {
           onOpenChange={setLogViewerOpen}
         />
       )}
+
+      <DeleteCustomerDialog
+        customer={customerToDelete}
+        open={deleteDialogOpen}
+        loading={actionLoading === customerToDelete?.id}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteConfirm}
+      />
     </>
   );
 }
