@@ -161,12 +161,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <a href="/">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-sm">
                   <Command className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Qodify</span>
-                  <span className="truncate text-xs">Kurulum Sihirbazı</span>
+                  <span className="truncate font-semibold text-gray-900 dark:text-gray-100">Qodify</span>
+                  <span className="truncate text-xs text-gray-600 dark:text-gray-400">Kurulum Sihirbazı</span>
                 </div>
               </a>
             </SidebarMenuButton>
