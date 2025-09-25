@@ -57,17 +57,15 @@ templateRouter.post("/check", authorize("ADMIN", "SUPER_ADMIN"), async (req, res
       templateService.getComponentsStatus(version),
     ]);
 
-    if (!availability.available) {
-      res.status(404).json({
-        available: false,
-        missing: availability.missing,
-        message: availability.message,
-        files,
-      });
-      return;
-    }
-
-    res.json({ ...availability, files });
+    // Her zaman 200 status döndür, eksik dosyalar olsa bile
+    // UI tarafı available flag'ine bakarak durumu anlayacak
+    res.json({
+      available: availability.available,
+      missing: availability.missing,
+      message: availability.message,
+      files,
+      uploaded: availability.missing?.length === 0 ? [] : Object.keys(files).filter(f => files[f].uploaded),
+    });
   } catch (error) {
     console.error("Template check error:", error);
     res.status(500).json({ error: "Failed to check template availability" });
@@ -118,5 +116,31 @@ templateRouter.post("/upload", authorize("ADMIN", "SUPER_ADMIN"), upload.single(
     res.json({ success: true, version, ...availability });
   } catch (error: any) {
     res.status(500).json({ error: error?.message || "Upload failed" });
+  }
+});
+
+templateRouter.delete("/:filename", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const { filename } = req.params;
+
+    if (!filename) {
+      res.status(400).json({ error: "Dosya adı belirtilmedi" });
+      return;
+    }
+
+    const result = await templateService.deleteTemplate(filename);
+
+    if (!result.success) {
+      res.status(404).json({ error: result.message || "Template silinemedi" });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: result.message || `${filename} başarıyla silindi`
+    });
+  } catch (error: any) {
+    console.error("Template delete error:", error);
+    res.status(500).json({ error: error?.message || "Template silme işlemi başarısız" });
   }
 });

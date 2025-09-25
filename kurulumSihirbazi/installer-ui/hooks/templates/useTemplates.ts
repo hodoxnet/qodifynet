@@ -52,7 +52,7 @@ export function useTemplates() {
     return "2.4.0";
   }, []);
 
-  const checkTemplates = useCallback(async () => {
+  const checkTemplates = useCallback(async (showErrors = false) => {
     setLoading(true);
     setError(null);
 
@@ -66,7 +66,8 @@ export function useTemplates() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to check templates");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to check templates");
       }
 
       const data: TemplateCheckResult = await response.json();
@@ -82,37 +83,71 @@ export function useTemplates() {
           name,
           version,
           category,
-          uploaded: detail?.uploaded ?? !data.missing?.includes(name),
+          uploaded: detail?.uploaded ?? false,
           size: detail?.size,
           uploadDate: detail?.uploadDate,
         };
       });
 
       setTemplates(templatesList);
+      setError(null); // Clear any previous errors
     } catch (err) {
       const message = err instanceof Error ? err.message : "Template kontrolü başarısız";
-      setError(message);
-      toast.error(message);
+      console.error("Template check error:", err);
+
+      // Sadece açık bir şekilde hata gösterilmesi istendiğinde toast göster
+      if (showErrors) {
+        setError(message);
+        toast.error(message);
+      }
+
+      // Hata durumunda bile boş bir template listesi göster
+      setTemplates([]);
     } finally {
       setLoading(false);
     }
   }, [detectLatestVersion]);
 
-  const refreshTemplates = useCallback(async () => {
-    await checkTemplates();
+  const refreshTemplates = useCallback(async (showErrors = false) => {
+    await checkTemplates(showErrors);
   }, [checkTemplates]);
+
+  const deleteTemplate = useCallback(async (filename: string): Promise<boolean> => {
+    try {
+      const response = await apiFetch(`/api/templates/${filename}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        toast.error(error.error || "Template silme işlemi başarısız");
+        return false;
+      }
+
+      const data = await response.json();
+      toast.success(data.message || "Template başarıyla silindi");
+
+      // Template listesini sessizce güncelle (hata mesajı gösterme)
+      await refreshTemplates(false);
+      return true;
+    } catch (error) {
+      console.error("Template silme hatası:", error);
+      toast.error("Template silme işlemi başarısız");
+      return false;
+    }
+  }, [refreshTemplates]);
 
   // Initial load
   useEffect(() => {
-    checkTemplates();
-  }, [checkTemplates]);
+    checkTemplates(true); // İlk yüklemede hataları göster
+  }, []);
 
   // Auto refresh
   useEffect(() => {
     if (!autoRefresh) return;
 
     const interval = setInterval(() => {
-      checkTemplates();
+      checkTemplates(false); // Auto refresh'te hata gösterme
     }, 30000); // 30 seconds
 
     return () => clearInterval(interval);
@@ -127,5 +162,6 @@ export function useTemplates() {
     autoRefresh,
     setAutoRefresh,
     refreshTemplates,
+    deleteTemplate,
   };
 }

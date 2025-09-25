@@ -415,4 +415,58 @@ export class TemplateService {
       };
     }
   }
+
+  async deleteTemplate(filename: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      // Filename format'ını kontrol et (e.g., backend-2.4.0.zip)
+      const match = filename.match(/^(backend|admin|store)-(.+)\.zip$/);
+      if (!match) {
+        return {
+          success: false,
+          message: "Geçersiz dosya adı formatı",
+        };
+      }
+
+      const [, component, version] = match;
+      const categories = ["stable", "beta", "archived"];
+      const templatesPath = await this.resolveTemplatesPath();
+      let fileDeleted = false;
+
+      // Dosyayı tüm kategorilerde ara ve sil
+      for (const category of categories) {
+        const filePath = path.join(templatesPath, category, filename);
+        if (await fs.pathExists(filePath)) {
+          await fs.remove(filePath);
+          fileDeleted = true;
+          console.log(`Template silindi: ${filePath}`);
+        }
+      }
+
+      // Root klasörde kontrol et
+      const rootPath = path.join(templatesPath, filename);
+      if (await fs.pathExists(rootPath)) {
+        await fs.remove(rootPath);
+        fileDeleted = true;
+        console.log(`Template silindi: ${rootPath}`);
+      }
+
+      if (!fileDeleted) {
+        return {
+          success: false,
+          message: `Template dosyası bulunamadı: ${filename}`,
+        };
+      }
+
+      return {
+        success: true,
+        message: `${component}-${version}.zip başarıyla silindi`,
+      };
+    } catch (error: any) {
+      console.error("Template silme hatası:", error);
+      return {
+        success: false,
+        message: error?.message || "Template silme işlemi başarısız",
+      };
+    }
+  }
 }

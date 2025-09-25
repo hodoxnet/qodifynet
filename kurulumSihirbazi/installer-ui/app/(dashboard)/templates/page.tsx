@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { TemplateCard } from "@/components/templates/TemplateCard";
 import { TemplateUploadDialog } from "@/components/templates/TemplateUploadDialog";
 import { TemplateStatusAlert } from "@/components/templates/TemplateStatusAlert";
+import { TemplateDeleteDialog } from "@/components/templates/TemplateDeleteDialog";
 
 // Hooks
 import { useTemplates, TemplateFile } from "@/hooks/templates/useTemplates";
@@ -35,12 +36,15 @@ export default function TemplatesPage() {
     autoRefresh,
     setAutoRefresh,
     refreshTemplates,
+    deleteTemplate,
   } = useTemplates();
 
-  const { uploading, uploadProgress, uploadTemplate } = useTemplateUpload(refreshTemplates);
+  const { uploading, uploadProgress, uploadTemplate } = useTemplateUpload(() => refreshTemplates(false));
 
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateFile | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleOpenUploadDialog = (template: TemplateFile) => {
     setSelectedTemplate(template);
@@ -64,8 +68,22 @@ export default function TemplatesPage() {
   };
 
   const handleDelete = (template: TemplateFile) => {
-    // TODO: Implement delete functionality
-    toast.info("Silme özelliği yakında eklenecek");
+    setSelectedTemplate(template);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!selectedTemplate) return;
+
+    setIsDeleting(true);
+    const success = await deleteTemplate(selectedTemplate.name);
+
+    if (success) {
+      setDeleteDialogOpen(false);
+      setSelectedTemplate(null);
+    }
+
+    setIsDeleting(false);
   };
 
   const handleBackupAll = () => {
@@ -114,7 +132,7 @@ export default function TemplatesPage() {
       <TemplateStatusAlert
         status={status}
         loading={loading}
-        onRefresh={refreshTemplates}
+        onRefresh={() => refreshTemplates(true)}
       />
 
       {/* Settings Bar */}
@@ -149,7 +167,7 @@ export default function TemplatesPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={refreshTemplates}
+            onClick={() => refreshTemplates(true)}
             disabled={loading}
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
@@ -172,7 +190,7 @@ export default function TemplatesPage() {
           <p className="text-red-600 dark:text-red-400">{error}</p>
           <Button
             variant="outline"
-            onClick={refreshTemplates}
+            onClick={() => refreshTemplates(true)}
             className="mt-4"
           >
             Tekrar Dene
@@ -202,6 +220,15 @@ export default function TemplatesPage() {
         onUpload={handleUpload}
         uploading={!!uploading}
         uploadProgress={uploadProgress}
+      />
+
+      {/* Delete Dialog */}
+      <TemplateDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        template={selectedTemplate}
+        onConfirm={confirmDelete}
+        isDeleting={isDeleting}
       />
 
       {/* Info Section */}
