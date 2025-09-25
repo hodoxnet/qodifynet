@@ -114,20 +114,20 @@ export function InstallationStep({
 
         {/* Completed Info */}
         {completedInfo && installStatus === "completed" && (
-          <Alert className="border-emerald-200 bg-emerald-50">
-            <CheckCircle className="h-5 w-5 text-emerald-600" />
-            <AlertTitle className="text-emerald-900">Site Bilgileri</AlertTitle>
+          <Alert className="border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20">
+            <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            <AlertTitle className="text-emerald-900 dark:text-emerald-100">Site Bilgileri</AlertTitle>
             <AlertDescription className="mt-4 space-y-4">
               {/* URLs */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Store URL</p>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Store URL</p>
                     <a
                       href={completedInfo.urls.store}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline inline-flex items-center space-x-1"
+                      className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center space-x-1"
                     >
                       <span>{completedInfo.urls.store}</span>
                       <ExternalLink className="h-3 w-3" />
@@ -144,12 +144,12 @@ export function InstallationStep({
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Admin Panel</p>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Admin Panel</p>
                     <a
                       href={completedInfo.urls.admin}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline inline-flex items-center space-x-1"
+                      className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center space-x-1"
                     >
                       <span>{completedInfo.urls.admin}</span>
                       <ExternalLink className="h-3 w-3" />
@@ -166,12 +166,12 @@ export function InstallationStep({
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-700">API</p>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">API</p>
                     <a
                       href={completedInfo.urls.api}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline inline-flex items-center space-x-1"
+                      className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center space-x-1"
                     >
                       <span>{completedInfo.urls.api}</span>
                       <ExternalLink className="h-3 w-3" />
@@ -186,51 +186,16 @@ export function InstallationStep({
                   </Button>
                 </div>
               </div>
-
-              <Separator className="my-3" />
-
-              {/* Credentials */}
-              <div className="space-y-2">
-                <p className="font-medium text-gray-900">Admin Giriş Bilgileri</p>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">E-posta</p>
-                    <p className="font-mono text-sm">{completedInfo.credentials?.email || adminEmail}</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => copyToClipboard(completedInfo.credentials?.email || adminEmail, "E-posta")}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-                {completedInfo.credentials?.password && (
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">Şifre</p>
-                      <p className="font-mono text-sm">{completedInfo.credentials.password}</p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => copyToClipboard(completedInfo.credentials?.password || "", "Şifre")}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
-              </div>
             </AlertDescription>
           </Alert>
         )}
 
         {/* Error State */}
         {installStatus === "error" && (
-          <Alert className="border-rose-200 bg-rose-50">
-            <XCircle className="h-5 w-5 text-rose-600" />
-            <AlertTitle className="text-rose-900">Kurulum Hatası</AlertTitle>
-            <AlertDescription className="text-rose-700">
+          <Alert className="border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/20">
+            <XCircle className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+            <AlertTitle className="text-rose-900 dark:text-rose-100">Kurulum Hatası</AlertTitle>
+            <AlertDescription className="text-rose-700 dark:text-rose-300">
               Kurulum sırasında bir hata oluştu. Lütfen logları kontrol edip tekrar deneyin.
             </AlertDescription>
           </Alert>
