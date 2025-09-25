@@ -78,22 +78,22 @@ const DATABASE_OPERATIONS = [
 const getColorClasses = (color: string) => {
   const colors = {
     blue: {
-      button: "bg-blue-600 hover:bg-blue-700",
+      button: "bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white",
       icon: "text-blue-600 dark:text-blue-400",
       bg: "bg-blue-50 dark:bg-blue-900/20",
     },
     green: {
-      button: "bg-green-600 hover:bg-green-700",
+      button: "bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-white",
       icon: "text-green-600 dark:text-green-400",
       bg: "bg-green-50 dark:bg-green-900/20",
     },
     purple: {
-      button: "bg-purple-600 hover:bg-purple-700",
+      button: "bg-purple-600 hover:bg-purple-700 dark:bg-purple-600 dark:hover:bg-purple-700 text-white",
       icon: "text-purple-600 dark:text-purple-400",
       bg: "bg-purple-50 dark:bg-purple-900/20",
     },
     orange: {
-      button: "bg-orange-600 hover:bg-orange-700",
+      button: "bg-orange-600 hover:bg-orange-700 dark:bg-orange-600 dark:hover:bg-orange-700 text-white",
       icon: "text-orange-600 dark:text-orange-400",
       bg: "bg-orange-50 dark:bg-orange-900/20",
     },
@@ -157,7 +157,7 @@ export function DatabaseTab({
                   <Button
                     onClick={actions[operation.action]}
                     disabled={isLoading || Object.values(operations).some(Boolean)}
-                    className={`gap-2 ${colorClasses.button} text-white`}
+                    className={`gap-2 ${colorClasses.button}`}
                   >
                     {isLoading ? (
                       <>
