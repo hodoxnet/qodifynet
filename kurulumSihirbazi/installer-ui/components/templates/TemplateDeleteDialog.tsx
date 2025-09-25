@@ -73,7 +73,7 @@ export function TemplateDeleteDialog({
           <AlertDialogAction
             onClick={onConfirm}
             disabled={isDeleting}
-            className="bg-red-600 hover:bg-red-700 text-white"
+            className="bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 text-white focus:ring-red-500"
           >
             {isDeleting ? "Siliniyor..." : "Sil"}
           </AlertDialogAction>
