@@ -29,8 +29,6 @@ export function SiteConfigStep({ config, onConfigUpdate, onNext, onBack }: SiteC
     config.domain &&
     config.storeName &&
     config.dbName &&
-    config.adminEmail &&
-    config.adminPassword &&
     config.appDbUser &&
     config.appDbPassword;
 
@@ -121,37 +119,6 @@ export function SiteConfigStep({ config, onConfigUpdate, onNext, onBack }: SiteC
               onChange={(e) => onConfigUpdate({ appDbPassword: e.target.value })}
               placeholder="••••••••"
             />
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Admin Kullanıcısı */}
-        <div className="space-y-4">
-          <h3 className="font-medium">Admin Kullanıcısı</h3>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="admin-email">Admin E-posta</Label>
-              <Input
-                id="admin-email"
-                type="email"
-                value={config.adminEmail}
-                onChange={(e) => onConfigUpdate({ adminEmail: e.target.value })}
-                placeholder="admin@example.com"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="admin-password">Admin Şifresi</Label>
-              <Input
-                id="admin-password"
-                type="password"
-                value={config.adminPassword}
-                onChange={(e) => onConfigUpdate({ adminPassword: e.target.value })}
-                placeholder="••••••••"
-              />
-            </div>
           </div>
         </div>
 

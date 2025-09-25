@@ -23,8 +23,6 @@ export interface SetupConfig {
   // Site bilgileri
   domain: string;
   storeName: string;
-  adminEmail: string;
-  adminPassword: string;
   templateVersion: string;
 }
 
@@ -89,7 +87,5 @@ export const DEFAULT_CONFIG: SetupConfig = {
   redisPort: 6379,
   domain: "",
   storeName: "",
-  adminEmail: "",
-  adminPassword: "",
   templateVersion: "latest"
 };

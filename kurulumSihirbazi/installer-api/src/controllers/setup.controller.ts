@@ -258,8 +258,6 @@ setupRouter.post("/finalize", authorize("ADMIN", "SUPER_ADMIN"), async (req, res
       redisHost,
       redisPort,
       storeName,
-      adminEmail,
-      adminPassword,
       isLocal
     } = req.body;
 
@@ -327,10 +325,6 @@ setupRouter.post("/finalize", authorize("ADMIN", "SUPER_ADMIN"), async (req, res
       customerId,
       domain,
       urls,
-      credentials: {
-        email: adminEmail,
-        password: adminPassword
-      },
       mode: isLocal ? "local" : "production"
     });
   } catch (error: any) {

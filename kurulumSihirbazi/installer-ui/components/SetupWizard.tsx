@@ -73,7 +73,6 @@ export function SetupWizard() {
             installStatus={installStatus}
             installProgress={installProgress}
             completedInfo={completedInfo}
-            adminEmail={config.adminEmail}
           />
         );
       default:

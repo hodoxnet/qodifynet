@@ -1,1 +1,30 @@
-[]
+[
+  {
+    "id": "5807b191-bfef-46ea-9b82-8706f470736b",
+    "domain": "erpakambalaj",
+    "status": "running",
+    "createdAt": "2025-09-25T10:56:39.433Z",
+    "ports": {
+      "backend": 4000,
+      "admin": 4001,
+      "store": 4002
+    },
+    "resources": {
+      "cpu": 0,
+      "memory": 0
+    },
+    "mode": "local",
+    "db": {
+      "name": "qodify_erpakambalaj",
+      "user": "qodify_user",
+      "host": "localhost",
+      "port": 5432,
+      "schema": "public"
+    },
+    "redis": {
+      "host": "localhost",
+      "port": 6379,
+      "prefix": "erpakambalaj"
+    }
+  }
+]

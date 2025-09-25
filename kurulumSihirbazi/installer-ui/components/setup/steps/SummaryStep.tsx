@@ -35,7 +35,6 @@ export function SummaryStep({
     { label: "Domain", value: config.domain },
     { label: "Mağaza Adı", value: config.storeName },
     { label: "Veritabanı", value: config.dbName },
-    { label: "Admin E-posta", value: config.adminEmail },
     {
       label: "Template",
       value: config.templateVersion === "latest" ? "v2.4.0 (En Güncel)" : `v${config.templateVersion}`

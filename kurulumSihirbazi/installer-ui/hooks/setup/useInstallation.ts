@@ -133,8 +133,6 @@ export function useInstallation() {
         redisHost: config.redisHost,
         redisPort: config.redisPort,
         storeName: config.storeName,
-        adminEmail: config.adminEmail,
-        adminPassword: config.adminPassword,
         isLocal
       }, { headers: getAuthHeaders(), withCredentials: true });
 

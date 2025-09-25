@@ -21,14 +21,12 @@ interface InstallationStepProps {
   installStatus: InstallStatus;
   installProgress: string[];
   completedInfo: CompletedInfo | null;
-  adminEmail: string;
 }
 
 export function InstallationStep({
   installStatus,
   installProgress,
-  completedInfo,
-  adminEmail
+  completedInfo
 }: InstallationStepProps) {
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
