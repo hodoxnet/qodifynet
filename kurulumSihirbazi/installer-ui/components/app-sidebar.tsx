@@ -54,19 +54,9 @@ const data = {
       icon: Rocket,
     },
     {
-      title: "Sistem Durumu",
-      url: "/system",
-      icon: Server,
-    },
-    {
       title: "Müşteriler",
       url: "/customers",
       icon: Users,
-    },
-    {
-      title: "Template Dosyaları",
-      url: "/templates",
-      icon: FileCode,
     },
     {
       title: "Son Aktiviteler",
@@ -76,14 +66,14 @@ const data = {
   ],
   navSecondary: [
     {
-      title: "Destek",
-      url: "#",
-      icon: LifeBuoy,
+      title: "Sistem Durumu",
+      url: "/system",
+      icon: Server,
     },
     {
-      title: "Geri Bildirim",
-      url: "#",
-      icon: Send,
+      title: "Template Dosyaları",
+      url: "/templates",
+      icon: FileCode,
     },
   ],
   projects: [
