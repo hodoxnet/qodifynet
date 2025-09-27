@@ -534,7 +534,7 @@ export class SetupService {
           });
 
           let stderrBuf = "";
-          child.stdout.on("data", (d) => {
+          child.stdout.on("data", () => {
             // İstenirse burada log kırpıp gönderebiliriz
           });
           child.stderr.on("data", (d) => { stderrBuf += d.toString(); });
@@ -704,7 +704,7 @@ export class SetupService {
         update(`Store derlendi`);
       }
 
-      clearInterval(tick);
+      // Tüm alt akışlar temizlenmiş durumda
 
       return {
         ok: true,
