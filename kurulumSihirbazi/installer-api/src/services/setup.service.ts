@@ -483,8 +483,14 @@ export class SetupService {
         if (onProgress) onProgress(`${app} bağımlılıkları yükleniyor...`);
 
         const appPath = path.join(customerPath, app);
-        // npm install kullan, devDependencies da dahil tüm bağımlılıkları yükle
-        await execAsync(`cd "${appPath}" && npm install`, { timeout: 600000 }); // 10 dakika timeout
+        // Bazı production ortamlarında NPM_CONFIG_PRODUCTION=true olduğundan devDependencies atlanabiliyor.
+        // Bunu engellemek için hem env üzerinden hem de bayrakla dev bağımlılıkları dahil et.
+        const env = { ...process.env, NPM_CONFIG_PRODUCTION: "false", npm_config_production: "false" } as Record<string, any>;
+        await execAsync(`npm install --production=false --no-audit --no-fund`, {
+          cwd: appPath,
+          timeout: 600000, // 10 dakika timeout
+          env,
+        });
       }
 
       return {
