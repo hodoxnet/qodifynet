@@ -32,7 +32,7 @@ export class ImprovedSetupService {
     const logStream = fs.createWriteStream(logPath, { flags: 'a' });
     logStream.write(`\n\n========== BUILD START: ${new Date().toISOString()} ==========\n`);
 
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
       console.log(`[${service}] Build başlatılıyor: ${servicePath}`);
 
       // Opsiyonel: Next.js tip kontrolünü geçici olarak devre dışı bırak (frontend için)
@@ -81,7 +81,6 @@ export class ImprovedSetupService {
 
       // Environment variables
       const heap = options?.heapMB && options.heapMB > 0 ? String(options.heapMB) : undefined;
-      const isFrontend = service === "admin" || service === "store";
       const buildEnv = {
         ...process.env,
         NODE_ENV: "production",
