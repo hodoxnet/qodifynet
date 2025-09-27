@@ -217,19 +217,19 @@ export function DatabaseTab({
             <li className="flex items-start gap-2">
               <Badge variant="outline" className="mt-0.5">1</Badge>
               <span className="text-gray-700 dark:text-gray-300">
-                Önce "Prisma Client Oluştur" komutunu çalıştırın
+                Önce &quot;Prisma Client Oluştur&quot; komutunu çalıştırın
               </span>
             </li>
             <li className="flex items-start gap-2">
               <Badge variant="outline" className="mt-0.5">2</Badge>
               <span className="text-gray-700 dark:text-gray-300">
-                Sonra "Veritabanı Şemasını Güncelle" ile şema değişikliklerini uygulayın
+                Sonra &quot;Veritabanı Şemasını Güncelle&quot; ile şema değişikliklerini uygulayın
               </span>
             </li>
             <li className="flex items-start gap-2">
               <Badge variant="outline" className="mt-0.5">3</Badge>
               <span className="text-gray-700 dark:text-gray-300">
-                Gerekirse "Seed Çalıştır" ile başlangıç verilerini yükleyin
+                Gerekirse &quot;Seed Çalıştır&quot; ile başlangıç verilerini yükleyin
               </span>
             </li>
             <li className="flex items-start gap-2">

@@ -47,7 +47,7 @@ export function TemplateDeleteDialog({
             <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
               <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
             </div>
-            <AlertDialogTitle>Template'i Sil</AlertDialogTitle>
+            <AlertDialogTitle>Template&apos;i Sil</AlertDialogTitle>
           </div>
           <AlertDialogDescription asChild>
             <div className="mt-3 space-y-3">

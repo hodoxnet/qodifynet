@@ -156,7 +156,7 @@ export function TemplateManager() {
         setTimeout(async () => {
           await checkTemplates();
           // Force component re-render
-          setTemplateStatus(prev => ({ ...prev }));
+          setTemplateStatus(prev => prev ? { ...prev } : prev);
         }, 500);
       } else {
         throw new Error("Upload failed");

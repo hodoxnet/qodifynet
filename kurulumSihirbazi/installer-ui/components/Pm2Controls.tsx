@@ -79,7 +79,7 @@ export function Pm2Controls() {
               <span className="font-medium text-gray-900">pm2 startup</span>
             </div>
             <p className="text-xs text-gray-600 mb-2">
-              PM2'yi sistem açılışında otomatik başlatmak için init entegrasyonunu kurar. Bazı sistemlerde çıktıdaki komutu sudo ile manuel çalıştırmanız gerekebilir.
+              PM2&apos;yi sistem açılışında otomatik başlatmak için init entegrasyonunu kurar. Bazı sistemlerde çıktıdaki komutu sudo ile manuel çalıştırmanız gerekebilir.
             </p>
             <button
               onClick={() => run("startup", "/api/system/pm2/startup", "Startup komutu çalıştırıldı")}
@@ -96,7 +96,7 @@ export function Pm2Controls() {
               <span className="font-medium text-gray-900">pm2 update</span>
             </div>
             <p className="text-xs text-gray-600 mb-2">
-              "In-memory PM2 is out-of-date" uyarısını giderir. Daemon'ı güncel sürüme reload eder ve süreçleri yeni PM2 ile yeniden başlatır.
+              &quot;In-memory PM2 is out-of-date&quot; uyarısını giderir. Daemon&apos;ı güncel sürüme reload eder ve süreçleri yeni PM2 ile yeniden başlatır.
             </p>
             <button
               onClick={() => run("update", "/api/system/pm2/update", "PM2 güncellendi (daemon reload)")}

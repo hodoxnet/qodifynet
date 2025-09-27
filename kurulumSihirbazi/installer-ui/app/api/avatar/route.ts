@@ -11,7 +11,7 @@ export async function GET() {
       const type = ext === ".png" ? "image/png"
         : ext === ".jpg" || ext === ".jpeg" ? "image/jpeg"
         : ext === ".svg" ? "image/svg+xml" : "application/octet-stream";
-      return new NextResponse(data, { headers: { "Content-Type": type } });
+      return new NextResponse(new Uint8Array(data), { headers: { "Content-Type": type } });
     } catch {
       // fallthrough to default
     }
@@ -20,7 +20,7 @@ export async function GET() {
   try {
     const local = path.join(process.cwd(), "public", "avatars", "user.svg");
     const data = await fs.readFile(local);
-    return new NextResponse(data, { headers: { "Content-Type": "image/svg+xml" } });
+    return new NextResponse(new Uint8Array(data), { headers: { "Content-Type": "image/svg+xml" } });
   } catch {
     return new NextResponse(null, { status: 404 });
   }

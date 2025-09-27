@@ -81,11 +81,11 @@ export function useTemplates() {
 
         return {
           name,
-          version,
+          version: version || "",
           category,
           uploaded: detail?.uploaded ?? false,
-          size: detail?.size,
-          uploadDate: detail?.uploadDate,
+          size: detail?.size || "",
+          uploadDate: detail?.uploadDate || "",
         };
       });
 

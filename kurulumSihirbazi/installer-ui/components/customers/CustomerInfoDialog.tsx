@@ -222,7 +222,7 @@ export function CustomerInfoDialog({
           <Card>
             <CardContent className="pt-4">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                Direkt URL'ler
+                Direkt URL&apos;ler
               </h3>
               <div className="flex items-center gap-3">
                 {Object.entries(urls).map(([key, url]) => (

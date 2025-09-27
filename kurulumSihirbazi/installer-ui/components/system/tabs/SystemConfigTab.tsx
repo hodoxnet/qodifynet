@@ -248,7 +248,7 @@ export function SystemConfigTab() {
                 }
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Redis key'leri için önek. Birden fazla uygulama aynı Redis'i kullanıyorsa önemlidir.
+                Redis key&apos;leri için önek. Birden fazla uygulama aynı Redis&apos;i kullanıyorsa önemlidir.
               </p>
             </div>
           </div>

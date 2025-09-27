@@ -179,7 +179,7 @@ export default function CustomerConfigPage() {
           <AlertDescription className="text-yellow-700 dark:text-yellow-300">
             <strong className="font-semibold">Kaydedilmemiş değişiklikler var!</strong>
             <br />
-            Değişiklikleri uygulamak için "Değişiklikleri Kaydet" butonuna tıklayın.
+            Değişiklikleri uygulamak için &quot;Değişiklikleri Kaydet&quot; butonuna tıklayın.
           </AlertDescription>
         </Alert>
       )}
