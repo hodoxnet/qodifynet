@@ -1,9 +1,9 @@
 [
   {
-    "id": "5807b191-bfef-46ea-9b82-8706f470736b",
-    "domain": "erpakambalaj",
+    "id": "f783f216-f219-4970-96e0-62a46597a8f0",
+    "domain": "hodoxpro.com.tr",
     "status": "running",
-    "createdAt": "2025-09-25T10:56:39.433Z",
+    "createdAt": "2025-09-27T15:30:37.423Z",
     "ports": {
       "backend": 4000,
       "admin": 4001,
@@ -13,9 +13,9 @@
       "cpu": 0,
       "memory": 0
     },
-    "mode": "local",
+    "mode": "production",
     "db": {
-      "name": "qodify_erpakambalaj",
+      "name": "qodify_hodoxpro_com_tr",
       "user": "qodify_user",
       "host": "localhost",
       "port": 5432,
@@ -24,7 +24,7 @@
     "redis": {
       "host": "localhost",
       "port": 6379,
-      "prefix": "erpakambalaj"
+      "prefix": "hodoxpro_com_tr"
     }
   }
 ]

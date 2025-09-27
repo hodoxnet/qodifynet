@@ -483,7 +483,8 @@ export class SetupService {
         if (onProgress) onProgress(`${app} bağımlılıkları yükleniyor...`);
 
         const appPath = path.join(customerPath, app);
-        await execAsync(`cd "${appPath}" && npm ci`, { timeout: 300000 }); // 5 dakika timeout
+        // npm install kullan, devDependencies da dahil tüm bağımlılıkları yükle
+        await execAsync(`cd "${appPath}" && npm install`, { timeout: 600000 }); // 10 dakika timeout
       }
 
       return {

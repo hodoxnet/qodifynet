@@ -21,7 +21,7 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:3030",
+    origin: process.env.CORS_ORIGIN || "http://localhost:3030",
     methods: ["GET", "POST"],
   },
 });
@@ -31,8 +31,8 @@ const PORT = process.env.PORT || 3031;
 // Middleware
 app.use(cors({ origin: process.env.CORS_ORIGIN || "http://localhost:3030", credentials: true }));
 app.use(helmet());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '500mb' }));
+app.use(express.urlencoded({ extended: true, limit: '500mb' }));
 app.use(cookieParser());
 
 // Routes
@@ -71,6 +71,11 @@ io.on("connection", (socket) => {
 
 // Export io for use in services
 export { io };
+
+// Set server timeout for large file uploads
+httpServer.timeout = 5 * 60 * 1000; // 5 minutes
+httpServer.keepAliveTimeout = 5 * 60 * 1000; // 5 minutes
+httpServer.headersTimeout = 5 * 60 * 1000; // 5 minutes
 
 httpServer.listen(PORT, () => {
   console.log(`🚀 Installer API running on http://localhost:${PORT}`);

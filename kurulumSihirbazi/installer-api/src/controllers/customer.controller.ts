@@ -1,11 +1,9 @@
 import { Router } from "express";
 import { CustomerService } from "../services/customer.service";
-import { DeploymentService } from "../services/deployment.service";
 import { authorize } from "../middleware/authorize";
 
 export const customerRouter = Router();
 const customerService = new CustomerService();
-const deploymentService = new DeploymentService();
 
 // Get all customers
 customerRouter.get("/", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
@@ -31,17 +29,7 @@ customerRouter.get("/:id", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN
   }
 });
 
-// Deploy new customer
-customerRouter.post("/deploy", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
-  try {
-    const result = await deploymentService.deployCustomer(req.body);
-    res.json(result);
-  } catch (error) {
-    console.error("Deployment error:", error);
-    const message = (error as any)?.message || "Deployment failed";
-    res.status(500).json({ error: message });
-  }
-});
+// Deploy endpoint removed - using setup.service.ts instead
 
 // Customer actions
 customerRouter.post("/:id/start", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
