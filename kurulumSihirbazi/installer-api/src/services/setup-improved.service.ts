@@ -21,7 +21,8 @@ export class ImprovedSetupService {
   async buildApplicationWithStream(
     domain: string,
     service: "backend" | "admin" | "store",
-    isLocal: boolean
+    isLocal: boolean,
+    options?: { heapMB?: number }
   ): Promise<BuildResult> {
     const customerPath = path.join(this.customersPath, domain.replace(/\./g, "-"));
     const servicePath = path.join(customerPath, service);
@@ -35,11 +36,12 @@ export class ImprovedSetupService {
       console.log(`[${service}] Build başlatılıyor: ${servicePath}`);
 
       // Environment variables
+      const heap = options?.heapMB && options.heapMB > 0 ? String(options.heapMB) : undefined;
       const buildEnv = {
         ...process.env,
         NODE_ENV: "production",
-        // RAM limitini arttır - heap memory hatalarını önlemek için
-        NODE_OPTIONS: "--max-old-space-size=4096",
+        // RAM limiti: parametre ile override edilebilir
+        NODE_OPTIONS: heap ? `--max-old-space-size=${heap}` : "--max-old-space-size=4096",
         // Next.js için telemetry'yi kapat
         NEXT_TELEMETRY_DISABLED: "1",
         // Production modda log azalt
@@ -449,7 +451,8 @@ export class ImprovedSetupService {
    */
   async buildAllApplications(
     domain: string,
-    isLocal: boolean
+    isLocal: boolean,
+    options?: { heapMB?: number }
   ): Promise<BuildResult> {
     try {
       console.log("=== Build işlemi başlatılıyor ===");
@@ -462,7 +465,7 @@ export class ImprovedSetupService {
         percent: 0
       });
 
-      const backendResult = await this.buildApplicationWithStream(domain, "backend", isLocal);
+      const backendResult = await this.buildApplicationWithStream(domain, "backend", isLocal, options);
       if (!backendResult.ok) {
         return backendResult;
       }
@@ -483,7 +486,7 @@ export class ImprovedSetupService {
         percent: 33
       });
 
-      const adminResult = await this.buildApplicationWithStream(domain, "admin", isLocal);
+      const adminResult = await this.buildApplicationWithStream(domain, "admin", isLocal, options);
       if (!adminResult.ok) {
         return adminResult;
       }
@@ -496,7 +499,7 @@ export class ImprovedSetupService {
         percent: 66
       });
 
-      const storeResult = await this.buildApplicationWithStream(domain, "store", isLocal);
+      const storeResult = await this.buildApplicationWithStream(domain, "store", isLocal, options);
       if (!storeResult.ok) {
         return storeResult;
       }

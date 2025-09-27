@@ -11,10 +11,14 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { SetupConfig, InstallStatus } from '@/lib/types/setup';
+import { useSystemResources } from '@/hooks/system/useSystemResources';
+import { Input } from '@/components/ui/input';
 import { useInstallation } from '@/hooks/setup/useInstallation';
+import { useEffect } from 'react';
 
 interface SummaryStepProps {
   config: SetupConfig;
+  onConfigUpdate: (updates: Partial<SetupConfig>) => void;
   onNext: () => void;
   onBack: () => void;
   onStartInstallation: () => void;
@@ -23,6 +27,7 @@ interface SummaryStepProps {
 
 export function SummaryStep({
   config,
+  onConfigUpdate,
   onNext,
   onBack,
   onStartInstallation,
@@ -30,6 +35,28 @@ export function SummaryStep({
 }: SummaryStepProps) {
   const { isLocalDomain } = useInstallation();
   const isLocal = isLocalDomain(config.domain);
+  const { resources } = useSystemResources(false);
+
+  const totalGB = resources?.memory.totalGB || 0;
+  const usedGB = resources?.memory.usedGB || 0;
+  const freeGB = Math.max(totalGB - usedGB, 0);
+
+  // Basit öneri: boş RAM'in %70'i, 2048-8192 MB arası yuvarla
+  const suggestedMB = (() => {
+    const target = Math.floor(Math.max(2048, Math.min(8192, freeGB * 1024 * 0.7)));
+    // En az 4096 öner, eğer toplam >= 6GB ise
+    if (totalGB >= 6 && target < 4096) return 4096;
+    return target;
+  })();
+
+  const heapValue = typeof config.buildHeapMB === 'number' ? config.buildHeapMB : suggestedMB;
+
+  // Önerilen değeri ilk gelişte config'e yaz (kullanıcı değiştirirse override eder)
+  useEffect(() => {
+    if (typeof config.buildHeapMB !== 'number' && suggestedMB > 0) {
+      onConfigUpdate({ buildHeapMB: suggestedMB });
+    }
+  }, [config.buildHeapMB, suggestedMB, onConfigUpdate]);
 
   const summaryItems = [
     { label: "Domain", value: config.domain },
@@ -80,6 +107,25 @@ export function SummaryStep({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Build Bellek Limiti */}
+        <div className="rounded-lg bg-indigo-50 dark:bg-indigo-950/20 p-4 border border-indigo-200 dark:border-indigo-800">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200">Build Bellek Limiti (MB)</p>
+              <p className="text-xs text-indigo-700 dark:text-indigo-300">Önerilen: {suggestedMB} MB (Toplam: {totalGB} GB, Boş: {Math.max(freeGB,0).toFixed(1)} GB)</p>
+            </div>
+            <div className="w-32">
+              <Input
+                type="number"
+                min={2048}
+                step={256}
+                value={heapValue}
+                onChange={(e) => onConfigUpdate({ buildHeapMB: Number(e.target.value) })}
+              />
+            </div>
           </div>
         </div>
 

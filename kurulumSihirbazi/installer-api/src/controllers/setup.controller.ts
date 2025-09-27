@@ -189,16 +189,21 @@ setupRouter.post("/run-migrations", authorize("ADMIN", "SUPER_ADMIN"), async (re
 // Adım 10: Uygulamaları derle - Improved version ile detaylı log desteği
 setupRouter.post("/build-applications", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
-    const { domain, isLocal } = req.body;
+    const { domain, isLocal, heapMB } = req.body as { domain: string; isLocal?: boolean; heapMB?: number };
 
     if (!domain) {
       res.status(400).json({ ok: false, message: "Domain gerekli" });
       return;
     }
 
-    const result = await setupService.buildApplications(domain, isLocal, (message) => {
-      setupService.emitProgress(domain, "build", message);
-    });
+    const result = await setupService.buildApplications(
+      domain,
+      Boolean(isLocal),
+      (message) => {
+        setupService.emitProgress(domain, "build", message);
+      },
+      { heapMB: typeof heapMB === 'number' ? heapMB : undefined }
+    );
 
     // Build başarısız olduğunda detaylı bilgi gönder
     if (!result.ok) {

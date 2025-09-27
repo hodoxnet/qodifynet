@@ -24,6 +24,8 @@ export interface SetupConfig {
   domain: string;
   storeName: string;
   templateVersion: string;
+  // Build seçenekleri
+  buildHeapMB?: number; // NODE_OPTIONS --max-old-space-size
 }
 
 export interface DatabaseTestResult {
@@ -112,5 +114,6 @@ export const DEFAULT_CONFIG: SetupConfig = {
   redisPort: 6379,
   domain: "",
   storeName: "",
-  templateVersion: "latest"
+  templateVersion: "latest",
+  buildHeapMB: undefined
 };

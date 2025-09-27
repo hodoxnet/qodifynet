@@ -283,6 +283,7 @@ export function useInstallation() {
         await axios.post(`${API_URL}/api/setup/build-applications`, {
           domain: config.domain,
           isLocal,
+          heapMB: config.buildHeapMB,
           streamOutput: true // Backend'e build output'ları stream etmesini söyle
         }, { headers: getAuthHeaders(), withCredentials: true });
         setInstallProgress(prev => [...prev, "✅ Tüm uygulamalar başarıyla derlendi"]);

@@ -573,16 +573,26 @@ export class SetupService {
   }
 
   // Adım 10: Uygulamaları derle - Improved version ile
+  // Adım 10: Uygulamaları derle - Improved version ile
   async buildApplications(
     customerDomain: string,
     isLocal: boolean,
-    onProgress?: (message: string) => void
+    onProgress?: (message: string) => void,
+    options?: { heapMB?: number }
   ): Promise<{ ok: boolean; message: string; stdout?: string; stderr?: string; buildLog?: string }> {
+    // Build-lock: Aynı domain için eşzamanlı build'i engelle
+    const staticAny = SetupService as any;
+    if (!staticAny._buildLocks) staticAny._buildLocks = new Set<string>();
+    const locks: Set<string> = staticAny._buildLocks;
+    if (locks.has(customerDomain)) {
+      return { ok: false, message: "Bu müşteri için build zaten devam ediyor" };
+    }
+    locks.add(customerDomain);
     try {
       if (onProgress) onProgress("Build işlemi başlatılıyor...");
 
       // Yeni improved service ile build yap
-      const result = await this.improvedSetupService.buildAllApplications(customerDomain, isLocal);
+      const result = await this.improvedSetupService.buildAllApplications(customerDomain, isLocal, options);
 
       if (!result.ok) {
         // Hata durumunda detaylı bilgi gönder
@@ -614,6 +624,8 @@ export class SetupService {
         ok: false,
         message: error.message || "Derleme hatası"
       };
+    } finally {
+      locks.delete(customerDomain);
     }
   }
 
