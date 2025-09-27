@@ -88,13 +88,23 @@ export function useInstallation() {
         console.error("Socket connect_error:", err?.message || err);
       });
 
-      socket.on("setup-progress", (data: { message: string; step?: string; percent?: number }) => {
-        setInstallProgress(prev => [...prev, data.message]);
+      socket.on("setup-progress", (data: { message: string; step?: string; percent?: number; type?: string; details?: any }) => {
+        // Log mesajına timestamp ekle
+        const timestamp = new Date().toLocaleTimeString('tr-TR');
+        const formattedMessage = `[${timestamp}] ${data.message}`;
+        setInstallProgress(prev => [...prev, formattedMessage]);
         const map: Record<string, InstallStepKey> = {
           dependencies: 'installDependencies',
           build: 'buildApplications',
           extract: 'extractTemplates',
+          database: 'createDatabase',
+          migration: 'runMigrations',
+          configure: 'configureEnvironment',
+          service: 'configureServices',
+          template: 'checkTemplates',
+          finalize: 'finalize'
         };
+
         if (data.step && map[data.step]) {
           const key = map[data.step];
           setSteps(prev => prev.map(s => s.key === key ? {
@@ -105,18 +115,46 @@ export function useInstallation() {
         }
       });
 
+      // Backend build log detayları için özel event
+      socket.on("build-log", (data: { service: string; message: string; type: 'stdout' | 'stderr' }) => {
+        const prefix = data.type === 'stderr' ? '⚠️' : '▶';
+        const serviceTag = `[${data.service.toUpperCase()}]`;
+        const logMessage = `${prefix} ${serviceTag} ${data.message}`;
+        setInstallProgress(prev => [...prev, logMessage]);
+      });
+
+      // Dependency installation detayları
+      socket.on("dependency-log", (data: { package: string; version?: string; status: 'installing' | 'installed' | 'error' }) => {
+        const statusIcon = data.status === 'installed' ? '✅' : data.status === 'error' ? '❌' : '📦';
+        const versionInfo = data.version ? `@${data.version}` : '';
+        const logMessage = `${statusIcon} ${data.package}${versionInfo} - ${data.status}`;
+        setInstallProgress(prev => [...prev, logMessage]);
+      });
+
+      // Database operation logs
+      socket.on("database-log", (data: { operation: string; table?: string; status: 'success' | 'error'; message?: string }) => {
+        const statusIcon = data.status === 'success' ? '✅' : '❌';
+        const tableInfo = data.table ? ` [${data.table}]` : '';
+        const logMessage = `${statusIcon} DB: ${data.operation}${tableInfo} ${data.message || ''}`;
+        setInstallProgress(prev => [...prev, logMessage]);
+      });
+
       // 1. Template kontrolü
       mark('checkTemplates', 'running');
       setInstallProgress(prev => [...prev, "📦 Template'ler kontrol ediliyor..."]);
+      setInstallProgress(prev => [...prev, `📁 Template sürümü: ${config.templateVersion || 'latest'}`]);
       await axios.post(`${API_URL}/api/setup/check-templates`,
         { version: config.templateVersion },
         { headers: getAuthHeaders(), withCredentials: true }
       );
+      setInstallProgress(prev => [...prev, "✅ Template'ler hazır"]);
       mark('checkTemplates', 'success');
 
       // 2. Veritabanı oluştur
       mark('createDatabase', 'running');
       setInstallProgress(prev => [...prev, "🗄️ Veritabanı oluşturuluyor..."]);
+      setInstallProgress(prev => [...prev, `📊 Host: ${config.dbHost}:${config.dbPort}`]);
+      setInstallProgress(prev => [...prev, `📊 Database: ${config.dbName}`]);
       await axios.post(`${API_URL}/api/setup/create-database`, {
         dbConfig: {
           host: config.dbHost,
@@ -128,6 +166,7 @@ export function useInstallation() {
         appUser: config.appDbUser,
         appPassword: config.appDbPassword
       }, { headers: getAuthHeaders(), withCredentials: true });
+      setInstallProgress(prev => [...prev, "✅ Veritabanı başarıyla oluşturuldu"]);
       mark('createDatabase', 'success');
 
       // 3. Template'leri çıkar
@@ -160,9 +199,13 @@ export function useInstallation() {
       // 5. Bağımlılıkları yükle
       mark('installDependencies', 'running');
       setInstallProgress(prev => [...prev, "📥 Bağımlılıklar yükleniyor (bu biraz zaman alabilir)..."]);
+      setInstallProgress(prev => [...prev, "📦 Backend bağımlılıkları yükleniyor..."]);
+      setInstallProgress(prev => [...prev, "📦 Admin panel bağımlılıkları yükleniyor..."]);
+      setInstallProgress(prev => [...prev, "📦 Store bağımlılıkları yükleniyor..."]);
       await axios.post(`${API_URL}/api/setup/install-dependencies`, {
         domain: config.domain
       }, { headers: getAuthHeaders(), withCredentials: true });
+      setInstallProgress(prev => [...prev, "✅ Tüm bağımlılıklar başarıyla yüklendi"]);
       mark('installDependencies', 'success');
 
       // 6. Migration'ları çalıştır
@@ -176,10 +219,14 @@ export function useInstallation() {
       // 7. Uygulamaları derle
       mark('buildApplications', 'running');
       setInstallProgress(prev => [...prev, "🏗️ Uygulamalar derleniyor..."]);
+      setInstallProgress(prev => [...prev, "🔨 Backend API derleniyor..."]);
+      setInstallProgress(prev => [...prev, "🔨 Admin paneli derleniyor (Next.js production build)..."]);
+      setInstallProgress(prev => [...prev, "🔨 Store frontend derleniyor (Next.js production build)..."]);
       await axios.post(`${API_URL}/api/setup/build-applications`, {
         domain: config.domain,
         isLocal
       }, { headers: getAuthHeaders(), withCredentials: true });
+      setInstallProgress(prev => [...prev, "✅ Tüm uygulamalar başarıyla derlendi"]);
       mark('buildApplications', 'success');
 
       // 8. PM2 ve Nginx yapılandır
@@ -219,8 +266,21 @@ export function useInstallation() {
       if (lastRunning) {
         mark(lastRunning.key, 'error', error.response?.data?.message || error.message || 'Bilinmeyen hata');
       }
+
+      // Hata loglarını ekle
+      const errorMessage = error.response?.data?.message || error.message || "Kurulum sırasında hata oluştu";
+      setInstallProgress(prev => [...prev, `❌ HATA: ${errorMessage}`]);
+
+      if (error.response?.data?.details) {
+        setInstallProgress(prev => [...prev, `📋 Detaylar: ${JSON.stringify(error.response.data.details)}`]);
+      }
+
+      if (error.response?.data?.suggestion) {
+        setInstallProgress(prev => [...prev, `💡 Öneri: ${error.response.data.suggestion}`]);
+      }
+
       setInstallStatus("error");
-      toast.error(error.response?.data?.message || "Kurulum sırasında hata oluştu");
+      toast.error(errorMessage);
       console.error(error);
     } finally {
       if (socket) {
