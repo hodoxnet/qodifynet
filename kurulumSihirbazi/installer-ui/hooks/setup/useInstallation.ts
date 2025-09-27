@@ -284,6 +284,7 @@ export function useInstallation() {
           domain: config.domain,
           isLocal,
           heapMB: config.buildHeapMB,
+          skipTypeCheck: config.skipTypeCheckFrontend,
           streamOutput: true // Backend'e build output'ları stream etmesini söyle
         }, { headers: getAuthHeaders(), withCredentials: true });
         setInstallProgress(prev => [...prev, "✅ Tüm uygulamalar başarıyla derlendi"]);

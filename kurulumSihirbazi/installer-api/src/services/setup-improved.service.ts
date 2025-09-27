@@ -22,7 +22,7 @@ export class ImprovedSetupService {
     domain: string,
     service: "backend" | "admin" | "store",
     isLocal: boolean,
-    options?: { heapMB?: number }
+    options?: { heapMB?: number; skipTypeCheck?: boolean }
   ): Promise<BuildResult> {
     const customerPath = path.join(this.customersPath, domain.replace(/\./g, "-"));
     const servicePath = path.join(customerPath, service);
@@ -35,8 +35,53 @@ export class ImprovedSetupService {
     return new Promise((resolve) => {
       console.log(`[${service}] Build başlatılıyor: ${servicePath}`);
 
+      // Opsiyonel: Next.js tip kontrolünü geçici olarak devre dışı bırak (frontend için)
+      const isFrontend = service === "admin" || service === "store";
+      let restorePatchedConfig: null | (() => Promise<void>) = null;
+      if (isFrontend && options?.skipTypeCheck) {
+        try {
+          const candidates = [
+            path.join(servicePath, "next.config.ts"),
+            path.join(servicePath, "next.config.js"),
+            path.join(servicePath, "next.config.mjs"),
+          ];
+          let existing: string | null = null;
+          for (const c of candidates) {
+            if (await fs.pathExists(c)) { existing = c; break; }
+          }
+
+          if (!existing) {
+            const newCfg = path.join(servicePath, "next.config.js");
+            const content = `module.exports = {\n  typescript: { ignoreBuildErrors: true },\n  eslint: { ignoreDuringBuilds: true }\n};\n`;
+            await fs.writeFile(newCfg, content);
+            restorePatchedConfig = async () => { try { await fs.remove(newCfg); } catch {} };
+          } else {
+            const ext = path.extname(existing);
+            const base = path.join(servicePath, `next.config.qodify-base${ext}`);
+            await fs.move(existing, base, { overwrite: true });
+            const baseImport = `./next.config.qodify-base${ext}`;
+            let wrapper = "";
+            if (ext === ".js") {
+              wrapper = `const base = require('${baseImport}');\nmodule.exports = (...args) => {\n  const cfg = typeof base === 'function' ? base(...args) : base;\n  return {\n    ...cfg,\n    typescript: { ...(cfg?.typescript || {}), ignoreBuildErrors: true },\n    eslint: { ...(cfg?.eslint || {}), ignoreDuringBuilds: true }\n  };\n};\n`;
+            } else if (ext === ".mjs") {
+              wrapper = `import base from '${baseImport}';\nexport default (...args) => {\n  const cfg = typeof base === 'function' ? base(...args) : base;\n  return {\n    ...cfg,\n    typescript: { ...(cfg?.typescript || {}), ignoreBuildErrors: true },\n    eslint: { ...(cfg?.eslint || {}), ignoreDuringBuilds: true }\n  };\n};\n`;
+            } else { // .ts
+              wrapper = `import base from '${baseImport}';\nexport default (...args: any[]) => {\n  const cfg: any = typeof (base as any) === 'function' ? (base as any)(...args) : (base as any);\n  return {\n    ...cfg,\n    typescript: { ...(cfg?.typescript || {}), ignoreBuildErrors: true },\n    eslint: { ...(cfg?.eslint || {}), ignoreDuringBuilds: true }\n  } as any;\n};\n`;
+            }
+            await fs.writeFile(existing, wrapper);
+            restorePatchedConfig = async () => {
+              try { await fs.remove(existing!); } catch {}
+              try { await fs.move(base, existing!, { overwrite: true }); } catch {}
+            };
+          }
+        } catch (e) {
+          console.warn(`[${service}] Tip kontrol devre dışı bırakma yapılamadı:`, e);
+        }
+      }
+
       // Environment variables
       const heap = options?.heapMB && options.heapMB > 0 ? String(options.heapMB) : undefined;
+      const isFrontend = service === "admin" || service === "store";
       const buildEnv = {
         ...process.env,
         NODE_ENV: "production",
@@ -44,6 +89,10 @@ export class ImprovedSetupService {
         NODE_OPTIONS: heap ? `--max-old-space-size=${heap}` : "--max-old-space-size=4096",
         // Next.js için telemetry'yi kapat
         NEXT_TELEMETRY_DISABLED: "1",
+        // CI ortamı - bazı araçlar paralelliği azaltır
+        CI: "1",
+        // Frontend build'lerinde SWC worker sayısını düşür (bellek için)
+        ...(isFrontend ? { SWC_WORKER_COUNT: "1", SWC_MINIFY: "false" } : {}),
         // Production modda log azalt
         NPM_CONFIG_LOGLEVEL: "error",
         // Local mode kontrolü
@@ -280,6 +329,7 @@ export class ImprovedSetupService {
 
       // Process bitişi
       buildProcess.on("close", async (code) => {
+        if (restorePatchedConfig) { try { await restorePatchedConfig(); } catch {} restorePatchedConfig = null; }
         logStream.write(`\n========== BUILD END: ${new Date().toISOString()} | Exit Code: ${code} ==========\n`);
         logStream.end();
 
@@ -376,6 +426,7 @@ export class ImprovedSetupService {
 
       // Error handler
       buildProcess.on("error", (err) => {
+        (async () => { if (restorePatchedConfig) { try { await restorePatchedConfig(); } catch {} restorePatchedConfig = null; } })();
         logStream.end();
         console.error(`[${service}] Build process error:`, err);
 
@@ -407,6 +458,8 @@ export class ImprovedSetupService {
           type: "stderr",
           isError: true
         });
+
+        (async () => { if (restorePatchedConfig) { try { await restorePatchedConfig(); } catch {} restorePatchedConfig = null; } })();
 
         resolve({
           ok: false,
@@ -452,7 +505,7 @@ export class ImprovedSetupService {
   async buildAllApplications(
     domain: string,
     isLocal: boolean,
-    options?: { heapMB?: number }
+    options?: { heapMB?: number; skipTypeCheck?: boolean }
   ): Promise<BuildResult> {
     try {
       console.log("=== Build işlemi başlatılıyor ===");

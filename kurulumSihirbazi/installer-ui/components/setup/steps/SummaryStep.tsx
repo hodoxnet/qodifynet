@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { SetupConfig, InstallStatus } from '@/lib/types/setup';
 import { useSystemResources } from '@/hooks/system/useSystemResources';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { useInstallation } from '@/hooks/setup/useInstallation';
 import { useEffect } from 'react';
 
@@ -126,6 +127,20 @@ export function SummaryStep({
                 onChange={(e) => onConfigUpdate({ buildHeapMB: Number(e.target.value) })}
               />
             </div>
+          </div>
+        </div>
+
+        {/* Tip Kontrolü Seçeneği */}
+        <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-4 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Tip kontrolünü build sırasında atla</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">Düşük RAM ortamlarında önerilir. Next.js typescript denetimi devre dışı kalır.</p>
+            </div>
+            <Switch
+              checked={Boolean(config.skipTypeCheckFrontend)}
+              onCheckedChange={(v) => onConfigUpdate({ skipTypeCheckFrontend: Boolean(v) })}
+            />
           </div>
         </div>
 

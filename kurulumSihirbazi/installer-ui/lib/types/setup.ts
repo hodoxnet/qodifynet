@@ -26,6 +26,7 @@ export interface SetupConfig {
   templateVersion: string;
   // Build seçenekleri
   buildHeapMB?: number; // NODE_OPTIONS --max-old-space-size
+  skipTypeCheckFrontend?: boolean; // Next.js build'de tip kontrolünü atla
 }
 
 export interface DatabaseTestResult {
@@ -115,5 +116,6 @@ export const DEFAULT_CONFIG: SetupConfig = {
   domain: "",
   storeName: "",
   templateVersion: "latest",
-  buildHeapMB: undefined
+  buildHeapMB: undefined,
+  skipTypeCheckFrontend: false
 };

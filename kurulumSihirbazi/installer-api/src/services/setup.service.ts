@@ -578,7 +578,7 @@ export class SetupService {
     customerDomain: string,
     isLocal: boolean,
     onProgress?: (message: string) => void,
-    options?: { heapMB?: number }
+    options?: { heapMB?: number; skipTypeCheck?: boolean }
   ): Promise<{ ok: boolean; message: string; stdout?: string; stderr?: string; buildLog?: string }> {
     // Build-lock: Aynı domain için eşzamanlı build'i engelle
     const staticAny = SetupService as any;
