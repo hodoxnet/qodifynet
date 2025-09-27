@@ -57,6 +57,31 @@ export interface CompletedInfo {
 
 export type InstallStatus = "idle" | "running" | "completed" | "error";
 
+// Kurulum adımları için tipler
+export type InstallStepKey =
+  | "checkTemplates"
+  | "createDatabase"
+  | "extractTemplates"
+  | "configureEnvironment"
+  | "installDependencies"
+  | "runMigrations"
+  | "buildApplications"
+  | "configureServices"
+  | "finalize";
+
+export type StepStatus = "pending" | "running" | "success" | "error";
+
+export interface InstallStep {
+  key: InstallStepKey;
+  label: string;
+  status: StepStatus;
+  startedAt?: string;
+  endedAt?: string;
+  durationMs?: number;
+  error?: string;
+  progress?: number; // 0..100
+}
+
 export enum WizardStep {
   SYSTEM_CHECK = 1,
   DATABASE_CONFIG = 2,

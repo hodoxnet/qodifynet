@@ -1,4 +1,4 @@
-import { exec } from "child_process";
+import { exec, spawn } from "child_process";
 import { promisify } from "util";
 import fs from "fs-extra";
 import path from "path";
@@ -509,17 +509,46 @@ export class SetupService {
       const customerPath = path.join(this.customersPath, customerDomain.replace(/\./g, "-"));
       const apps = ["backend", "admin", "store"];
 
-      for (const app of apps) {
-        if (onProgress) onProgress(`${app} bağımlılıkları yükleniyor...`);
+      const env = { ...process.env, NPM_CONFIG_PRODUCTION: "false", npm_config_production: "false" } as Record<string, any>;
 
+      for (let idx = 0; idx < apps.length; idx++) {
+        const app = apps[idx];
         const appPath = path.join(customerPath, app);
-        // Bazı production ortamlarında NPM_CONFIG_PRODUCTION=true olduğundan devDependencies atlanabiliyor.
-        // Bunu engellemek için hem env üzerinden hem de bayrakla dev bağımlılıkları dahil et.
-        const env = { ...process.env, NPM_CONFIG_PRODUCTION: "false", npm_config_production: "false" } as Record<string, any>;
-        await execAsync(`npm install --production=false --no-audit --no-fund`, {
-          cwd: appPath,
-          timeout: 600000, // 10 dakika timeout
-          env,
+
+        if (onProgress) onProgress(`${app} bağımlılıkları yükleniyor...`);
+        this.emitProgress(customerDomain, "dependencies", `${app} bağımlılıkları yükleniyor...`, { percent: Math.floor((idx / apps.length) * 100) });
+
+        // Zaman tabanlı yaklaşık ilerleme; işlem bitince 100'e tamamlanır
+        let localPercent = 0;
+        const interval = setInterval(() => {
+          localPercent = Math.min(95, localPercent + 2);
+          const overall = Math.min(99, Math.floor(((idx) * 100 + localPercent) / apps.length));
+          this.emitProgress(customerDomain, "dependencies", `${app} kuruluyor... %${localPercent}`, { percent: overall });
+        }, 1500);
+
+        await new Promise<void>((resolve, reject) => {
+          const child = spawn("npm", ["install", "--production=false", "--no-audit", "--no-fund"], {
+            cwd: appPath,
+            env,
+            shell: true,
+          });
+
+          let stderrBuf = "";
+          child.stdout.on("data", (d) => {
+            // İstenirse burada log kırpıp gönderebiliriz
+          });
+          child.stderr.on("data", (d) => { stderrBuf += d.toString(); });
+          child.on("error", (err) => reject(err));
+          child.on("close", (code) => {
+            clearInterval(interval);
+            if (code === 0) {
+              const overall = Math.floor(((idx + 1) / apps.length) * 100);
+              this.emitProgress(customerDomain, "dependencies", `${app} bağımlılıkları yüklendi`, { percent: overall });
+              resolve();
+            } else {
+              reject(new Error(`npm install ${app} exit code ${code}\n${stderrBuf}`));
+            }
+          });
         });
       }
 
@@ -576,7 +605,28 @@ export class SetupService {
 
       // Backend'i her zaman build et
       if (onProgress) onProgress("Backend derleniyor...");
-      const { stdout: beOut, stderr: beErr } = await execAsync(`npm run build --silent`, { cwd: backendPath, timeout: 600000, env });
+      // Hedef dosya sayısı: src altındaki .ts (spec/test/d.ts hariç)
+      const srcPath = path.join(backendPath, "src");
+      const totalTs = await this.countFiles(srcPath, (p) => p.endsWith('.ts') && !p.endsWith('.d.ts') && !p.endsWith('.spec.ts') && !p.endsWith('.test.ts'));
+      let buildOverall = 0;
+      const update = (msg: string) => this.emitProgress(customerDomain, "build", msg, { percent: buildOverall });
+      // Dosya sayısına göre gerçekçi yüzde (yoksa zaman tabanlı yedek)
+      const progTick = setInterval(async () => {
+        try {
+          const jsCount = await this.countFiles(path.join(backendPath, 'dist', 'src'), (p) => p.endsWith('.js'));
+          if (totalTs > 0) {
+            buildOverall = Math.min(95, Math.max(buildOverall, Math.floor((jsCount / totalTs) * 95)));
+          } else {
+            buildOverall = Math.min(95, buildOverall + 2);
+          }
+          update(`Backend derleniyor... %${buildOverall}`);
+        } catch {
+          buildOverall = Math.min(95, buildOverall + 2);
+          update(`Backend derleniyor... %${buildOverall}`);
+        }
+      }, 1200);
+
+      const { stdout: beOut, stderr: beErr } = await execAsync(`npm run build --silent`, { cwd: backendPath, timeout: 900000, env });
 
       // Build çıktısı var mı kontrol et (iki yaygın senaryoyu da destekle)
       const distSrcMain = path.join(backendPath, "dist", "src", "main.js");
@@ -609,21 +659,52 @@ export class SetupService {
 
       if (!foundMain) {
         const tail = (s?: string) => (s ? s.toString().split("\n").slice(-40).join("\n") : "");
+        clearInterval(progTick);
         throw new Error(
           `Backend build çıktısı bulunamadı. Beklenen: dist/src/main.js veya dist/main.js\n` +
           `Build çıktısı (son satırlar):\n${tail(beOut)}\n` +
           `Build hatası (son satırlar):\n${tail(beErr)}`
         );
       }
+      // Backend tamamlandı → yüzdeyi 50 yap (production’da frontendlere de pay bırak)
+      buildOverall = isLocal ? 100 : 50;
+      update(`Backend derlendi`);
+      clearInterval(progTick);
 
       // Local mode değilse frontend'leri de build et
       if (!isLocal) {
         if (onProgress) onProgress("Admin paneli derleniyor...");
-        await execAsync(`npm run build --silent`, { cwd: path.join(customerPath, "admin"), timeout: 600000, env });
+        // Admin %25
+        const adminPath = path.join(customerPath, "admin");
+        const adminTick = setInterval(() => {
+          buildOverall = Math.min(75, buildOverall + 2);
+          update(`Admin derleniyor... %${buildOverall}`);
+        }, 1200);
+        try {
+          await execAsync(`npm run build --silent`, { cwd: adminPath, timeout: 900000, env });
+        } finally {
+          clearInterval(adminTick);
+        }
+        buildOverall = 75;
+        update(`Admin derlendi`);
 
         if (onProgress) onProgress("Store derleniyor...");
-        await execAsync(`npm run build --silent`, { cwd: path.join(customerPath, "store"), timeout: 600000, env });
+        // Store %25
+        const storePath = path.join(customerPath, "store");
+        const storeTick = setInterval(() => {
+          buildOverall = Math.min(99, buildOverall + 2);
+          update(`Store derleniyor... %${buildOverall}`);
+        }, 1200);
+        try {
+          await execAsync(`npm run build --silent`, { cwd: storePath, timeout: 900000, env });
+        } finally {
+          clearInterval(storeTick);
+        }
+        buildOverall = 100;
+        update(`Store derlendi`);
       }
+
+      clearInterval(tick);
 
       return {
         ok: true,
@@ -651,11 +732,36 @@ export class SetupService {
   }
 
   // Socket.io ile ilerleme bildirimi
-  emitProgress(domain: string, step: string, message: string) {
-    io.to(`setup-${domain}`).emit("setup-progress", {
+  emitProgress(domain: string, step: string, message: string, extra?: { percent?: number; status?: string; substep?: string }) {
+    const payload = {
       step,
       message,
+      percent: extra?.percent,
+      status: extra?.status,
+      substep: extra?.substep,
       timestamp: new Date().toISOString()
-    });
+    } as any;
+    // Uyum için her iki odaya da yayınla
+    io.to(`deployment-${domain}`).emit("setup-progress", payload);
+    io.to(`setup-${domain}`).emit("setup-progress", payload);
+  }
+
+  // Yardımcı: dizinde belirli dosyaları say
+  private async countFiles(dir: string, predicate: (filePath: string) => boolean): Promise<number> {
+    let count = 0;
+    const walk = async (d: string) => {
+      try {
+        const entries = await fs.readdir(d);
+        for (const e of entries) {
+          if (e === ".DS_Store" || e === "node_modules" || e.startsWith(".")) continue;
+          const full = path.join(d, e);
+          const stat = await fs.stat(full);
+          if (stat.isDirectory()) await walk(full);
+          else if (stat.isFile() && predicate(full)) count++;
+        }
+      } catch {}
+    };
+    await walk(dir);
+    return count;
   }
 }

@@ -14,19 +14,22 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { InstallStatus, CompletedInfo } from '@/lib/types/setup';
+import { Progress } from '@/components/ui/progress';
+import { InstallStatus, CompletedInfo, InstallStep } from '@/lib/types/setup';
 import { toast } from 'sonner';
 
 interface InstallationStepProps {
   installStatus: InstallStatus;
   installProgress: string[];
   completedInfo: CompletedInfo | null;
+  steps?: InstallStep[];
 }
 
 export function InstallationStep({
   installStatus,
   installProgress,
-  completedInfo
+  completedInfo,
+  steps = []
 }: InstallationStepProps) {
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -83,6 +86,38 @@ export function InstallationStep({
       </CardHeader>
 
       <CardContent className="space-y-6">
+        {/* Step Durumları */}
+        {steps.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="font-medium text-gray-900 dark:text-gray-100">Kurulum Adımları</h3>
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+              <div className="space-y-2">
+                {steps.map((s) => (
+                  <div key={s.key} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        {s.status === 'success' && <CheckCircle className="h-4 w-4 text-emerald-500" />}
+                        {s.status === 'running' && <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />}
+                        {s.status === 'error' && <XCircle className="h-4 w-4 text-rose-500" />}
+                        {s.status === 'pending' && <span className="h-2 w-2 rounded-full bg-gray-400 inline-block" />}
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{s.label}</span>
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {s.status === 'success' && s.durationMs != null && `${Math.max(1, Math.round(s.durationMs/1000))} sn`}
+                        {s.status === 'error' && <span className="text-rose-500">Hata</span>}
+                        {s.status === 'running' && typeof s.progress === 'number' && `${s.progress}%`}
+                      </div>
+                    </div>
+                    {s.status === 'running' && typeof s.progress === 'number' && (
+                      <Progress value={s.progress} className="h-1" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Progress Logs */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
