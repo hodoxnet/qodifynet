@@ -9,6 +9,7 @@ export function useInstallation() {
   const [installStatus, setInstallStatus] = useState<InstallStatus>("idle");
   const [completedInfo, setCompletedInfo] = useState<CompletedInfo | null>(null);
   const [steps, setSteps] = useState<InstallStep[]>([]);
+  const [buildLogs, setBuildLogs] = useState<{ service: string; type: 'stdout' | 'stderr'; content: string; timestamp: Date }[]>([]);
 
   const API_URL = process.env.NEXT_PUBLIC_INSTALLER_API_URL || "http://localhost:3031";
 
@@ -121,6 +122,60 @@ export function useInstallation() {
         const serviceTag = `[${data.service.toUpperCase()}]`;
         const logMessage = `${prefix} ${serviceTag} ${data.message}`;
         setInstallProgress(prev => [...prev, logMessage]);
+
+        // Build loglarını ayrıca sakla
+        setBuildLogs(prev => [...prev, {
+          service: data.service,
+          type: data.type,
+          content: data.message,
+          timestamp: new Date()
+        }]);
+      });
+
+      // Build output (stdout/stderr) için detaylı event
+      socket.on("build-output", (data: {
+        service: string;
+        output: string;
+        type: 'stdout' | 'stderr';
+        isError?: boolean;
+        errorType?: 'heap' | 'syntax' | 'module' | 'other';
+      }) => {
+        // Terminal'e detaylı log ekle
+        const lines = data.output.split('\n').filter(line => line.trim());
+        lines.forEach(line => {
+          let prefix = '';
+          if (data.type === 'stderr') {
+            prefix = '❌';
+          } else if (line.includes('ERROR') || line.includes('Error')) {
+            prefix = '🔴';
+          } else if (line.includes('WARNING') || line.includes('Warning')) {
+            prefix = '🟡';
+          } else if (line.includes('SUCCESS') || line.includes('✓')) {
+            prefix = '🟢';
+          } else {
+            prefix = '🔹';
+          }
+
+          const logMessage = `${prefix} [BUILD:${data.service.toUpperCase()}] ${line}`;
+          setInstallProgress(prev => [...prev, logMessage]);
+        });
+
+        // Heap memory hatası tespiti
+        if (data.output.includes('JavaScript heap out of memory') ||
+            data.output.includes('FATAL ERROR') ||
+            data.output.includes('Allocation failed')) {
+          const errorMsg = '🚨 KRITİK: Node.js bellek yetersizliği! Build işlemi başarısız. NODE_OPTIONS="--max-old-space-size=4096" ile tekrar deneyin.';
+          setInstallProgress(prev => [...prev, errorMsg]);
+
+          // Build step'ını hata olarak işaretle
+          setSteps(prev => prev.map(s =>
+            s.key === 'buildApplications' ? {
+              ...s,
+              status: 'error',
+              error: 'Node.js heap memory yetersizliği'
+            } : s
+          ));
+        }
       });
 
       // Dependency installation detayları
@@ -222,12 +277,36 @@ export function useInstallation() {
       setInstallProgress(prev => [...prev, "🔨 Backend API derleniyor..."]);
       setInstallProgress(prev => [...prev, "🔨 Admin paneli derleniyor (Next.js production build)..."]);
       setInstallProgress(prev => [...prev, "🔨 Store frontend derleniyor (Next.js production build)..."]);
-      await axios.post(`${API_URL}/api/setup/build-applications`, {
-        domain: config.domain,
-        isLocal
-      }, { headers: getAuthHeaders(), withCredentials: true });
-      setInstallProgress(prev => [...prev, "✅ Tüm uygulamalar başarıyla derlendi"]);
-      mark('buildApplications', 'success');
+      setInstallProgress(prev => [...prev, "💡 İpucu: Build logları Terminal sekmesinde görüntüleniyor..."]);
+
+      try {
+        await axios.post(`${API_URL}/api/setup/build-applications`, {
+          domain: config.domain,
+          isLocal,
+          streamOutput: true // Backend'e build output'ları stream etmesini söyle
+        }, { headers: getAuthHeaders(), withCredentials: true });
+        setInstallProgress(prev => [...prev, "✅ Tüm uygulamalar başarıyla derlendi"]);
+        mark('buildApplications', 'success');
+      } catch (buildError: any) {
+        // Build hatasını detaylı logla
+        const errorDetail = buildError.response?.data?.buildLog || buildError.response?.data?.message || 'Build başarısız';
+        setInstallProgress(prev => [...prev, `❌ BUILD HATASI: ${errorDetail}`]);
+
+        // Eğer build log varsa göster
+        if (buildError.response?.data?.stdout) {
+          const stdoutLines = buildError.response.data.stdout.split('\n').slice(-20); // Son 20 satır
+          stdoutLines.forEach((line: string) => {
+            if (line.trim()) setInstallProgress(prev => [...prev, `  📝 ${line}`]);
+          });
+        }
+        if (buildError.response?.data?.stderr) {
+          const stderrLines = buildError.response.data.stderr.split('\n').slice(-20); // Son 20 satır
+          stderrLines.forEach((line: string) => {
+            if (line.trim()) setInstallProgress(prev => [...prev, `  ⚠️ ${line}`]);
+          });
+        }
+        throw buildError;
+      }
 
       // 8. PM2 ve Nginx yapılandır
       mark('configureServices', 'running');
@@ -294,6 +373,7 @@ export function useInstallation() {
     installStatus,
     completedInfo,
     steps,
+    buildLogs,
     startInstallation,
     isLocalDomain
   };

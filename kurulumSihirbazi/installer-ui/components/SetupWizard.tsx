@@ -32,6 +32,7 @@ export function SetupWizard() {
     installStatus,
     completedInfo,
     steps,
+    buildLogs,
     startInstallation
   } = useInstallation();
 
@@ -72,6 +73,7 @@ export function SetupWizard() {
             installProgress={installProgress}
             completedInfo={completedInfo}
             steps={steps}
+            buildLogs={buildLogs}
           />
         );
       default:

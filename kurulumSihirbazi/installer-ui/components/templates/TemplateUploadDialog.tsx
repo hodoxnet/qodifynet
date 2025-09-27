@@ -45,25 +45,7 @@ export function TemplateUploadDialog({
     }
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      validateAndSetFile(file);
-    }
-  }, []);
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      validateAndSetFile(file);
-    }
-  };
-
-  const validateAndSetFile = (file: File) => {
+  const validateAndSetFile = useCallback((file: File) => {
     setError(null);
 
     if (!file.name.endsWith(".zip")) {
@@ -78,6 +60,24 @@ export function TemplateUploadDialog({
     }
 
     setSelectedFile(file);
+  }, [template]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      validateAndSetFile(file);
+    }
+  }, [validateAndSetFile]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      validateAndSetFile(file);
+    }
   };
 
   const handleUpload = async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Upload, AlertTriangle, CheckCircle, XCircle, FileArchive, Loader2, RefreshCw, Check } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
@@ -37,7 +37,7 @@ export function TemplateManager() {
   const [templateFiles, setTemplateFiles] = useState<{ [key: string]: TemplateFile }>({});
   const [latestVersion, setLatestVersion] = useState<string>("2.4.0");
 
-  const detectLatestVersion = async () => {
+  const detectLatestVersion = useCallback(async () => {
     try {
       const res = await apiFetch("/api/templates");
       if (!res.ok) return;
@@ -47,9 +47,9 @@ export function TemplateManager() {
         setLatestVersion(list[0].version);
       }
     } catch {}
-  };
+  }, []);
 
-  const checkTemplates = async () => {
+  const checkTemplates = useCallback(async () => {
     setChecking(true);
     try {
       const response = await apiFetch("/api/templates/check", {
@@ -93,7 +93,7 @@ export function TemplateManager() {
     } finally {
       setChecking(false);
     }
-  };
+  }, [latestVersion]);
 
   useEffect(() => {
     (async () => {
@@ -107,7 +107,7 @@ export function TemplateManager() {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [detectLatestVersion, checkTemplates]);
 
   const handleFileUpload = async (templateName: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

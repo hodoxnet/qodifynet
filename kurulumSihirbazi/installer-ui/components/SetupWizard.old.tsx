@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   CheckCircle,
   XCircle,
@@ -92,7 +92,7 @@ export function SetupWizard() {
   };
 
   // Adım 1: Sistem gereksinimlerini kontrol et
-  const checkRequirements = async () => {
+  const checkRequirements = useCallback(async () => {
     setLoading(true);
     // State'i temizle
     setRequirements([]);
@@ -122,7 +122,7 @@ export function SetupWizard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_URL]);
 
   // Adım 2: Veritabanı bağlantısını test et
   const testDatabase = async () => {
@@ -321,7 +321,7 @@ export function SetupWizard() {
       }
       checkRequirements();
     }
-  }, [currentStep]);
+  }, [currentStep, checkRequirements]);
 
   // Domain'e göre otomatik DB adı öner
   useEffect(() => {

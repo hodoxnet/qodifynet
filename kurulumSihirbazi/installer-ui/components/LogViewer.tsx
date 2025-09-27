@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { X, Terminal, RefreshCw, Download } from "lucide-react";
 import { apiFetch as fetcher } from "@/lib/api";
 
@@ -18,7 +18,7 @@ export function LogViewer({ customerId, customerDomain, service, isOpen, onClose
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lines, setLines] = useState(100);
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetcher(
@@ -36,20 +36,20 @@ export function LogViewer({ customerId, customerDomain, service, isOpen, onClose
     } finally {
       setLoading(false);
     }
-  };
+  }, [customerId, service, lines]);
 
   useEffect(() => {
     if (isOpen) {
       fetchLogs();
     }
-  }, [isOpen, service, lines]);
+  }, [isOpen, fetchLogs]);
 
   useEffect(() => {
     if (autoRefresh && isOpen) {
       const interval = setInterval(fetchLogs, 3000);
       return () => clearInterval(interval);
     }
-  }, [autoRefresh, isOpen]);
+  }, [autoRefresh, isOpen, fetchLogs]);
 
   const handleDownload = () => {
     const blob = new Blob([logs], { type: 'text/plain' });

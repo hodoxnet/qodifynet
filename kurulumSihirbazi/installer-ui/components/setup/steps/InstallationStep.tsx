@@ -16,7 +16,8 @@ import {
   Server,
   Shield,
   Eye,
-  EyeOff
+  EyeOff,
+  AlertCircle
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,7 @@ interface InstallationStepProps {
   installProgress: string[];
   completedInfo: CompletedInfo | null;
   steps?: InstallStep[];
+  buildLogs?: { service: string; type: 'stdout' | 'stderr'; content: string; timestamp: Date }[];
 }
 
 const stepIcons: Record<string, React.ReactNode> = {
@@ -53,7 +55,8 @@ export function InstallationStep({
   installStatus,
   installProgress,
   completedInfo,
-  steps = []
+  steps = [],
+  buildLogs = []
 }: InstallationStepProps) {
   const [showDetailedLogs, setShowDetailedLogs] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'logs' | 'details'>('overview');
@@ -65,14 +68,27 @@ export function InstallationStep({
 
   // Convert install progress to terminal logs
   const terminalLogs: TerminalLog[] = useMemo(() => {
-    return installProgress.map((log, index) => {
+    const logs = installProgress.map((log, index) => {
       let type: TerminalLog['type'] = 'info';
 
-      if (log.includes('✓') || log.includes('✅') || log.includes('Başarı') || log.includes('Tamamlandı')) {
+      // Build log tespiti
+      if (log.includes('[BUILD:')) {
+        if (log.includes('❌') || log.includes('ERROR') || log.includes('FATAL')) {
+          type = 'error';
+        } else if (log.includes('🟡') || log.includes('WARNING')) {
+          type = 'warning';
+        } else if (log.includes('🟢') || log.includes('SUCCESS')) {
+          type = 'success';
+        } else {
+          type = 'system';
+        }
+      }
+      // Normal loglar
+      else if (log.includes('✓') || log.includes('✅') || log.includes('Başarı') || log.includes('Tamamlandı')) {
         type = 'success';
-      } else if (log.includes('✗') || log.includes('Hata') || log.includes('Başarısız')) {
+      } else if (log.includes('❌') || log.includes('HATA') || log.includes('Başarısız')) {
         type = 'error';
-      } else if (log.includes('⚠') || log.includes('Uyarı')) {
+      } else if (log.includes('⚠') || log.includes('Uyarı') || log.includes('KRİTİK')) {
         type = 'warning';
       } else if (log.includes('%') || log.includes('Build') || log.includes('Derleniyor')) {
         type = 'progress';
@@ -92,7 +108,22 @@ export function InstallationStep({
         metadata
       };
     });
-  }, [installProgress]);
+
+    // Build loglarını da ekle (eğer varsa)
+    if (buildLogs && buildLogs.length > 0) {
+      buildLogs.forEach((buildLog, idx) => {
+        logs.push({
+          id: `build-log-${idx}`,
+          content: `[BUILD:${buildLog.service.toUpperCase()}] ${buildLog.content}`,
+          type: buildLog.type === 'stderr' ? 'error' : 'system',
+          timestamp: buildLog.timestamp,
+          metadata: undefined
+        });
+      });
+    }
+
+    return logs;
+  }, [installProgress, buildLogs]);
 
   // Convert steps to build steps
   const buildSteps: BuildStep[] = useMemo(() => {
@@ -235,17 +266,40 @@ export function InstallationStep({
 
             {/* Terminal/Logs Tab */}
             <TabsContent value="logs" className="mt-0">
-              <Terminal
-                logs={terminalLogs}
-                title="Kurulum Terminal"
-                showTimestamps={true}
-                showLineNumbers={true}
-                autoScroll={true}
-                showSearch={true}
-                isLoading={installStatus === "running"}
-                fullscreenEnabled={true}
-                className=""
-              />
+              <div className="space-y-4">
+                <Terminal
+                  logs={terminalLogs}
+                  title="Kurulum Terminal"
+                  showTimestamps={true}
+                  showLineNumbers={true}
+                  autoScroll={true}
+                  showSearch={true}
+                  isLoading={installStatus === "running"}
+                  fullscreenEnabled={true}
+                  className=""
+                />
+
+                {/* Build Log Uyarısı */}
+                {steps.find(s => s.key === 'buildApplications' && s.status === 'error') && (
+                  <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Build Hatası Tespit Edildi</AlertTitle>
+                    <AlertDescription>
+                      <p className="text-sm mb-2">
+                        Build işlemi sırasında hata oluştu. Terminal&apos;de detaylı logları inceleyebilirsiniz.
+                      </p>
+                      {terminalLogs.find(log => log.content.includes('heap out of memory')) && (
+                        <div className="mt-2 p-2 bg-amber-100 dark:bg-amber-900/30 rounded text-xs">
+                          <strong>💡 Çözüm:</strong> Node.js bellek yetersizliği tespit edildi.
+                          Sunucu RAM&apos;ini arttırın veya <code className="bg-amber-200 dark:bg-amber-800 px-1 rounded">
+                            NODE_OPTIONS=&quot;--max-old-space-size=4096&quot;
+                          </code> ile tekrar deneyin.
+                        </div>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
             </TabsContent>
 
             {/* Details Tab */}

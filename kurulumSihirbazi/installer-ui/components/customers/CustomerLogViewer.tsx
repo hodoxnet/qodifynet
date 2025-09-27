@@ -69,7 +69,7 @@ export function CustomerLogViewer({
       setAutoRefresh(false);
       clearLogs();
     }
-  }, [open]);
+  }, [open, fetchLogs, clearLogs]);
 
   useEffect(() => {
     setService(initialService);

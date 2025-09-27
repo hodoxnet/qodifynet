@@ -49,7 +49,7 @@ export function CustomerInfoDialog({
     } else {
       reset();
     }
-  }, [open, customer]);
+  }, [open, customer, checkHealth, reset]);
 
   if (!customer) return null;
 

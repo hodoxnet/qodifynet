@@ -6,6 +6,7 @@ import AdmZip from "adm-zip";
 import { DatabaseService, PgAdminConfig } from "./database.service";
 import { SystemService } from "./system.service";
 import { SettingsService } from "./settings.service";
+import { ImprovedSetupService } from "./setup-improved.service";
 import { io } from "../index";
 
 const execAsync = promisify(exec);
@@ -29,6 +30,7 @@ export class SetupService {
   private systemService: SystemService;
   private settingsService: SettingsService;
   private databaseService?: DatabaseService;
+  private improvedSetupService: ImprovedSetupService;
 
   private templatesPath = process.env.TEMPLATES_PATH || "/var/qodify/templates";
   private customersPath = process.env.CUSTOMERS_PATH || "/var/qodify/customers";
@@ -36,6 +38,7 @@ export class SetupService {
   constructor() {
     this.systemService = new SystemService();
     this.settingsService = new SettingsService();
+    this.improvedSetupService = new ImprovedSetupService();
   }
 
   // Ortak müşteri yolu hesaplayıcı (tek kaynaktan)
@@ -43,30 +46,7 @@ export class SetupService {
     return path.join(this.customersPath, domain.replace(/\./g, "-"));
   }
 
-  private async findBackendMainJs(backendPath: string): Promise<string | null> {
-    const preferred = [
-      path.join(backendPath, "dist", "src", "main.js"),
-      path.join(backendPath, "dist", "main.js"),
-    ];
-    for (const p of preferred) {
-      if (await fs.pathExists(p)) return p;
-    }
-    const distDir = path.join(backendPath, "dist");
-    if (!(await fs.pathExists(distDir))) return null;
-    // Basit bir BFS ile dist altında main.js ara
-    const queue: string[] = [distDir];
-    while (queue.length) {
-      const dir = queue.shift()!;
-      const entries = await fs.readdir(dir);
-      for (const e of entries) {
-        const full = path.join(dir, e);
-        const stat = await fs.stat(full);
-        if (stat.isDirectory()) queue.push(full);
-        else if (stat.isFile() && e === "main.js") return full;
-      }
-    }
-    return null;
-  }
+  // Not: Eski akıştan kalan backend main.js arama yardımcı metodu kaldırıldı.
 
   // Adım 1: Sistem gereksinimlerini kontrol et
   async checkSystemRequirements(): Promise<SystemRequirement[]> {
@@ -592,123 +572,42 @@ export class SetupService {
     }
   }
 
-  // Adım 10: Uygulamaları derle
+  // Adım 10: Uygulamaları derle - Improved version ile
   async buildApplications(
     customerDomain: string,
     isLocal: boolean,
     onProgress?: (message: string) => void
-  ): Promise<{ ok: boolean; message: string }> {
+  ): Promise<{ ok: boolean; message: string; stdout?: string; stderr?: string; buildLog?: string }> {
     try {
-      const customerPath = path.join(this.customersPath, customerDomain.replace(/\./g, "-"));
-      const backendPath = path.join(customerPath, "backend");
-      const env = { ...process.env, NPM_CONFIG_PRODUCTION: "false", npm_config_production: "false" } as Record<string, any>;
+      if (onProgress) onProgress("Build işlemi başlatılıyor...");
 
-      // Backend'i her zaman build et
-      if (onProgress) onProgress("Backend derleniyor...");
-      // Hedef dosya sayısı: src altındaki .ts (spec/test/d.ts hariç)
-      const srcPath = path.join(backendPath, "src");
-      const totalTs = await this.countFiles(srcPath, (p) => p.endsWith('.ts') && !p.endsWith('.d.ts') && !p.endsWith('.spec.ts') && !p.endsWith('.test.ts'));
-      let buildOverall = 0;
-      const update = (msg: string) => this.emitProgress(customerDomain, "build", msg, { percent: buildOverall });
-      // Dosya sayısına göre gerçekçi yüzde (yoksa zaman tabanlı yedek)
-      const progTick = setInterval(async () => {
-        try {
-          const jsCount = await this.countFiles(path.join(backendPath, 'dist', 'src'), (p) => p.endsWith('.js'));
-          if (totalTs > 0) {
-            buildOverall = Math.min(95, Math.max(buildOverall, Math.floor((jsCount / totalTs) * 95)));
-          } else {
-            buildOverall = Math.min(95, buildOverall + 2);
-          }
-          update(`Backend derleniyor... %${buildOverall}`);
-        } catch {
-          buildOverall = Math.min(95, buildOverall + 2);
-          update(`Backend derleniyor... %${buildOverall}`);
+      // Yeni improved service ile build yap
+      const result = await this.improvedSetupService.buildAllApplications(customerDomain, isLocal);
+
+      if (!result.ok) {
+        // Hata durumunda detaylı bilgi gönder
+        let errorMessage = result.message || "Build başarısız";
+        // Memory hatası için özel mesaj
+        if (result.errorType === "heap") {
+          errorMessage = "Node.js bellek yetersizliği! Sunucu RAM'ini arttırın veya NODE_OPTIONS='--max-old-space-size=8192' kullanın.";
+        } else if (result.errorType === "timeout") {
+          errorMessage = "Build işlemi zaman aşımına uğradı (15 dakika).";
+        } else if (result.errorType === "syntax") {
+          errorMessage = "Kod hatası tespit edildi. Logları kontrol edin.";
         }
-      }, 1200);
 
-      const { stdout: beOut, stderr: beErr } = await execAsync(`npm run build --silent`, { cwd: backendPath, timeout: 900000, env });
-
-      // Build çıktısı var mı kontrol et (iki yaygın senaryoyu da destekle)
-      const distSrcMain = path.join(backendPath, "dist", "src", "main.js");
-      const distMain = path.join(backendPath, "dist", "main.js");
-      const hasDistSrcMain = await fs.pathExists(distSrcMain);
-      const hasDistMain = await fs.pathExists(distMain);
-
-      // Derlenen ana giriş dosyasını tespit et (geniş arama)
-      const foundMain = hasDistSrcMain ? distSrcMain : hasDistMain ? distMain : await this.findBackendMainJs(backendPath);
-
-      // Eğer bulundu ve package.json start:prod farklı bir path’e bakıyorsa düzelt
-      if (foundMain) {
-        const relNoExt = path.relative(backendPath, foundMain).replace(/\\/g, "/").replace(/\.js$/, "");
-        try {
-          const pkgPath = path.join(backendPath, "package.json");
-          const pkg = JSON.parse(await fs.readFile(pkgPath, "utf8"));
-          const fixScript = (val: any) => typeof val === "string" && /node\s+dist\//.test(val) && !val.includes(relNoExt);
-          if (pkg?.scripts?.["start:prod"] && fixScript(pkg.scripts["start:prod"])) {
-            pkg.scripts["start:prod"] = `node ${relNoExt}`;
-          }
-          if (pkg?.scripts?.["start:prod:optimized"] && fixScript(pkg.scripts["start:prod:optimized"])) {
-            // Optimize bayraklarını koruyalım
-            const before = String(pkg.scripts["start:prod:optimized"]);
-            const flags = before.split("node")[0].trim();
-            pkg.scripts["start:prod:optimized"] = `${flags} node ${relNoExt}`.trim();
-          }
-          await fs.writeFile(pkgPath, JSON.stringify(pkg, null, 2));
-        } catch {}
+        return {
+          ok: false,
+          message: errorMessage,
+          stdout: result.stdout,
+          stderr: result.stderr,
+          buildLog: result.message
+        };
       }
-
-      if (!foundMain) {
-        const tail = (s?: string) => (s ? s.toString().split("\n").slice(-40).join("\n") : "");
-        clearInterval(progTick);
-        throw new Error(
-          `Backend build çıktısı bulunamadı. Beklenen: dist/src/main.js veya dist/main.js\n` +
-          `Build çıktısı (son satırlar):\n${tail(beOut)}\n` +
-          `Build hatası (son satırlar):\n${tail(beErr)}`
-        );
-      }
-      // Backend tamamlandı → yüzdeyi 50 yap (production’da frontendlere de pay bırak)
-      buildOverall = isLocal ? 100 : 50;
-      update(`Backend derlendi`);
-      clearInterval(progTick);
-
-      // Local mode değilse frontend'leri de build et
-      if (!isLocal) {
-        if (onProgress) onProgress("Admin paneli derleniyor...");
-        // Admin %25
-        const adminPath = path.join(customerPath, "admin");
-        const adminTick = setInterval(() => {
-          buildOverall = Math.min(75, buildOverall + 2);
-          update(`Admin derleniyor... %${buildOverall}`);
-        }, 1200);
-        try {
-          await execAsync(`npm run build --silent`, { cwd: adminPath, timeout: 900000, env });
-        } finally {
-          clearInterval(adminTick);
-        }
-        buildOverall = 75;
-        update(`Admin derlendi`);
-
-        if (onProgress) onProgress("Store derleniyor...");
-        // Store %25
-        const storePath = path.join(customerPath, "store");
-        const storeTick = setInterval(() => {
-          buildOverall = Math.min(99, buildOverall + 2);
-          update(`Store derleniyor... %${buildOverall}`);
-        }, 1200);
-        try {
-          await execAsync(`npm run build --silent`, { cwd: storePath, timeout: 900000, env });
-        } finally {
-          clearInterval(storeTick);
-        }
-        buildOverall = 100;
-        update(`Store derlendi`);
-      }
-
-      // Tüm alt akışlar temizlenmiş durumda
 
       return {
         ok: true,
-        message: isLocal ? "Backend derlendi (local mode)" : "Tüm uygulamalar derlendi"
+        message: result.message || (isLocal ? "Backend derlendi (local mode)" : "Tüm uygulamalar derlendi")
       };
     } catch (error: any) {
       return {
@@ -746,22 +645,5 @@ export class SetupService {
     io.to(`setup-${domain}`).emit("setup-progress", payload);
   }
 
-  // Yardımcı: dizinde belirli dosyaları say
-  private async countFiles(dir: string, predicate: (filePath: string) => boolean): Promise<number> {
-    let count = 0;
-    const walk = async (d: string) => {
-      try {
-        const entries = await fs.readdir(d);
-        for (const e of entries) {
-          if (e === ".DS_Store" || e === "node_modules" || e.startsWith(".")) continue;
-          const full = path.join(d, e);
-          const stat = await fs.stat(full);
-          if (stat.isDirectory()) await walk(full);
-          else if (stat.isFile() && predicate(full)) count++;
-        }
-      } catch {}
-    };
-    await walk(dir);
-    return count;
-  }
+  // Not: Kullanılmayan yardımcı metodlar temizlendi.
 }

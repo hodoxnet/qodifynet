@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Activity,
   CheckCircle,
@@ -38,11 +38,7 @@ export default function ActivitiesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState("today");
 
-  useEffect(() => {
-    fetchActivities();
-  }, [filter, dateRange]);
-
-  const fetchActivities = async () => {
+  const fetchActivities = useCallback(async () => {
     try {
       setLoading(true);
       // Simulated data - gerçek API'ye bağlanacak
@@ -113,7 +109,11 @@ export default function ActivitiesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filter, searchTerm]);
+
+  useEffect(() => {
+    fetchActivities();
+  }, [fetchActivities]);
 
   const getActivityIcon = (type: string) => {
     switch (type) {

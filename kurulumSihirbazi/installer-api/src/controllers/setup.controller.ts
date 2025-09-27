@@ -186,7 +186,7 @@ setupRouter.post("/run-migrations", authorize("ADMIN", "SUPER_ADMIN"), async (re
   }
 });
 
-// Adım 10: Uygulamaları derle
+// Adım 10: Uygulamaları derle - Improved version ile detaylı log desteği
 setupRouter.post("/build-applications", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const { domain, isLocal } = req.body;
@@ -200,9 +200,37 @@ setupRouter.post("/build-applications", authorize("ADMIN", "SUPER_ADMIN"), async
       setupService.emitProgress(domain, "build", message);
     });
 
+    // Build başarısız olduğunda detaylı bilgi gönder
+    if (!result.ok) {
+      // Memory hatası kontrolü
+      const isMemoryError = result.stderr?.includes('JavaScript heap out of memory') ||
+                           result.stderr?.includes('FATAL ERROR') ||
+                           result.message?.includes('bellek yetersizliği');
+
+      res.status(500).json({
+        ok: false,
+        error: 'Build failed',
+        message: result.message || "Derleme başarısız",
+        stdout: result.stdout,
+        stderr: result.stderr,
+        buildLog: result.buildLog,
+        errorType: isMemoryError ? 'heap' : 'other',
+        suggestion: isMemoryError
+          ? 'Node.js bellek yetersizliği. Sunucu RAM’ini arttırın veya NODE_OPTIONS="--max-old-space-size=8192" kullanın.'
+          : 'Build loglarını kontrol edin'
+      });
+      return;
+    }
+
     res.json(result);
   } catch (error: any) {
-    res.status(500).json({ ok: false, message: error.message || "Derleme hatası" });
+    console.error('Build endpoint error:', error);
+    res.status(500).json({
+      ok: false,
+      error: 'Internal error',
+      message: error.message || "Derleme hatası",
+      suggestion: "Sunucu loglarını kontrol edin"
+    });
   }
 });
 

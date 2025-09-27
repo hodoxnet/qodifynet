@@ -24,7 +24,7 @@ export function SystemCheckStep({ onNext }: SystemCheckStepProps) {
 
   useEffect(() => {
     checkRequirements();
-  }, []);
+  }, [checkRequirements]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
