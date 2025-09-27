@@ -219,11 +219,27 @@ setupRouter.post("/configure-services", authorize("ADMIN", "SUPER_ADMIN"), async
     const customerPath = setupService.getCustomerPath(domain);
 
     // Backend build çıktısı mevcut mu? PM2 başlatmadan önce doğrula
-    const distSrcMain = path.join(customerPath, "backend", "dist", "src", "main.js");
-    const distMain = path.join(customerPath, "backend", "dist", "main.js");
-    const hasDist = await fs.pathExists(distSrcMain) || await fs.pathExists(distMain);
+    const backendPath = path.join(customerPath, "backend");
+    const distSrcMain = path.join(backendPath, "dist", "src", "main.js");
+    const distMain = path.join(backendPath, "dist", "main.js");
+    let hasDist = await fs.pathExists(distSrcMain) || await fs.pathExists(distMain);
     if (!hasDist) {
-      res.status(400).json({ ok: false, message: "Backend build bulunamadı (dist/src/main.js veya dist/main.js yok). Lütfen derleme adımını kontrol edin." });
+      // dist altında main.js'i rekürsif ara (monorepo yapıları için tolerans)
+      const distDir = path.join(backendPath, "dist");
+      const queue: string[] = (await fs.pathExists(distDir)) ? [distDir] : [];
+      while (queue.length && !hasDist) {
+        const dir = queue.shift()!;
+        const entries = await fs.readdir(dir);
+        for (const e of entries) {
+          const full = path.join(dir, e);
+          const stat = await fs.stat(full);
+          if (stat.isDirectory()) queue.push(full);
+          else if (stat.isFile() && e === "main.js") { hasDist = true; break; }
+        }
+      }
+    }
+    if (!hasDist) {
+      res.status(400).json({ ok: false, message: "Backend build bulunamadı (dist altında main.js tespit edilemedi). Lütfen derleme adımını ve logları kontrol edin." });
       return;
     }
 

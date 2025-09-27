@@ -43,6 +43,31 @@ export class SetupService {
     return path.join(this.customersPath, domain.replace(/\./g, "-"));
   }
 
+  private async findBackendMainJs(backendPath: string): Promise<string | null> {
+    const preferred = [
+      path.join(backendPath, "dist", "src", "main.js"),
+      path.join(backendPath, "dist", "main.js"),
+    ];
+    for (const p of preferred) {
+      if (await fs.pathExists(p)) return p;
+    }
+    const distDir = path.join(backendPath, "dist");
+    if (!(await fs.pathExists(distDir))) return null;
+    // Basit bir BFS ile dist altında main.js ara
+    const queue: string[] = [distDir];
+    while (queue.length) {
+      const dir = queue.shift()!;
+      const entries = await fs.readdir(dir);
+      for (const e of entries) {
+        const full = path.join(dir, e);
+        const stat = await fs.stat(full);
+        if (stat.isDirectory()) queue.push(full);
+        else if (stat.isFile() && e === "main.js") return full;
+      }
+    }
+    return null;
+  }
+
   // Adım 1: Sistem gereksinimlerini kontrol et
   async checkSystemRequirements(): Promise<SystemRequirement[]> {
     const requirements: SystemRequirement[] = [];
@@ -551,14 +576,44 @@ export class SetupService {
 
       // Backend'i her zaman build et
       if (onProgress) onProgress("Backend derleniyor...");
-      await execAsync(`npm run build --silent`, { cwd: backendPath, timeout: 600000, env });
+      const { stdout: beOut, stderr: beErr } = await execAsync(`npm run build --silent`, { cwd: backendPath, timeout: 600000, env });
 
       // Build çıktısı var mı kontrol et (iki yaygın senaryoyu da destekle)
       const distSrcMain = path.join(backendPath, "dist", "src", "main.js");
       const distMain = path.join(backendPath, "dist", "main.js");
-      const hasDist = await fs.pathExists(distSrcMain) || await fs.pathExists(distMain);
-      if (!hasDist) {
-        throw new Error(`Backend build çıktısı bulunamadı. Beklenen: dist/src/main.js veya dist/main.js`);
+      const hasDistSrcMain = await fs.pathExists(distSrcMain);
+      const hasDistMain = await fs.pathExists(distMain);
+
+      // Derlenen ana giriş dosyasını tespit et (geniş arama)
+      const foundMain = hasDistSrcMain ? distSrcMain : hasDistMain ? distMain : await this.findBackendMainJs(backendPath);
+
+      // Eğer bulundu ve package.json start:prod farklı bir path’e bakıyorsa düzelt
+      if (foundMain) {
+        const relNoExt = path.relative(backendPath, foundMain).replace(/\\/g, "/").replace(/\.js$/, "");
+        try {
+          const pkgPath = path.join(backendPath, "package.json");
+          const pkg = JSON.parse(await fs.readFile(pkgPath, "utf8"));
+          const fixScript = (val: any) => typeof val === "string" && /node\s+dist\//.test(val) && !val.includes(relNoExt);
+          if (pkg?.scripts?.["start:prod"] && fixScript(pkg.scripts["start:prod"])) {
+            pkg.scripts["start:prod"] = `node ${relNoExt}`;
+          }
+          if (pkg?.scripts?.["start:prod:optimized"] && fixScript(pkg.scripts["start:prod:optimized"])) {
+            // Optimize bayraklarını koruyalım
+            const before = String(pkg.scripts["start:prod:optimized"]);
+            const flags = before.split("node")[0].trim();
+            pkg.scripts["start:prod:optimized"] = `${flags} node ${relNoExt}`.trim();
+          }
+          await fs.writeFile(pkgPath, JSON.stringify(pkg, null, 2));
+        } catch {}
+      }
+
+      if (!foundMain) {
+        const tail = (s?: string) => (s ? s.toString().split("\n").slice(-40).join("\n") : "");
+        throw new Error(
+          `Backend build çıktısı bulunamadı. Beklenen: dist/src/main.js veya dist/main.js\n` +
+          `Build çıktısı (son satırlar):\n${tail(beOut)}\n` +
+          `Build hatası (son satırlar):\n${tail(beErr)}`
+        );
       }
 
       // Local mode değilse frontend'leri de build et
