@@ -118,10 +118,12 @@ export class PM2Service {
     }
   }
 
-  async startCustomer(domain: string) {
+  async startCustomer(domain: string, customerPathOverride?: string) {
     try {
-      const customersPath = process.env.CUSTOMERS_PATH || "/var/qodify/customers";
-      const customerPath = path.join(customersPath, domain.replace(/\./g, "-"));
+      const customerPath = customerPathOverride || path.join(
+        process.env.CUSTOMERS_PATH || "/var/qodify/customers",
+        domain.replace(/\./g, "-")
+      );
       const configPath = path.join(customerPath, `ecosystem-${domain}.config.js`);
 
       // Ortam değişkenlerinin güncel .env'den okunması için --update-env ekle

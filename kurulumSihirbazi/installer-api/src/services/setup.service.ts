@@ -38,6 +38,11 @@ export class SetupService {
     this.settingsService = new SettingsService();
   }
 
+  // Ortak müşteri yolu hesaplayıcı (tek kaynaktan)
+  public getCustomerPath(domain: string): string {
+    return path.join(this.customersPath, domain.replace(/\./g, "-"));
+  }
+
   // Adım 1: Sistem gereksinimlerini kontrol et
   async checkSystemRequirements(): Promise<SystemRequirement[]> {
     const requirements: SystemRequirement[] = [];
@@ -541,18 +546,28 @@ export class SetupService {
   ): Promise<{ ok: boolean; message: string }> {
     try {
       const customerPath = path.join(this.customersPath, customerDomain.replace(/\./g, "-"));
+      const backendPath = path.join(customerPath, "backend");
+      const env = { ...process.env, NPM_CONFIG_PRODUCTION: "false", npm_config_production: "false" } as Record<string, any>;
 
       // Backend'i her zaman build et
       if (onProgress) onProgress("Backend derleniyor...");
-      await execAsync(`cd "${path.join(customerPath, "backend")}" && npm run build`, { timeout: 300000 });
+      await execAsync(`npm run build --silent`, { cwd: backendPath, timeout: 600000, env });
+
+      // Build çıktısı var mı kontrol et (iki yaygın senaryoyu da destekle)
+      const distSrcMain = path.join(backendPath, "dist", "src", "main.js");
+      const distMain = path.join(backendPath, "dist", "main.js");
+      const hasDist = await fs.pathExists(distSrcMain) || await fs.pathExists(distMain);
+      if (!hasDist) {
+        throw new Error(`Backend build çıktısı bulunamadı. Beklenen: dist/src/main.js veya dist/main.js`);
+      }
 
       // Local mode değilse frontend'leri de build et
       if (!isLocal) {
         if (onProgress) onProgress("Admin paneli derleniyor...");
-        await execAsync(`cd "${path.join(customerPath, "admin")}" && npm run build`, { timeout: 300000 });
+        await execAsync(`npm run build --silent`, { cwd: path.join(customerPath, "admin"), timeout: 600000, env });
 
         if (onProgress) onProgress("Store derleniyor...");
-        await execAsync(`cd "${path.join(customerPath, "store")}" && npm run build`, { timeout: 300000 });
+        await execAsync(`npm run build --silent`, { cwd: path.join(customerPath, "store"), timeout: 600000, env });
       }
 
       return {

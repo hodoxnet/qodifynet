@@ -1,4 +1,6 @@
 import { Router } from "express";
+import fs from "fs-extra";
+import path from "path";
 import { SetupService } from "../services/setup.service";
 import { CustomerService } from "../services/customer.service";
 import { PM2Service } from "../services/pm2.service";
@@ -214,9 +216,16 @@ setupRouter.post("/configure-services", authorize("ADMIN", "SUPER_ADMIN"), async
       return;
     }
 
-    const customerPath = process.env.CUSTOMERS_PATH
-      ? `${process.env.CUSTOMERS_PATH}/${domain.replace(/\./g, "-")}`
-      : `/var/qodify/customers/${domain.replace(/\./g, "-")}`;
+    const customerPath = setupService.getCustomerPath(domain);
+
+    // Backend build çıktısı mevcut mu? PM2 başlatmadan önce doğrula
+    const distSrcMain = path.join(customerPath, "backend", "dist", "src", "main.js");
+    const distMain = path.join(customerPath, "backend", "dist", "main.js");
+    const hasDist = await fs.pathExists(distSrcMain) || await fs.pathExists(distMain);
+    if (!hasDist) {
+      res.status(400).json({ ok: false, message: "Backend build bulunamadı (dist/src/main.js veya dist/main.js yok). Lütfen derleme adımını kontrol edin." });
+      return;
+    }
 
     // Local mode'da PM2 kontrolü yap
     if (isLocal) {
@@ -275,13 +284,15 @@ setupRouter.post("/finalize", authorize("ADMIN", "SUPER_ADMIN"), async (req, res
         await execAsync("pm2 --version");
 
         // PM2 kuruluysa başlat
-        await pm2Service.startCustomer(domain);
+        const customerPath = setupService.getCustomerPath(domain);
+        await pm2Service.startCustomer(domain, customerPath);
       } catch {
         console.log("PM2 kurulu değil, servisler manuel başlatılmalı");
       }
     } else {
       // Production - PM2 gerekli
-      await pm2Service.startCustomer(domain);
+      const customerPath = setupService.getCustomerPath(domain);
+      await pm2Service.startCustomer(domain, customerPath);
     }
 
     // Müşteri kaydını oluştur
