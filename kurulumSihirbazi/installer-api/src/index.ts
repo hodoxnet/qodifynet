@@ -19,17 +19,22 @@ import { authorize } from "./middleware/authorize";
 
 const app = express();
 const httpServer = createServer(app);
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || "http://localhost:3030")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CORS_ORIGIN || "http://localhost:3030",
+    origin: ALLOWED_ORIGINS,
     methods: ["GET", "POST"],
+    credentials: true,
   },
 });
 
 const PORT = process.env.PORT || 3031;
 
 // Middleware
-app.use(cors({ origin: process.env.CORS_ORIGIN || "http://localhost:3030", credentials: true }));
+app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use(helmet());
 app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ extended: true, limit: '500mb' }));

@@ -70,10 +70,22 @@ export function useInstallation() {
 
     try {
       // WebSocket bağlantısı kur
-      socket = socketIO(API_URL, { transports: ["websocket"] });
+      socket = socketIO(API_URL, {
+        // Allow websocket + fallback polling (proxy/firewall uyumluluğu)
+        transports: ["websocket", "polling"],
+        withCredentials: true,
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+      });
 
       socket.on("connect", () => {
         socket!.emit("subscribe-deployment", config.domain);
+      });
+
+      // Hata tanılamayı kolaylaştır
+      socket.on("connect_error", (err: any) => {
+        console.error("Socket connect_error:", err?.message || err);
       });
 
       socket.on("setup-progress", (data: { message: string; step?: string; percent?: number }) => {
