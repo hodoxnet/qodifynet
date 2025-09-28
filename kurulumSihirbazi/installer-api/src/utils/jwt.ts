@@ -2,6 +2,8 @@ import { sign, verify } from "jsonwebtoken";
 
 const ACCESS_SECRET = process.env.JWT_SECRET || "dev-access";
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "dev-refresh";
+const ACCESS_EXPIRES = process.env.JWT_ACCESS_EXPIRES || "60m"; // default 60 minutes
+const REFRESH_EXPIRES = process.env.JWT_REFRESH_EXPIRES || "30d"; // default 30 days
 
 export type JwtPayload = {
   sub: string;
@@ -10,11 +12,11 @@ export type JwtPayload = {
   jti?: string;
 };
 
-export function signAccessToken(payload: JwtPayload, expiresIn = "10m") {
+export function signAccessToken(payload: JwtPayload, expiresIn = ACCESS_EXPIRES) {
   return sign(payload as any, ACCESS_SECRET as any, { expiresIn } as any) as unknown as string;
 }
 
-export function signRefreshToken(payload: JwtPayload, expiresIn = "30d") {
+export function signRefreshToken(payload: JwtPayload, expiresIn = REFRESH_EXPIRES) {
   return sign(payload as any, REFRESH_SECRET as any, { expiresIn } as any) as unknown as string;
 }
 

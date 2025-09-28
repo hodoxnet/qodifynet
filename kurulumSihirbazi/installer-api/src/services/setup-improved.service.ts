@@ -91,7 +91,7 @@ export class ImprovedSetupService {
         // CI ortamı - bazı araçlar paralelliği azaltır
         CI: "1",
         // Frontend build'lerinde SWC worker sayısını düşür (bellek için)
-        ...(isFrontend ? { SWC_WORKER_COUNT: "1", SWC_MINIFY: "false" } : {}),
+        ...(isFrontend ? { SWC_WORKER_COUNT: "1", SWC_MINIFY: "false", IS_BUILD_PHASE: "1" } : {}),
         // Production modda log azalt
         NPM_CONFIG_LOGLEVEL: "error",
         // Local mode kontrolü
