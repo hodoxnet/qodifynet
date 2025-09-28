@@ -69,7 +69,7 @@ server {
 
     # Backend API
     location /api/ {
-        proxy_pass http://localhost:${ports.backend}/;
+        proxy_pass http://localhost:${ports.backend}/api/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -134,7 +134,7 @@ server {
 
     # Backend API
     location /api/ {
-        proxy_pass http://localhost:${ports.backend}/;
+        proxy_pass http://localhost:${ports.backend}/api/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

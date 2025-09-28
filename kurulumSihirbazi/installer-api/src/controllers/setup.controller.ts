@@ -406,7 +406,7 @@ setupRouter.post("/finalize", authorize("ADMIN", "SUPER_ADMIN"), async (req, res
       api: `http://localhost:${ports.backend}`
     } : {
       store: `https://${domain}`,
-      admin: `https://${domain}/qpanel`,
+      admin: `https://${domain}/admin`,
       api: `https://${domain}/api`
     };
 
