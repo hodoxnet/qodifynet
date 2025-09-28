@@ -83,7 +83,7 @@ server {
     }
 
     # Admin Panel
-    location /qpanel {
+    location /admin {
         proxy_pass http://localhost:${ports.admin};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -148,7 +148,7 @@ server {
     }
 
     # Admin Panel
-    location /qpanel {
+    location /admin {
         proxy_pass http://localhost:${ports.admin};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
