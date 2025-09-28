@@ -319,7 +319,11 @@ setupRouter.post("/configure-services", authorize("ADMIN", "SUPER_ADMIN"), async
           }
 
           setupService.emitProgress(domain, "service", "SSL sertifikası alınıyor (Let’s Encrypt)...");
-          await nginxService.obtainSSLCertificate(domain, sslEmail);
+          await nginxService.obtainSSLCertificate(domain, sslEmail, {
+            onProgress: (message, extra) => {
+              setupService.emitProgress(domain, "service", message, extra);
+            }
+          });
           setupService.emitProgress(domain, "service", "SSL etkinleştirildi, 80→443 yönlendiriliyor");
         } catch (e: any) {
           // Sertifika alınamazsa HTTP-only devam et, bilgi ver

@@ -5,22 +5,50 @@ import path from "path";
 
 const execAsync = promisify(exec);
 
+type ProgressExtra = { percent?: number; status?: string; substep?: string };
+type ProgressHandler = (message: string, extra?: ProgressExtra) => void;
+
+interface SSLWorkflowOptions {
+  timeoutMs?: number;
+  intervalMs?: number;
+  onProgress?: ProgressHandler;
+}
+
+interface CreateConfigOptions extends SSLWorkflowOptions {
+  waitForCertificate?: boolean;
+}
+
 export class NginxService {
   private nginxSitesPath = "/etc/nginx/sites-available";
   private nginxEnabledPath = "/etc/nginx/sites-enabled";
 
-  async createConfig(domain: string, ports: { backend: number; admin: number; store: number }, withSSL: boolean = false) {
+  async createConfig(
+    domain: string,
+    ports: { backend: number; admin: number; store: number },
+    withSSL: boolean = false,
+    options?: CreateConfigOptions
+  ) {
     const configName = domain.replace(/\./g, "-");
     const configPath = path.join(this.nginxSitesPath, configName);
+
+    const notify: ProgressHandler = (message, extra) => {
+      options?.onProgress?.(message, extra);
+    };
 
     let nginxConfig = '';
 
     if (withSSL) {
-      // Check if SSL certificate exists
-      const sslPath = `/etc/letsencrypt/live/${domain}/fullchain.pem`;
-      if (!await fs.pathExists(sslPath)) {
-        // If no SSL, create HTTP-only config
-        withSSL = false;
+      const shouldWait = options?.waitForCertificate !== false;
+      const certificateReady = shouldWait
+        ? await this.waitForCertificateReady(domain, options)
+        : await this.isCertificateReady(domain);
+
+      if (!certificateReady) {
+        notify(
+          "SSL sertifika dosyaları hazırlanamadı, HTTP yapılandırmasına geri dönüldü",
+          { status: "error", substep: "ssl" }
+        );
+        throw new Error(`Let’s Encrypt sertifika dosyaları hazır değil: ${domain}`);
       }
     }
 
@@ -193,6 +221,7 @@ server {
       await execAsync("nginx -s reload");
 
       console.log(`Nginx configuration created for ${domain}`);
+      notify("Nginx konfigürasyonu güncellendi", { status: "success", substep: "nginx" });
       return { success: true };
     } catch (error) {
       console.error("Failed to create nginx config:", error);
@@ -227,24 +256,41 @@ server {
     }
   }
 
-  async obtainSSLCertificate(domain: string, email: string) {
+  async obtainSSLCertificate(domain: string, email: string, options?: SSLWorkflowOptions) {
     try {
+      const notify: ProgressHandler = (message, extra) => {
+        options?.onProgress?.(message, extra);
+        console.log(`[SSL][${domain}] ${message}`);
+      };
+
       // First ensure HTTP config is set up for certbot
       const configName = domain.replace(/\./g, "-");
       const configPath = path.join(this.nginxSitesPath, configName);
 
       // Use Certbot to obtain SSL certificate with webroot method
+      notify("Let’s Encrypt sertifika isteği başlatıldı", { status: "running", substep: "certbot" });
       await execAsync(
         `certbot certonly --webroot -w /var/www/html -d ${domain} -d www.${domain} --non-interactive --agree-tos -m ${email}`
       );
 
-      console.log(`SSL certificate obtained for ${domain}`);
+      notify("Sertifika talebi başarıyla tamamlandı", { status: "running", substep: "certbot" });
+
+      const ready = await this.waitForCertificateReady(domain, options);
+      if (!ready) {
+        notify("Sertifika dosyaları zamanında hazırlanamadı", { status: "error", substep: "ssl" });
+        throw new Error("Let’s Encrypt sertifika dosyaları doğrulanamadı");
+      }
+
+      notify("Sertifika dosyaları bulundu, Nginx SSL konfigürasyonu uygulanıyor", {
+        status: "running",
+        substep: "nginx"
+      });
 
       // Get current ports from existing config
       const currentConfig = await fs.readFile(configPath, 'utf-8');
-      const backendPort = currentConfig.match(/proxy_pass http:\/\/localhost:(\d+)\/;/)?.[1];
+      const backendPort = currentConfig.match(/proxy_pass http:\/\/localhost:(\d+)\/api\//)?.[1];
       const storeMatch = currentConfig.match(/location \/ \{[\s\S]*?proxy_pass http:\/\/localhost:(\d+);/);
-      const adminMatch = currentConfig.match(/location \/qpanel \{[\s\S]*?proxy_pass http:\/\/localhost:(\d+);/);
+      const adminMatch = currentConfig.match(/location \/admin \{[\s\S]*?proxy_pass http:\/\/localhost:(\d+);/);
 
       if (backendPort && storeMatch && adminMatch) {
         const ports = {
@@ -254,7 +300,10 @@ server {
         };
 
         // Update nginx config with SSL
-        await this.createConfig(domain, ports, true);
+        await this.createConfig(domain, ports, true, {
+          ...options,
+          waitForCertificate: false
+        });
       }
 
       return { success: true };
@@ -262,6 +311,64 @@ server {
       console.error("Failed to obtain SSL certificate:", error);
       throw error;
     }
+  }
+
+  private getCertificatePaths(domain: string) {
+    const base = `/etc/letsencrypt/live/${domain}`;
+    return {
+      cert: `${base}/fullchain.pem`,
+      key: `${base}/privkey.pem`
+    };
+  }
+
+  private async isCertificateReady(domain: string): Promise<boolean> {
+    const paths = this.getCertificatePaths(domain);
+    const [certExists, keyExists] = await Promise.all([
+      fs.pathExists(paths.cert),
+      fs.pathExists(paths.key)
+    ]);
+
+    if (!certExists || !keyExists) {
+      return false;
+    }
+
+    try {
+      await Promise.all([
+        fs.access(paths.cert, fs.constants.R_OK),
+        fs.access(paths.key, fs.constants.R_OK)
+      ]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async waitForCertificateReady(domain: string, options?: SSLWorkflowOptions): Promise<boolean> {
+    const timeoutMs = options?.timeoutMs ?? 20000;
+    const intervalMs = options?.intervalMs ?? 1000;
+    const deadline = Date.now() + timeoutMs;
+
+    if (await this.isCertificateReady(domain)) {
+      return true;
+    }
+
+    let attempt = 0;
+    while (Date.now() < deadline) {
+      attempt += 1;
+      options?.onProgress?.(`Sertifika dosyaları bekleniyor... (deneme ${attempt})`, {
+        status: "running",
+        substep: "ssl-wait",
+        percent: Math.min(95, Math.round((attempt * intervalMs) / timeoutMs * 100))
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+
+      if (await this.isCertificateReady(domain)) {
+        return true;
+      }
+    }
+
+    return this.isCertificateReady(domain);
   }
 
   // Helper: check if certbot is installed

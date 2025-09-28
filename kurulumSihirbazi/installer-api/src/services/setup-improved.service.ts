@@ -120,11 +120,13 @@ export class ImprovedSetupService {
 
       // Environment variables
       const heap = options?.heapMB && options.heapMB > 0 ? String(options.heapMB) : undefined;
+      // Frontend uygulamaları için daha yüksek default bellek limiti (Next.js 15 static generation çok bellek kullanıyor)
+      const defaultHeap = (service === 'admin' || service === 'store') ? "6144" : "4096";
       const buildEnv = {
         ...process.env,
         NODE_ENV: "production",
-        // RAM limiti: parametre ile override edilebilir
-        NODE_OPTIONS: heap ? `--max-old-space-size=${heap}` : "--max-old-space-size=4096",
+        // RAM limiti: parametre ile override edilebilir, admin için daha yüksek
+        NODE_OPTIONS: heap ? `--max-old-space-size=${heap}` : `--max-old-space-size=${defaultHeap}`,
         // Next.js için telemetry'yi kapat
         NEXT_TELEMETRY_DISABLED: "1",
         // CI ortamı - bazı araçlar paralelliği azaltır
