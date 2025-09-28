@@ -95,11 +95,8 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Static files
-    location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$ {
-        expires 30d;
-        add_header Cache-Control "public, immutable";
-    }
+    # Not: Next.js statik dosyaları (/_next/*) ve public içerikleri upstream tarafından servis edilir.
+    # Ayrı bir static location tanımlamayarak upstream'e proxy'lemeyi bozmayız.
 
     # Logs
     access_log /var/log/nginx/${configName}_access.log;
@@ -163,11 +160,8 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Static files
-    location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$ {
-        expires 30d;
-        add_header Cache-Control "public, immutable";
-    }
+    # Not: Next.js statik dosyaları (/_next/*) ve public içerikleri upstream tarafından servis edilir.
+    # Ayrı bir static location tanımlamayarak upstream'e proxy'lemeyi bozmayız.
 
     # Logs
     access_log /var/log/nginx/${configName}_access.log;
