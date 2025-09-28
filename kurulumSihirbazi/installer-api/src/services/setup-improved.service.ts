@@ -1,4 +1,5 @@
-import { spawn } from "child_process";
+import { spawn, exec as _exec } from "child_process";
+import { promisify } from "util";
 import fs from "fs-extra";
 import path from "path";
 import { io } from "../index";
@@ -14,6 +15,44 @@ export interface BuildResult {
 
 export class ImprovedSetupService {
   private customersPath = process.env.CUSTOMERS_PATH || "/var/qodify/customers";
+  private execAsync = promisify(_exec);
+
+  // /proc tabanlı: süreç ağacının toplam RSS (KB) değerini hesapla
+  private async getProcessTreeRssKB(pid: number): Promise<number> {
+    const visited = new Set<number>();
+    const readChildren = async (p: number): Promise<number[]> => {
+      try {
+        const childrenPath = `/proc/${p}/task/${p}/children`;
+        const content = await fs.readFile(childrenPath, "utf8").catch(() => "");
+        const ids = content.trim().split(/\s+/).filter(Boolean).map((s) => parseInt(s, 10)).filter((n) => !isNaN(n));
+        return ids;
+      } catch { return []; }
+    };
+    const readRss = async (p: number): Promise<number> => {
+      try {
+        const status = await fs.readFile(`/proc/${p}/status`, "utf8");
+        const m = status.match(/VmRSS:\s+(\d+)\s+kB/);
+        if (m) return parseInt(m[1], 10);
+      } catch {}
+      // Fallback: ps
+      try {
+        const { stdout } = await this.execAsync(`ps -o rss= -p ${p}`);
+        const kb = parseInt(stdout.trim(), 10);
+        return isNaN(kb) ? 0 : kb;
+      } catch { return 0; }
+    };
+    const stack = [pid];
+    let total = 0;
+    while (stack.length) {
+      const cur = stack.pop()!;
+      if (visited.has(cur)) continue;
+      visited.add(cur);
+      total += await readRss(cur);
+      const ch = await readChildren(cur);
+      ch.forEach((c) => { if (!visited.has(c)) stack.push(c); });
+    }
+    return total;
+  }
 
   /**
    * Build işlemini gerçek zamanlı log stream'i ile çalıştır
@@ -326,8 +365,22 @@ export class ImprovedSetupService {
         }
       });
 
+      // Hafif gerçek zamanlı bellek metriği (1s aralıkla)
+      const metricsInterval = setInterval(async () => {
+        try {
+          const rssKB = await this.getProcessTreeRssKB((buildProcess as any).pid);
+          const memMB = Math.round(rssKB / 1024);
+          io.to(`deployment-${domain}`).emit("build-metrics", {
+            service,
+            memoryMB: memMB,
+            timestamp: Date.now()
+          });
+        } catch {}
+      }, 1000);
+
       // Process bitişi
       buildProcess.on("close", async (code) => {
+        clearInterval(metricsInterval);
         if (restorePatchedConfig) { try { await restorePatchedConfig(); } catch {} restorePatchedConfig = null; }
         logStream.write(`\n========== BUILD END: ${new Date().toISOString()} | Exit Code: ${code} ==========\n`);
         logStream.end();
@@ -425,6 +478,7 @@ export class ImprovedSetupService {
 
       // Error handler
       buildProcess.on("error", (err) => {
+        clearInterval(metricsInterval);
         (async () => { if (restorePatchedConfig) { try { await restorePatchedConfig(); } catch {} restorePatchedConfig = null; } })();
         logStream.end();
         console.error(`[${service}] Build process error:`, err);
@@ -459,6 +513,7 @@ export class ImprovedSetupService {
         });
 
         (async () => { if (restorePatchedConfig) { try { await restorePatchedConfig(); } catch {} restorePatchedConfig = null; } })();
+        clearInterval(metricsInterval);
 
         resolve({
           ok: false,

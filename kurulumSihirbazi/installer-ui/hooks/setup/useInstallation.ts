@@ -68,6 +68,7 @@ export function useInstallation() {
 
     const isLocal = isLocalDomain(config.domain);
     let socket: Socket | null = null;
+    const lastMetricsAt: Record<string, number> = {};
 
     try {
       // WebSocket bağlantısı kur
@@ -176,6 +177,16 @@ export function useInstallation() {
             } : s
           ));
         }
+      });
+
+      // Build metrics (RAM) – throttled
+      socket.on("build-metrics", (data: { service: string; memoryMB: number; timestamp?: number }) => {
+        const now = Date.now();
+        const last = lastMetricsAt[data.service] || 0;
+        if (now - last < 2000) return; // 2s throttling to avoid flooding
+        lastMetricsAt[data.service] = now;
+        const logMessage = `📈 [BUILD:${data.service.toUpperCase()}] RAM: ${data.memoryMB} MB`;
+        setInstallProgress(prev => [...prev, logMessage]);
       });
 
       // Dependency installation detayları
