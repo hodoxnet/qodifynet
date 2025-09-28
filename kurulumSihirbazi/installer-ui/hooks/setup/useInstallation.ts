@@ -316,7 +316,9 @@ export function useInstallation() {
       await axios.post(`${API_URL}/api/setup/configure-services`, {
         domain: config.domain,
         ports,
-        isLocal
+        isLocal,
+        sslEnable: config.sslEnable,
+        sslEmail: config.sslEmail
       }, { headers: getAuthHeaders(), withCredentials: true });
       mark('configureServices', 'success');
 

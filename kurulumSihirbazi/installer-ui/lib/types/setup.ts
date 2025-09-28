@@ -27,6 +27,9 @@ export interface SetupConfig {
   // Build seçenekleri
   buildHeapMB?: number; // NODE_OPTIONS --max-old-space-size
   skipTypeCheckFrontend?: boolean; // Next.js build'de tip kontrolünü atla
+  // SSL
+  sslEnable?: boolean;
+  sslEmail?: string;
 }
 
 export interface DatabaseTestResult {
@@ -39,6 +42,13 @@ export interface RedisTestResult {
   ok: boolean;
   message: string;
   version?: string;
+}
+
+export interface DNSCheckResult {
+  valid: boolean;
+  message: string;
+  ip?: string;
+  serverIp?: string;
 }
 
 export interface CompletedInfo {
@@ -118,4 +128,6 @@ export const DEFAULT_CONFIG: SetupConfig = {
   templateVersion: "latest",
   buildHeapMB: undefined,
   skipTypeCheckFrontend: false
+  ,sslEnable: true,
+  sslEmail: undefined
 };

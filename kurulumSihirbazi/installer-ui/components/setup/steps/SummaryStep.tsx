@@ -59,6 +59,13 @@ export function SummaryStep({
     }
   }, [config.buildHeapMB, suggestedMB, onConfigUpdate]);
 
+  const suggestedEmail = config.domain ? `admin@${config.domain}` : '';
+  useEffect(() => {
+    if (config.sslEnable && !config.sslEmail && suggestedEmail) {
+      onConfigUpdate({ sslEmail: suggestedEmail });
+    }
+  }, [config.sslEnable, config.sslEmail, suggestedEmail, onConfigUpdate]);
+
   const summaryItems = [
     { label: "Domain", value: config.domain },
     { label: "Mağaza Adı", value: config.storeName },
@@ -142,6 +149,31 @@ export function SummaryStep({
               onCheckedChange={(v) => onConfigUpdate({ skipTypeCheckFrontend: Boolean(v) })}
             />
           </div>
+        </div>
+
+        {/* SSL Ayarları */}
+        <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/20 p-4 border border-emerald-200 dark:border-emerald-800">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">Let’s Encrypt ile SSL etkinleştir</p>
+              <p className="text-xs text-emerald-700 dark:text-emerald-300">Ücretsiz sertifika alınır, 80 → 443 yönlendirmesi yapılır.</p>
+            </div>
+            <Switch
+              checked={Boolean(config.sslEnable)}
+              onCheckedChange={(v) => onConfigUpdate({ sslEnable: Boolean(v) })}
+            />
+          </div>
+          {config.sslEnable && (
+            <div className="mt-3">
+              <label className="block text-xs mb-1 text-emerald-900 dark:text-emerald-200">Let’s Encrypt E-posta</label>
+              <Input
+                type="email"
+                value={config.sslEmail || ''}
+                onChange={(e) => onConfigUpdate({ sslEmail: e.target.value })}
+                placeholder={suggestedEmail || 'admin@domain.com'}
+              />
+            </div>
+          )}
         </div>
 
         <Alert className="border-amber-200 bg-amber-50">

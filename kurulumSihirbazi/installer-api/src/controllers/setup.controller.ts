@@ -242,7 +242,7 @@ setupRouter.post("/build-applications", authorize("ADMIN", "SUPER_ADMIN"), async
 // Adım 11: PM2 ve Nginx yapılandırması
 setupRouter.post("/configure-services", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
-    const { domain, ports, isLocal } = req.body;
+    const { domain, ports, isLocal, sslEnable, sslEmail } = req.body as { domain: string; ports: any; isLocal?: boolean; sslEnable?: boolean; sslEmail?: string };
 
     if (!domain || !ports) {
       res.status(400).json({ ok: false, message: "Domain ve port bilgileri gerekli" });
@@ -293,8 +293,39 @@ setupRouter.post("/configure-services", authorize("ADMIN", "SUPER_ADMIN"), async
       }
     } else {
       // Production mode - PM2 gerekli
+      // 1) PM2 ecosystem oluştur
       await pm2Service.createEcosystem(domain, customerPath, ports, { devMode: isLocal });
-      await nginxService.createConfig(domain, ports);
+
+      // 2) Önce HTTP-only nginx config (certbot webroot için)
+      setupService.emitProgress(domain, "service", "Nginx HTTP konfigürasyonu uygulanıyor...");
+      await nginxService.createConfig(domain, ports, false);
+
+      // 3) SSL isteniyorsa sertifika al ve 443'e geçir
+      if (sslEnable && sslEmail) {
+        try {
+          // Certbot check/install
+          setupService.emitProgress(domain, "service", "Certbot kontrol ediliyor...");
+          const hasCertbot = await nginxService.isCertbotInstalled();
+          if (!hasCertbot) {
+            setupService.emitProgress(domain, "service", "Certbot bulunamadı, yükleniyor...");
+            const installRes = await nginxService.installCertbot();
+            if (installRes.ok) {
+              setupService.emitProgress(domain, "service", `Certbot yüklendi (${installRes.method})`);
+            } else {
+              setupService.emitProgress(domain, "service", "Certbot kurulamadı. HTTP ile devam ediliyor.");
+              // Sertifika adımını atla
+              throw new Error("Certbot installation failed");
+            }
+          }
+
+          setupService.emitProgress(domain, "service", "SSL sertifikası alınıyor (Let’s Encrypt)...");
+          await nginxService.obtainSSLCertificate(domain, sslEmail);
+          setupService.emitProgress(domain, "service", "SSL etkinleştirildi, 80→443 yönlendiriliyor");
+        } catch (e: any) {
+          // Sertifika alınamazsa HTTP-only devam et, bilgi ver
+          setupService.emitProgress(domain, "service", `SSL alınamadı: ${e?.message || 'hata'}. HTTP ile devam ediliyor`);
+        }
+      }
     }
 
     res.json({ ok: true, message: "Servisler yapılandırıldı" });

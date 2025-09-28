@@ -2,7 +2,11 @@
 
 import {
   Globe,
-  Home
+  Home,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  Search
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +17,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { SetupConfig } from '@/lib/types/setup';
 import { useInstallation } from '@/hooks/setup/useInstallation';
+import { useDNSCheck } from '@/hooks/setup/useDNSCheck';
+import { useEffect } from 'react';
 
 interface SiteConfigStepProps {
   config: SetupConfig;
@@ -23,7 +29,17 @@ interface SiteConfigStepProps {
 
 export function SiteConfigStep({ config, onConfigUpdate, onNext, onBack }: SiteConfigStepProps) {
   const { isLocalDomain } = useInstallation();
+  const { testResult, loading: dnsChecking, checkDNS, resetTest } = useDNSCheck();
   const isLocal = config.domain ? isLocalDomain(config.domain) : false;
+
+  // Domain değiştiğinde DNS test sonucunu sıfırla
+  useEffect(() => {
+    resetTest();
+  }, [config.domain, resetTest]);
+
+  const handleDNSCheck = () => {
+    checkDNS(config.domain);
+  };
 
   const isFormValid =
     config.domain &&
@@ -49,19 +65,69 @@ export function SiteConfigStep({ config, onConfigUpdate, onNext, onBack }: SiteC
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="domain">Domain</Label>
-            <Input
-              id="domain"
-              type="text"
-              value={config.domain}
-              onChange={(e) => onConfigUpdate({ domain: e.target.value })}
-              placeholder="example.com veya test1 (local)"
-            />
-            {isLocal && (
+            <div className="flex gap-2">
+              <Input
+                id="domain"
+                type="text"
+                value={config.domain}
+                onChange={(e) => onConfigUpdate({ domain: e.target.value })}
+                placeholder="example.com veya test1 (local)"
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleDNSCheck}
+                disabled={!config.domain || dnsChecking}
+                className="min-w-[120px]"
+              >
+                {dnsChecking ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Kontrol...
+                  </>
+                ) : (
+                  <>
+                    <Search className="mr-2 h-4 w-4" />
+                    DNS Kontrol
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Local mode uyarısı */}
+            {isLocal && !testResult && (
               <Alert className="mt-2 border-sky-200 bg-sky-50">
                 <Home className="h-4 w-4 text-sky-600" />
                 <AlertDescription className="text-sky-700">
                   Local Mode - DNS kontrolü atlanacak
                 </AlertDescription>
+              </Alert>
+            )}
+
+            {/* DNS test sonucu */}
+            {testResult && (
+              <Alert
+                className={
+                  testResult.valid
+                    ? "mt-2 border-emerald-200 bg-emerald-50"
+                    : "mt-2 border-rose-200 bg-rose-50"
+                }
+              >
+                <div className="flex items-center space-x-2">
+                  {testResult.valid ? (
+                    <CheckCircle className="h-5 w-5 text-emerald-500" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-rose-500" />
+                  )}
+                  <AlertDescription
+                    className={
+                      testResult.valid ? "text-emerald-700" : "text-rose-700"
+                    }
+                  >
+                    {testResult.message}
+                  </AlertDescription>
+                </div>
               </Alert>
             )}
           </div>

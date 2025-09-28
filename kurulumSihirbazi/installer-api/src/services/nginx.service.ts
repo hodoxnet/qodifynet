@@ -270,6 +270,51 @@ server {
     }
   }
 
+  // Helper: check if certbot is installed
+  async isCertbotInstalled(): Promise<boolean> {
+    try {
+      await execAsync("certbot --version");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Helper: try to install certbot (best-effort). Requires sufficient privileges.
+  async installCertbot(): Promise<{ ok: boolean; method?: string; output?: string }> {
+    // Try snap first
+    try {
+      await execAsync("snap --version");
+      await execAsync("snap install core");
+      await execAsync("snap refresh core");
+      await execAsync("snap install --classic certbot");
+      // Ensure path
+      await execAsync("ln -sf /snap/bin/certbot /usr/bin/certbot || true");
+      // Verify
+      await execAsync("certbot --version");
+      return { ok: true, method: "snap" };
+    } catch (e: any) {
+      // Fallback to package manager (apt/dnf)
+    }
+
+    try {
+      const { stdout } = await execAsync("bash -lc 'source /etc/os-release && echo $ID' ");
+      const id = (stdout || "").trim();
+      if (["ubuntu", "debian"].includes(id)) {
+        await execAsync("apt-get update");
+        await execAsync("DEBIAN_FRONTEND=noninteractive apt-get install -y certbot");
+        await execAsync("certbot --version");
+        return { ok: true, method: "apt" };
+      } else {
+        await execAsync("dnf install -y certbot || yum install -y certbot");
+        await execAsync("certbot --version");
+        return { ok: true, method: "dnf" };
+      }
+    } catch (e: any) {
+      return { ok: false, output: e?.stderr || e?.message };
+    }
+  }
+
   async renewSSLCertificates() {
     try {
       await execAsync("certbot renew --quiet");
