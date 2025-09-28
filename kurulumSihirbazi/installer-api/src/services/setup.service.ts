@@ -579,20 +579,42 @@ export class SetupService {
     isLocal: boolean,
     onProgress?: (message: string) => void,
     options?: { heapMB?: number; skipTypeCheck?: boolean }
-  ): Promise<{ ok: boolean; message: string; stdout?: string; stderr?: string; buildLog?: string }> {
+  ): Promise<{ ok: boolean; message: string; stdout?: string; stderr?: string; buildLog?: string; errorType?: string }> {
     // Build-lock: Aynı domain için eşzamanlı build'i engelle
     const staticAny = SetupService as any;
     if (!staticAny._buildLocks) staticAny._buildLocks = new Set<string>();
+    if (!staticAny._buildPromises) staticAny._buildPromises = new Map<string, Promise<any>>();
     const locks: Set<string> = staticAny._buildLocks;
+    const inflight: Map<string, Promise<any>> = staticAny._buildPromises;
     if (locks.has(customerDomain)) {
-      return { ok: false, message: "Bu müşteri için build zaten devam ediyor" };
+      // Aynı domain için devam eden build varsa onun sonucunu paylaş
+      const existing = inflight.get(customerDomain);
+      if (existing) {
+        try {
+          const result = await existing;
+          return {
+            ok: result?.ok,
+            message: result?.message || (result?.ok ? "Build tamamlandı" : "Build başarısız"),
+            stdout: result?.stdout,
+            stderr: result?.stderr,
+            buildLog: result?.message,
+            errorType: result?.errorType
+          };
+        } catch (e: any) {
+          return { ok: false, message: e?.message || "Devam eden build başarısız" };
+        }
+      }
+      // Beklenmedik durum: lock var ama promise yok → kibarca bilgi ver
+      return { ok: false, message: "Bu müşteri için build zaten devam ediyor", errorType: "in_progress" };
     }
     locks.add(customerDomain);
     try {
       if (onProgress) onProgress("Build işlemi başlatılıyor...");
 
       // Yeni improved service ile build yap
-      const result = await this.improvedSetupService.buildAllApplications(customerDomain, isLocal, options);
+      const promise = this.improvedSetupService.buildAllApplications(customerDomain, isLocal, options);
+      inflight.set(customerDomain, promise);
+      const result = await promise;
 
       if (!result.ok) {
         // Hata durumunda detaylı bilgi gönder
@@ -625,6 +647,8 @@ export class SetupService {
         message: error.message || "Derleme hatası"
       };
     } finally {
+      const inflight: Map<string, Promise<any>> = staticAny._buildPromises;
+      if (inflight) inflight.delete(customerDomain);
       locks.delete(customerDomain);
     }
   }
