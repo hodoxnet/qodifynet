@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Terminal as TerminalIcon, Maximize2, Minimize2, Copy, Download, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -48,18 +48,36 @@ export function Terminal({
   isLoading = false,
   fullscreenEnabled = true
 }: TerminalProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [showSearchBar, setShowSearchBar] = React.useState(false);
   const [filteredLogs, setFilteredLogs] = React.useState<TerminalLog[]>(logs);
 
-  useEffect(() => {
-    if (autoScroll && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  // Scroll to bottom fonksiyonu
+  const scrollToBottom = useCallback(() => {
+    if (scrollAreaRef.current) {
+      const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (viewport) {
+        viewport.scrollTop = viewport.scrollHeight;
+      }
     }
-  }, [logs, autoScroll]);
+  }, []);
 
+  // Logs değiştiğinde auto-scroll
+  useEffect(() => {
+    if (autoScroll) {
+      // Hemen dene
+      scrollToBottom();
+
+      // DOM güncellemesi için kısa bir gecikme ile tekrar dene
+      const timeoutId = setTimeout(scrollToBottom, 100);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [logs, autoScroll, scrollToBottom]);
+
+  // Arama sonuçlarını filtrele
   useEffect(() => {
     if (searchQuery) {
       const filtered = logs.filter(log =>
@@ -234,7 +252,7 @@ export function Terminal({
           "w-full bg-gray-950 p-4 font-mono text-xs",
           !isFullscreen && maxHeight
         )}
-        ref={scrollRef}
+        ref={scrollAreaRef}
       >
         <div className="space-y-1">
           {filteredLogs.length === 0 ? (
