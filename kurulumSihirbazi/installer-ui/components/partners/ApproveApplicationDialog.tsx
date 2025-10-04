@@ -1,58 +1,100 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CheckCircle, Coins } from "lucide-react";
 
-export function ApproveApplicationDialog({ open, onOpenChange, onApprove }: { open: boolean; onOpenChange: (o: boolean) => void; onApprove: (payload: any) => Promise<void> | void }) {
+export function ApproveApplicationDialog({
+  open,
+  onOpenChange,
+  onApprove
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  onApprove: (payload: any) => Promise<void> | void
+}) {
   const [setupCredits, setSetupCredits] = useState<number>(1);
-  const [createUser, setCreateUser] = useState<{ email: string; password: string; name?: string }>({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
 
   async function submit() {
     setLoading(true);
     try {
-      const payload: any = { setupCredits };
-      if (createUser.email && createUser.password) payload.createUser = createUser;
-      await onApprove(payload);
+      await onApprove({ setupCredits });
       onOpenChange(false);
-    } finally { setLoading(false); }
+      // Reset form
+      setSetupCredits(1);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Başvuruyu Onayla</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <CheckCircle className="w-5 h-5 text-green-600" />
+            Başvuruyu Onayla
+          </DialogTitle>
+          <DialogDescription>
+            Başvuruyu onaylayarak yeni partner oluşturun. Başvuru formundaki admin bilgileriyle otomatik kullanıcı hesabı oluşturulacaktır.
+          </DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
-          <div>
-            <Label>Kurulum Kredisi</Label>
-            <Input type="number" value={setupCredits} onChange={e => setSetupCredits(parseInt(e.target.value || '1'))} />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <Label>Kullanıcı E‑posta (opsiyonel)</Label>
-              <Input value={createUser.email} onChange={e => setCreateUser(v => ({ ...v, email: e.target.value }))} />
-            </div>
-            <div>
-              <Label>Parola (opsiyonel)</Label>
-              <Input type="password" value={createUser.password} onChange={e => setCreateUser(v => ({ ...v, password: e.target.value }))} />
-            </div>
-            <div>
-              <Label>İsim (opsiyonel)</Label>
-              <Input value={createUser.name || ''} onChange={e => setCreateUser(v => ({ ...v, name: e.target.value }))} />
-            </div>
+
+        <div className="space-y-4 py-4">
+          <Alert>
+            <CheckCircle className="h-4 w-4" />
+            <AlertDescription className="text-sm">
+              <strong>Otomatik İşlemler:</strong>
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Partner kaydı oluşturulacak</li>
+                <li>Başvurudaki admin bilgileriyle kullanıcı hesabı açılacak</li>
+                <li>Kullanıcı PARTNER_ADMIN rolüyle partnerlik eklenecek</li>
+                <li>Partner başvuruda verdiği bilgilerle giriş yapabilecek</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
+
+          <div className="space-y-2">
+            <Label htmlFor="setupCredits" className="flex items-center gap-2">
+              <Coins className="w-4 h-4" />
+              Başlangıç Kurulum Kredisi
+            </Label>
+            <Input
+              id="setupCredits"
+              type="number"
+              min={1}
+              max={1000}
+              value={setupCredits}
+              onChange={e => setSetupCredits(Math.max(1, parseInt(e.target.value || '1')))}
+              className="text-lg font-semibold"
+            />
+            <p className="text-xs text-muted-foreground">
+              Partner bu kredi ile müşteri kurulumu yapabilir
+            </p>
           </div>
         </div>
+
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>İptal</Button>
-          <Button onClick={submit} disabled={loading}>{loading ? 'İşleniyor...' : 'Onayla'}</Button>
+          <Button
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            disabled={loading}
+          >
+            İptal
+          </Button>
+          <Button
+            onClick={submit}
+            disabled={loading}
+          >
+            {loading ? 'Onaylanıyor...' : 'Başvuruyu Onayla'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
-

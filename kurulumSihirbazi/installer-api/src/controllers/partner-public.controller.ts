@@ -17,8 +17,9 @@ const ApplySchema = z.object({
   phone: z.string().optional(),
   taxId: z.string().optional(),
   address: z.string().optional(),
-  adminEmail: z.string().email().optional(),
-  adminName: z.string().optional(),
+  adminEmail: z.string().email(),
+  adminName: z.string().min(2),
+  adminPassword: z.string().min(6),
 });
 
 partnerPublicRouter.post("/apply", async (req, res) => {
@@ -30,8 +31,9 @@ partnerPublicRouter.post("/apply", async (req, res) => {
       phone: raw.phone ? numericString(raw.phone, 24) : undefined,
       taxId: raw.taxId ? sanitizeString(raw.taxId, 64) : undefined,
       address: raw.address ? sanitizeString(raw.address, 512) : undefined,
-      adminEmail: raw.adminEmail ? sanitizeString(raw.adminEmail, 160) : undefined,
-      adminName: raw.adminName ? sanitizeString(raw.adminName, 128) : undefined,
+      adminEmail: sanitizeString(raw.adminEmail, 160),
+      adminName: sanitizeString(raw.adminName, 128),
+      adminPassword: raw.adminPassword, // Password will be hashed during user creation
     };
     const app = await service.createApplication({ ...body });
     return ok(res, { applicationId: app.id });

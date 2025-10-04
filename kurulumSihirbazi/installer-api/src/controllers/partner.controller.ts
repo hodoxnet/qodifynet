@@ -114,6 +114,18 @@ partnerRouter.get("/", async (req, res) => {
   }
 });
 
+// List applications (SUPER_ADMIN) - MUST be before /:id routes
+partnerRouter.get("/applications", async (req, res) => {
+  try {
+    const user = (req as any).user as { role: string };
+    if (user.role !== "SUPER_ADMIN") return err(res, 403, "FORBIDDEN", "Forbidden");
+    const apps = await service.listApplications(req.query.status as string | undefined);
+    return ok(res, { applications: apps });
+  } catch (e: any) {
+    return err(res, 400, "APPLICATION_LIST_FAILED", e?.message || "List applications failed");
+  }
+});
+
 // Partner detail (SUPER_ADMIN or owner member)
 partnerRouter.get("/:id", async (req, res) => {
   try {
@@ -139,18 +151,6 @@ partnerRouter.get("/:id/members", async (req, res) => {
   }
 });
 
-// List applications (SUPER_ADMIN)
-partnerRouter.get("/applications", async (req, res) => {
-  try {
-    const user = (req as any).user as { role: string };
-    if (user.role !== "SUPER_ADMIN") return err(res, 403, "FORBIDDEN", "Forbidden");
-    const apps = await service.listApplications(req.query.status as string | undefined);
-    return ok(res, { applications: apps });
-  } catch (e: any) {
-    return err(res, 400, "APPLICATION_LIST_FAILED", e?.message || "List applications failed");
-  }
-});
-
 // Approve application and optionally create member user
 const ApproveSchema = z.object({
   setupCredits: z.number().int().positive().optional(),
@@ -171,7 +171,16 @@ partnerRouter.post("/applications/:id/approve", adminLimiter, async (req, res) =
     await service.approveApplication(app.id, partner.id, user.id);
 
     let createdUserId: string | null = null;
-    if (body.userId) {
+
+    // Auto-create user from application form if admin credentials exist
+    const formData = app.form as any;
+    if (formData?.adminEmail && formData?.adminPassword && formData?.adminName) {
+      const u = await authService.register(formData.adminEmail, formData.adminPassword, "VIEWER", formData.adminName);
+      await service.addMember(partner.id, u.id, "PARTNER_ADMIN");
+      createdUserId = u.id;
+    }
+    // Manual user creation/assignment (override auto-create)
+    else if (body.userId) {
       await service.addMember(partner.id, body.userId, "PARTNER_ADMIN");
       createdUserId = body.userId;
     } else if (body.createUser) {
