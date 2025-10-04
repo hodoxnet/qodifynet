@@ -7,6 +7,7 @@ import { z } from "zod";
 import { ArrowLeft, ArrowRight, CheckCircle, Loader2, Globe, Database, Rocket, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { io as socketIO } from "socket.io-client";
+import { apiFetch } from "@/lib/api";
 
 const deploymentSchema = z.object({
   domain: z.string().min(1, "Domain gerekli").refine((val) => {
@@ -134,67 +135,61 @@ export function DeploymentWizard({ onBack, onComplete }: DeploymentWizardProps) 
         setProgressLogs(prev => [...prev, p.message]);
       });
 
-      // First check if templates are available
-      const templateCheckResponse = await fetch("http://localhost:3031/api/templates/check", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ version: data.templateVersion }),
-      });
+      // New step-by-step setup flow
+      const call = async (path: string, body?: any) => {
+        const res = await apiFetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+        if (res.status === 402) { const msg = await res.json().catch(() => ({})); throw new Error(msg?.message || 'Kredi yetersiz (402)'); }
+        if (res.status === 429) throw new Error('Çok fazla istek (429)');
+        if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j?.message || 'İşlem başarısız'); }
+        return res.json().catch(() => ({}));
+      };
 
-      if (!templateCheckResponse.ok) {
-        const templateStatus = await templateCheckResponse.json();
-        toast.error(templateStatus.message || "Template dosyaları bulunamadı!");
-        setDeploying(false);
-        return;
+      // 1) Template check (bilgi amaçlı)
+      await call('/api/templates/check', { version: data.templateVersion });
+      setProgressLogs(prev => [...prev, 'Templates kontrol edildi']);
+
+      // 2) Extract templates
+      await call('/api/setup/extract-templates', { domain: data.domain, version: data.templateVersion });
+      setProgressLogs(prev => [...prev, 'Templates çıkarıldı']);
+
+      // 3) Configure environment (ports otomatik atanır)
+      const dbHost = (document.getElementById("dbHost") as HTMLInputElement)?.value || undefined;
+      const dbPort = Number((document.getElementById("dbPort") as HTMLInputElement)?.value) || undefined;
+      const dbUser = (document.getElementById("dbUser") as HTMLInputElement)?.value || undefined;
+      const dbPassword = (document.getElementById("dbPassword") as HTMLInputElement)?.value || undefined;
+      const dbName = (document.getElementById("dbName") as HTMLInputElement)?.value || undefined;
+      const redisHost = (document.getElementById("redisHost") as HTMLInputElement)?.value || undefined;
+      const redisPort = Number((document.getElementById("redisPort") as HTMLInputElement)?.value) || undefined;
+      const storeName = (document.getElementById("storeName") as HTMLInputElement)?.value || data.storeName;
+      await call('/api/setup/configure-environment', { domain: data.domain, dbName, dbUser, dbPassword, dbHost, dbPort, redisHost, redisPort, storeName });
+      setProgressLogs(prev => [...prev, 'Ortam yapılandırıldı']);
+
+      // 4) Install dependencies
+      await call('/api/setup/install-dependencies', { domain: data.domain });
+      setProgressLogs(prev => [...prev, 'Bağımlılıklar yüklendi']);
+
+      // 5) Run migrations
+      await call('/api/setup/run-migrations', { domain: data.domain });
+      setProgressLogs(prev => [...prev, 'Migration\'lar uygulandı']);
+
+      // 6) Build applications
+      await call('/api/setup/build-applications', { domain: data.domain });
+      setProgressLogs(prev => [...prev, 'Uygulamalar derlendi']);
+
+      // 7) Finalize
+      const finalizeRes = await call('/api/setup/finalize', { domain: data.domain, ports: {}, dbName, dbUser, dbHost, dbPort, redisHost, redisPort, storeName, isLocal: isLocalDomain(data.domain) });
+      toast.success('Kurulum başarıyla tamamlandı!');
+      const result = finalizeRes || {};
+      if (result?.urls) {
+        toast.info(`Store: ${result.urls.store}`, { duration: 10000 });
+        toast.info(`Admin: ${result.urls.admin}`, { duration: 10000 });
       }
-
-      // Start deployment with real-time progress
-      const response = await fetch("http://localhost:3031/api/customers/deploy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          db: {
-            host: (document.getElementById("dbHost") as HTMLInputElement)?.value || undefined,
-            port: Number((document.getElementById("dbPort") as HTMLInputElement)?.value) || undefined,
-            user: (document.getElementById("dbUser") as HTMLInputElement)?.value || undefined,
-            password: (document.getElementById("dbPassword") as HTMLInputElement)?.value || undefined,
-          },
-          database: {
-            name: (document.getElementById("dbName") as HTMLInputElement)?.value || undefined,
-            user: (document.getElementById("dbAppUser") as HTMLInputElement)?.value || undefined,
-            password: (document.getElementById("dbAppPassword") as HTMLInputElement)?.value || undefined,
-          },
-          redis: {
-            host: (document.getElementById("redisHost") as HTMLInputElement)?.value || undefined,
-            port: Number((document.getElementById("redisPort") as HTMLInputElement)?.value) || undefined,
-            prefix: (document.getElementById("redisPrefix") as HTMLInputElement)?.value || undefined,
-          },
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-
-        // Show success with URLs
-        toast.success("Kurulum başarıyla tamamlandı!");
-
-        if (result.mode === "local") {
-          toast.info(`Store: ${result.urls.store}`, { duration: 10000 });
-          toast.info(`Admin: ${result.urls.admin}`, { duration: 10000 });
-          toast.info(`API: ${result.urls.api}`, { duration: 10000 });
-        } else {
-          toast.info(`Store: ${result.urls.store}`, { duration: 10000 });
-          toast.info(`Admin: ${result.urls.admin}`, { duration: 10000 });
-        }
-
-        setTimeout(onComplete, 3000);
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Deployment failed");
-      }
+      setTimeout(onComplete, 3000);
     } catch (error: any) {
-      toast.error(error.message || "Kurulum sırasında hata oluştu");
+      const msg: string = String(error?.message || 'Kurulum sırasında hata oluştu');
+      if (msg.includes('Kredi') || msg.includes('(402)')) toast.error('Kredi yetersiz. Lütfen bakiyenizi kontrol edin.');
+      else if (msg.includes('(429)')) toast.error('Çok fazla istek. Lütfen bir süre sonra tekrar deneyin.');
+      else toast.error(msg);
       console.error(error);
     } finally {
       setDeploying(false);

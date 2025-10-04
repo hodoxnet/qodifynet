@@ -18,7 +18,8 @@ interface DeleteCustomerDialogProps {
   open: boolean;
   loading?: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: () => void;
+  onSoftDelete?: () => void;
+  onHardDelete: () => void;
 }
 
 export function DeleteCustomerDialog({
@@ -26,7 +27,8 @@ export function DeleteCustomerDialog({
   open,
   loading = false,
   onOpenChange,
-  onConfirm,
+  onSoftDelete,
+  onHardDelete,
 }: DeleteCustomerDialogProps) {
   if (!customer) return null;
 
@@ -62,14 +64,23 @@ export function DeleteCustomerDialog({
             </p>
           </div>
 
-          <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-            <p className="font-medium">Bu işlem şunları yapacak:</p>
-            <ul className="list-disc list-inside space-y-1 ml-2">
-              <li>Tüm servisleri durduracak</li>
-              <li>Veritabanını silecek</li>
-              <li>Tüm dosyaları kaldıracak</li>
-              <li>Nginx konfigürasyonunu silecek</li>
-            </ul>
+          <div className="space-y-4 text-sm">
+            <div className="space-y-2 text-gray-700 dark:text-gray-300">
+              <p className="font-medium">Silme Tipi</p>
+              <div className="rounded-md border p-3">
+                <p className="font-medium">1) Sadece Kaydı Sil (Önerilen)</p>
+                <p className="text-xs opacity-80">Kontrol‑plane kaydı silinir. Dosyalar/PM2/DB kalır.</p>
+              </div>
+              <div className="rounded-md border border-red-300 p-3 bg-red-50/40 dark:bg-red-900/10">
+                <p className="font-medium text-red-700 dark:text-red-300">2) Kalıcı Sil (Geri Alınamaz)</p>
+                <ul className="text-xs opacity-80 list-disc list-inside">
+                  <li>Tüm servisler durdurulur</li>
+                  <li>Veritabanı silinir</li>
+                  <li>Dosyalar kaldırılır</li>
+                  <li>Nginx konfigürasyonu silinir</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -77,23 +88,41 @@ export function DeleteCustomerDialog({
           <AlertDialogCancel disabled={loading}>
             İptal
           </AlertDialogCancel>
-          <AlertDialogAction
-            onClick={onConfirm}
-            disabled={loading}
-            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Siliniyor...
-              </>
-            ) : (
-              <>
-                <AlertTriangle className="mr-2 h-4 w-4" />
-                Evet, Sil
-              </>
+          <div className="flex gap-2">
+            {onSoftDelete && (
+              <AlertDialogAction
+                onClick={onSoftDelete}
+                disabled={loading}
+                className="bg-gray-900 hover:bg-black dark:bg-gray-700 dark:hover:bg-gray-600"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    İşleniyor...
+                  </>
+                ) : (
+                  <>Sadece Kaydı Sil</>
+                )}
+              </AlertDialogAction>
             )}
-          </AlertDialogAction>
+            <AlertDialogAction
+              onClick={onHardDelete}
+              disabled={loading}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Siliniyor...
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="mr-2 h-4 w-4" />
+                  Kalıcı Sil
+                </>
+              )}
+            </AlertDialogAction>
+          </div>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

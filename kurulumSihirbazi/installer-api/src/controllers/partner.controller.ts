@@ -4,18 +4,31 @@ import { PartnerService } from "../services/partner.service";
 import { AuthService } from "../services/auth.service";
 import { err, ok } from "../utils/http";
 import { sanitizeString } from "../utils/sanitize";
+import rateLimit from "express-rate-limit";
+import { verifyOrigin } from "../middleware/origin";
+import { AuditService } from "../services/audit.service";
 
 export const partnerRouter = Router();
 const service = new PartnerService();
 const authService = new AuthService();
+const audit = new AuditService();
+
+// Basic origin check for mutating endpoints
+partnerRouter.use((req, res, next) => {
+  if (["POST", "PUT", "DELETE", "PATCH"].includes(req.method)) return verifyOrigin(req, res, next);
+  return next();
+});
+
+const adminLimiter = rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false });
 
 const CreateSchema = z.object({ name: z.string().min(2), setupCredits: z.number().int().positive().optional() });
-partnerRouter.post("/", async (req, res) => {
+partnerRouter.post("/", adminLimiter, async (req, res) => {
   try {
     const user = (req as any).user as { role: string };
     if (user.role !== "SUPER_ADMIN") return err(res, 403, "FORBIDDEN", "Forbidden");
     const bodyRaw = CreateSchema.parse(req.body || {});
     const p = await service.createPartner(sanitizeString(bodyRaw.name, 128), bodyRaw.setupCredits ?? 1);
+    await audit.log({ actorId: (req as any).user?.id, action: "PARTNER_CREATE", targetType: "Partner", targetId: p.id, metadata: { name: p.name } });
     return ok(res, { partner: p });
   } catch (e: any) {
     return err(res, 400, "PARTNER_CREATE_FAILED", e?.message || "Create partner failed");
@@ -23,12 +36,13 @@ partnerRouter.post("/", async (req, res) => {
 });
 
 const GrantSchema = z.object({ amount: z.number().int(), note: z.string().optional() });
-partnerRouter.post("/:id/credits/grant", async (req, res) => {
+partnerRouter.post("/:id/credits/grant", adminLimiter, async (req, res) => {
   try {
     const user = (req as any).user as { role: string; id: string };
     if (user.role !== "SUPER_ADMIN") return err(res, 403, "FORBIDDEN", "Forbidden");
     const body = GrantSchema.parse(req.body || {});
     const p = await service.grantCredits(req.params.id, body.amount, user.id, body.note);
+    await audit.log({ actorId: user.id, action: "PARTNER_CREDIT_GRANT", targetType: "Partner", targetId: req.params.id, metadata: { amount: body.amount, note: body.note } });
     return ok(res, { balance: p.balance, pricing: p.pricing });
   } catch (e: any) {
     return err(res, 400, "CREDIT_GRANT_FAILED", e?.message || "Grant failed");
@@ -36,15 +50,71 @@ partnerRouter.post("/:id/credits/grant", async (req, res) => {
 });
 
 const MemberSchema = z.object({ userId: z.string().min(1), role: z.enum(["PARTNER_ADMIN", "PARTNER_INSTALLER"]) });
-partnerRouter.post("/:id/members", async (req, res) => {
+partnerRouter.post("/:id/members", adminLimiter, async (req, res) => {
   try {
     const user = (req as any).user as { role: string };
     if (user.role !== "SUPER_ADMIN") return err(res, 403, "FORBIDDEN", "Forbidden");
     const body = MemberSchema.parse(req.body || {});
     await service.addMember(req.params.id, body.userId, body.role);
+    await audit.log({ actorId: (req as any).user?.id, action: "PARTNER_MEMBER_ADD", targetType: "Partner", targetId: req.params.id, metadata: { by: "id", userId: body.userId, role: body.role } });
     return ok(res);
   } catch (e: any) {
     return err(res, 400, "ADD_MEMBER_FAILED", e?.message || "Add member failed");
+  }
+});
+
+// Add member by email (SUPER_ADMIN)
+const MemberByEmailSchema = z.object({ email: z.string().email(), role: z.enum(["PARTNER_ADMIN", "PARTNER_INSTALLER"]) });
+partnerRouter.post("/:id/members/by-email", adminLimiter, async (req, res) => {
+  try {
+    const user = (req as any).user as { role: string };
+    if (user.role !== "SUPER_ADMIN") return err(res, 403, "FORBIDDEN", "Forbidden");
+    const body = MemberByEmailSchema.parse(req.body || {});
+    const prisma = (await import("../db/prisma")).prisma;
+    const u = await prisma.user.findUnique({ where: { email: body.email } });
+    if (!u) return err(res, 404, "USER_NOT_FOUND", "User not found");
+    await service.addMember(req.params.id, u.id, body.role);
+    await audit.log({ actorId: (req as any).user?.id, action: "PARTNER_MEMBER_ADD", targetType: "Partner", targetId: req.params.id, metadata: { by: "email", email: body.email, role: body.role } });
+    return ok(res);
+  } catch (e: any) {
+    return err(res, 400, "ADD_MEMBER_EMAIL_FAILED", e?.message || "Add member by email failed");
+  }
+});
+
+// List partners (SUPER_ADMIN)
+partnerRouter.get("/", async (req, res) => {
+  try {
+    const user = (req as any).user as { role: string };
+    if (user.role !== "SUPER_ADMIN") return err(res, 403, "FORBIDDEN", "Forbidden");
+    const items = await service.listPartners();
+    return ok(res, { partners: items });
+  } catch (e: any) {
+    return err(res, 400, "PARTNER_LIST_FAILED", e?.message || "List partners failed");
+  }
+});
+
+// Partner detail (SUPER_ADMIN or owner member)
+partnerRouter.get("/:id", async (req, res) => {
+  try {
+    const viewer = (req as any).user as { role: string; partnerId?: string };
+    if (viewer.role !== "SUPER_ADMIN" && viewer.partnerId !== req.params.id) return err(res, 403, "FORBIDDEN", "Forbidden");
+    const p = await service.getById(req.params.id);
+    if (!p) return err(res, 404, "PARTNER_NOT_FOUND", "Partner not found");
+    return ok(res, { partner: p });
+  } catch (e: any) {
+    return err(res, 400, "PARTNER_FETCH_FAILED", e?.message || "Fetch failed");
+  }
+});
+
+// Members list (SUPER_ADMIN or owner member)
+partnerRouter.get("/:id/members", async (req, res) => {
+  try {
+    const viewer = (req as any).user as { role: string; partnerId?: string };
+    if (viewer.role !== "SUPER_ADMIN" && viewer.partnerId !== req.params.id) return err(res, 403, "FORBIDDEN", "Forbidden");
+    const items = await service.listMembers(req.params.id);
+    return ok(res, { members: items });
+  } catch (e: any) {
+    return err(res, 400, "MEMBERS_FAILED", e?.message || "Members fetch failed");
   }
 });
 
@@ -67,7 +137,7 @@ const ApproveSchema = z.object({
   userId: z.string().optional(),
 });
 
-partnerRouter.post("/applications/:id/approve", async (req, res) => {
+partnerRouter.post("/applications/:id/approve", adminLimiter, async (req, res) => {
   try {
     const user = (req as any).user as { role: string; id: string };
     if (user.role !== "SUPER_ADMIN") return err(res, 403, "FORBIDDEN", "Forbidden");
@@ -89,6 +159,7 @@ partnerRouter.post("/applications/:id/approve", async (req, res) => {
       createdUserId = u.id;
     }
 
+    await audit.log({ actorId: user.id, action: "PARTNER_APPLICATION_APPROVE", targetType: "PartnerApplication", targetId: app.id, metadata: { partnerId: partner.id, userId: createdUserId } });
     return ok(res, { partnerId: partner.id, userId: createdUserId });
   } catch (e: any) {
     return err(res, 400, "APPROVE_FAILED", e?.message || "Approve failed");
@@ -97,7 +168,7 @@ partnerRouter.post("/applications/:id/approve", async (req, res) => {
 
 // Reject application
 const RejectSchema = z.object({ reason: z.string().optional() });
-partnerRouter.post("/applications/:id/reject", async (req, res) => {
+partnerRouter.post("/applications/:id/reject", adminLimiter, async (req, res) => {
   try {
     const user = (req as any).user as { role: string; id: string };
     if (user.role !== "SUPER_ADMIN") return err(res, 403, "FORBIDDEN", "Forbidden");
@@ -105,6 +176,7 @@ partnerRouter.post("/applications/:id/reject", async (req, res) => {
     const app = await service.getApplication(req.params.id);
     if (!app || app.status !== "pending") return err(res, 404, "APP_NOT_FOUND", "Application not found");
     await service.rejectApplication(app.id, user.id, body.reason);
+    await audit.log({ actorId: user.id, action: "PARTNER_APPLICATION_REJECT", targetType: "PartnerApplication", targetId: app.id, metadata: { reason: body.reason } });
     return ok(res);
   } catch (e: any) {
     return err(res, 400, "REJECT_FAILED", e?.message || "Reject failed");
@@ -113,12 +185,13 @@ partnerRouter.post("/applications/:id/reject", async (req, res) => {
 
 // Pricing update (SUPER_ADMIN)
 const PricingSchema = z.object({ setupCredits: z.number().int().positive() });
-partnerRouter.post("/:id/pricing", async (req, res) => {
+partnerRouter.post("/:id/pricing", adminLimiter, async (req, res) => {
   try {
     const user = (req as any).user as { role: string };
     if (user.role !== "SUPER_ADMIN") return err(res, 403, "FORBIDDEN", "Forbidden");
     const body = PricingSchema.parse(req.body || {});
     const p = await service.updatePricing(req.params.id, body.setupCredits);
+    await audit.log({ actorId: (req as any).user?.id, action: "PARTNER_PRICING_UPDATE", targetType: "Partner", targetId: req.params.id, metadata: { setupCredits: body.setupCredits } });
     return ok(res, { pricing: p });
   } catch (e: any) {
     return err(res, 400, "PRICING_FAILED", e?.message || "Pricing update failed");

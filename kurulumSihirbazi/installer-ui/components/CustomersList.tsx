@@ -11,6 +11,7 @@ import { DeleteCustomerDialog } from "@/components/customers/DeleteCustomerDialo
 import { useCustomerList, Customer } from "@/hooks/customers/useCustomerList";
 import { useCustomerActions } from "@/hooks/customers/useCustomerActions";
 import { ServiceType } from "@/hooks/customers/useCustomerLogs";
+import { CreateEditCustomerDialog } from "@/components/customers/CreateEditCustomerDialog";
 
 interface CustomersListProps {
   onRefresh: () => void;
@@ -24,6 +25,10 @@ export function CustomersList({ onRefresh }: CustomersListProps) {
     stopCustomer,
     restartCustomer,
     deleteCustomer,
+    deleteSoft,
+    deleteHard,
+    createCustomer,
+    updateCustomer,
   } = useCustomerActions(refreshCustomers);
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -32,6 +37,8 @@ export function CustomersList({ onRefresh }: CustomersListProps) {
   const [logService, setLogService] = useState<ServiceType>("backend");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Customer | null>(null);
 
   const handleRefresh = useCallback(async () => {
     await refreshCustomers();
@@ -59,25 +66,43 @@ export function CustomersList({ onRefresh }: CustomersListProps) {
 
   const handleDeleteConfirm = useCallback(async () => {
     if (customerToDelete) {
-      await deleteCustomer(customerToDelete.id, customerToDelete.domain);
+      await deleteHard(customerToDelete.id);
       setDeleteDialogOpen(false);
       setCustomerToDelete(null);
     }
   }, [customerToDelete, deleteCustomer]);
+
+  const handleSoftDelete = useCallback(async () => {
+    if (customerToDelete) {
+      await deleteSoft(customerToDelete.id);
+      setDeleteDialogOpen(false);
+      setCustomerToDelete(null);
+    }
+  }, [customerToDelete, deleteSoft]);
+
+  const openCreate = useCallback(() => { setEditing(null); setFormOpen(true); }, []);
+  const openEdit = useCallback((customer: Customer) => {
+    setEditing(customer); setFormOpen(true);
+  }, []);
 
   return (
     <>
       <Card className="shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle className="text-xl font-bold">Müşteriler</CardTitle>
-          <Button
+          <div className="flex items-center gap-2">
+            <Button onClick={openCreate} className="rounded-full">
+              Yeni Müşteri
+            </Button>
+            <Button
             variant="ghost"
             size="icon"
             onClick={handleRefresh}
             className="rounded-full"
           >
             <RefreshCw className="h-4 w-4" />
-          </Button>
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <CustomersTable
@@ -90,6 +115,7 @@ export function CustomersList({ onRefresh }: CustomersListProps) {
             onRestart={restartCustomer}
             onDelete={handleDeleteClick}
             onInfo={handleOpenInfo}
+            onEdit={openEdit}
           />
         </CardContent>
       </Card>
@@ -116,7 +142,24 @@ export function CustomersList({ onRefresh }: CustomersListProps) {
         open={deleteDialogOpen}
         loading={actionLoading === customerToDelete?.id}
         onOpenChange={setDeleteDialogOpen}
-        onConfirm={handleDeleteConfirm}
+        onSoftDelete={handleSoftDelete}
+        onHardDelete={handleDeleteConfirm}
+      />
+
+      <CreateEditCustomerDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        initial={editing ? {
+          id: editing.id,
+          domain: editing.domain,
+          partnerId: editing.partnerId,
+          mode: editing.mode || 'local',
+          ports: editing.ports,
+        } : undefined}
+        onSubmit={async (values) => {
+          if (editing) await updateCustomer(editing.id, values);
+          else await createCustomer(values);
+        }}
       />
     </>
   );

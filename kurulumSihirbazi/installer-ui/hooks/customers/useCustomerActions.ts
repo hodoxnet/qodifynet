@@ -77,5 +77,53 @@ export function useCustomerActions(onRefresh?: () => void) {
     stopCustomer,
     restartCustomer,
     deleteCustomer,
+    async deleteSoft(customerId: string) {
+      setActionLoading(customerId);
+      try {
+        const res = await fetcher(`/api/customers/${customerId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Silme başarısız');
+        toast.success('Kayıt silindi');
+        if (onRefresh) await onRefresh();
+      } catch (e) {
+        toast.error('Silme hatası');
+      } finally { setActionLoading(null); }
+    },
+    async deleteHard(customerId: string) {
+      setActionLoading(customerId);
+      try {
+        // Yeni endpoint
+        const res = await fetcher(`/api/customers/${customerId}?hard=true`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Kalıcı silme başarısız');
+        toast.success('Kalıcı silindi');
+        if (onRefresh) await onRefresh();
+      } catch (e) {
+        // Geriye dönük uyumluluk: eski endpoint
+        try {
+          const res2 = await fetcher(`/api/customers/${customerId}/delete`, { method: 'POST' });
+          if (res2.ok) {
+            toast.success('Kalıcı silindi');
+            if (onRefresh) await onRefresh();
+          } else throw new Error();
+        } catch {
+          toast.error('Kalıcı silme hatası');
+        }
+      } finally { setActionLoading(null); }
+    },
+    async createCustomer(payload: any) {
+      try {
+        const res = await fetcher('/api/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (!res.ok) throw new Error('Oluşturma başarısız');
+        toast.success('Müşteri oluşturuldu');
+        if (onRefresh) await onRefresh();
+      } catch { toast.error('Oluşturma hatası'); }
+    },
+    async updateCustomer(customerId: string, payload: any) {
+      try {
+        const res = await fetcher(`/api/customers/${customerId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (!res.ok) throw new Error('Güncelleme başarısız');
+        toast.success('Müşteri güncellendi');
+        if (onRefresh) await onRefresh();
+      } catch { toast.error('Güncelleme hatası'); }
+    },
   };
 }

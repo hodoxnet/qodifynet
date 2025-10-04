@@ -27,6 +27,19 @@ customerRouter.get("/", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"),
   }
 });
 
+// Get next available base port (ADMIN/SUPER_ADMIN)
+customerRouter.get("/next-port", authorize("ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+  try {
+    const repo = (await import("../repositories/customer.db.repository")).CustomerDbRepository.getInstance();
+    const base = await repo.getNextAvailablePort();
+    ok(res, { base, backend: base, admin: base + 1, store: base + 2 });
+    return;
+  } catch (e: any) {
+    err(res, 500, "NEXT_PORT_FAILED", e?.message || "Failed to get next port");
+    return;
+  }
+});
+
 // Get customer by ID
 customerRouter.get("/:id", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.CUSTOMER_READ_OWN), async (req, res): Promise<void> => {
   try {

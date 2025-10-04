@@ -24,6 +24,10 @@ export class PartnerService {
     return prisma.partner.findUnique({ where: { id }, include: { wallet: true, pricing: true } });
   }
 
+  async listPartners() {
+    return prisma.partner.findMany({ orderBy: { createdAt: 'desc' }, include: { wallet: true, pricing: true } });
+  }
+
   async findByUserId(userId: string) {
     const mem = await prisma.partnerMember.findUnique({ where: { userId }, include: { partner: true } });
     if (!mem) return null;
@@ -125,5 +129,9 @@ export class PartnerService {
 
   async getLedger(partnerId: string, take = 50) {
     return prisma.partnerLedger.findMany({ where: { partnerId }, orderBy: { createdAt: "desc" }, take });
+  }
+
+  async listMembers(partnerId: string) {
+    return prisma.partnerMember.findMany({ where: { partnerId }, orderBy: { createdAt: 'asc' }, include: { user: { select: { id: true, email: true, name: true } } } });
   }
 }

@@ -9,6 +9,7 @@ export interface Customer {
   domain: string;
   status: "running" | "stopped" | "error";
   createdAt: string;
+  partnerId?: string;
   ports: {
     backend: number;
     admin: number;
@@ -46,9 +47,10 @@ export function useCustomerList() {
       if (!response.ok) throw new Error("Müşteri listesi yüklenemedi");
 
       const data = await response.json();
-      if (!Array.isArray(data)) throw new Error("Beklenmeyen veri formatı");
+      const arr = Array.isArray(data) ? data : Array.isArray(data?.customers) ? data.customers : null;
+      if (!arr) throw new Error("Beklenmeyen veri formatı");
 
-      setCustomers(data);
+      setCustomers(arr);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Müşteri listesi yüklenemedi";
       setError(errorMsg);

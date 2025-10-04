@@ -26,6 +26,7 @@ interface CustomersTableProps {
   onRestart: (customerId: string, domain: string) => void;
   onDelete: (customerId: string, domain: string) => void;
   onInfo: (customer: Customer) => void;
+  onEdit?: (customer: Customer) => void;
 }
 
 export const CustomersTable = React.memo(function CustomersTable({
@@ -38,6 +39,7 @@ export const CustomersTable = React.memo(function CustomersTable({
   onRestart,
   onDelete,
   onInfo,
+  onEdit,
 }: CustomersTableProps) {
   const isLocalCustomer = (customer: Customer) =>
     customer.mode === "local" ||
@@ -245,6 +247,15 @@ export const CustomersTable = React.memo(function CustomersTable({
                           loading={false}
                         />
                         <ConfigButton customerId={customer.id} />
+                        {onEdit && (
+                          <button
+                            onClick={() => onEdit(customer)}
+                            className="px-2 py-1 text-xs rounded-md border hover:bg-gray-50 dark:hover:bg-gray-800"
+                            title="Düzenle"
+                          >
+                            Düzenle
+                          </button>
+                        )}
                         {customer.status === "stopped" ? (
                           <StartButton
                             onClick={() => onStart(customer.id, customer.domain)}

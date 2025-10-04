@@ -35,6 +35,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { useAuth } from "@/context/AuthContext"
 
 const data = {
   user: {
@@ -97,7 +98,21 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { user: authUser } = useAuth()
   const [user, setUser] = React.useState(data.user)
+  const navItems = React.useMemo(() => {
+    const items = [...data.navMain]
+    if (authUser?.role === 'SUPER_ADMIN') {
+      if (!items.find(i => i.url === '/partners')) {
+        items.splice(3, 0, { title: 'Partnerler', url: '/partners', icon: Users })
+      }
+      if (!items.find(i => i.url === '/partners/applications')) {
+        // Ekleme: Partner Başvuruları
+        items.splice(4, 0, { title: 'Partner Başvuruları', url: '/partners/applications', icon: Send })
+      }
+    }
+    return items
+  }, [authUser])
 
   React.useEffect(() => {
     const defaultAvatar = process.env.NEXT_PUBLIC_USER_AVATAR || "/api/avatar"
@@ -175,7 +190,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain items={navItems} />
         <NavProjects projects={data.projects} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
