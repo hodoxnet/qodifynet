@@ -92,7 +92,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const navItems = React.useMemo(() => {
     if (!mounted) return data.navMain
-    const items = [...data.navMain]
+    let items = [...data.navMain]
+
+    // Son Aktiviteler sadece SUPER_ADMIN için
+    if (authUser?.role !== 'SUPER_ADMIN') {
+      items = items.filter(i => i.url !== '/activities')
+    }
+
     if (authUser?.role === 'SUPER_ADMIN') {
       if (!items.find(i => i.url === '/partners')) {
         items.splice(3, 0, { title: 'Partnerler', url: '/partners', icon: Users })

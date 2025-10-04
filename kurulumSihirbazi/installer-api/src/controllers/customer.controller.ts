@@ -27,8 +27,8 @@ customerRouter.get("/", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"),
   }
 });
 
-// Get next available base port (ADMIN/SUPER_ADMIN)
-customerRouter.get("/next-port", authorize("ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+// Get next available base port
+customerRouter.get("/next-port", requireScopes(SCOPES.SETUP_RUN), async (_req, res): Promise<void> => {
   try {
     const repo = (await import("../repositories/customer.db.repository")).CustomerDbRepository.getInstance();
     const base = await repo.getNextAvailablePort();
@@ -143,7 +143,7 @@ customerRouter.delete("/:id", authorize("ADMIN", "SUPER_ADMIN"), async (req, res
 // Deploy endpoint removed - using setup.service.ts instead
 
 // Customer actions
-customerRouter.post("/:id/start", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+customerRouter.post("/:id/start", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN", "PARTNER_ADMIN", "PARTNER_INSTALLER"), async (req, res): Promise<void> => {
   try {
     const result = await customerService.startCustomer(req.params.id);
     res.json(result);
@@ -152,7 +152,7 @@ customerRouter.post("/:id/start", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"),
   }
 });
 
-customerRouter.post("/:id/stop", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+customerRouter.post("/:id/stop", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN", "PARTNER_ADMIN", "PARTNER_INSTALLER"), async (req, res): Promise<void> => {
   try {
     const result = await customerService.stopCustomer(req.params.id);
     res.json(result);
@@ -161,7 +161,7 @@ customerRouter.post("/:id/stop", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), 
   }
 });
 
-customerRouter.post("/:id/restart", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+customerRouter.post("/:id/restart", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN", "PARTNER_ADMIN", "PARTNER_INSTALLER"), async (req, res): Promise<void> => {
   try {
     const result = await customerService.restartCustomer(req.params.id);
     res.json(result);
@@ -222,7 +222,7 @@ customerRouter.put("/:id/env-config", authorize("ADMIN", "SUPER_ADMIN"), async (
 });
 
 // Restart specific service with PM2
-customerRouter.post("/:id/restart-service", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+customerRouter.post("/:id/restart-service", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN", "PARTNER_ADMIN", "PARTNER_INSTALLER"), async (req, res): Promise<void> => {
   try {
     const { service } = req.body; // 'backend', 'admin', or 'store'
     const result = await customerService.restartService(req.params.id, service);

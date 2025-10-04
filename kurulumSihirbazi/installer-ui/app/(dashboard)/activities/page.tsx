@@ -13,15 +13,42 @@ import {
   Server,
   ChevronLeft,
   ChevronRight,
+  ShieldAlert,
 } from "lucide-react";
 import { useAuditLogs } from "@/hooks/useAuditLogs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext";
 
 export default function ActivitiesPage() {
+  const { user } = useAuth();
   const [filter, setFilter] = useState<string>("all");
   const { logs, loading, refresh, total, page, pageSize, totalPages, goToPage, changePageSize } = useAuditLogs(10);
+
+  if (user?.role !== "SUPER_ADMIN") {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="p-3 rounded-full bg-red-100 dark:bg-red-900/20">
+                <ShieldAlert className="h-8 w-8 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                  Yetkisiz Erişim
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Bu sayfaya erişim yetkiniz bulunmamaktadır. Aktivite logları sadece SUPER_ADMIN rolüne sahip kullanıcılar tarafından görüntülenebilir.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const getActionIcon = (action: string) => {
     if (action.includes('PARTNER')) return <Building2 className="w-4 h-4" />;

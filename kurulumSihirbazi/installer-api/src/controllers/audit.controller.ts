@@ -4,11 +4,11 @@ import { err, ok } from "../utils/http";
 
 export const auditRouter = Router();
 
-// Get audit logs (ADMIN/SUPER_ADMIN)
+// Get audit logs (SUPER_ADMIN only)
 auditRouter.get("/", async (req, res) => {
   try {
     const user = (req as any).user as { role: string; id: string };
-    if (!["ADMIN", "SUPER_ADMIN"].includes(user.role)) {
+    if (user.role !== "SUPER_ADMIN") {
       return err(res, 403, "FORBIDDEN", "Forbidden");
     }
 
@@ -47,11 +47,11 @@ auditRouter.get("/", async (req, res) => {
   }
 });
 
-// Get audit log stats (ADMIN/SUPER_ADMIN)
+// Get audit log stats (SUPER_ADMIN only)
 auditRouter.get("/stats", async (req, res) => {
   try {
     const user = (req as any).user as { role: string };
-    if (!["ADMIN", "SUPER_ADMIN"].includes(user.role)) {
+    if (user.role !== "SUPER_ADMIN") {
       return err(res, 403, "FORBIDDEN", "Forbidden");
     }
 

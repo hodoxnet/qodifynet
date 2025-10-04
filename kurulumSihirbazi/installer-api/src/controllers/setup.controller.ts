@@ -23,7 +23,7 @@ const pm2Service = new PM2Service();
 const nginxService = new NginxService();
 
 // Adım 1: Sistem gereksinimlerini kontrol et
-setupRouter.get("/requirements", authorize("ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+setupRouter.get("/requirements", requireScopes(SCOPES.SETUP_RUN), async (_req, res): Promise<void> => {
   try {
     const requirements = await setupService.checkSystemRequirements();
     res.json({ ok: true, requirements });
@@ -33,7 +33,7 @@ setupRouter.get("/requirements", authorize("ADMIN", "SUPER_ADMIN"), async (_req,
 });
 
 // Adım 2: Veritabanı bağlantısını test et
-setupRouter.post("/test-database", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+setupRouter.post("/test-database", requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
     const { host, port, user, password } = req.body;
 
@@ -56,7 +56,7 @@ setupRouter.post("/test-database", authorize("ADMIN", "SUPER_ADMIN"), async (req
 });
 
 // Adım 3: Redis bağlantısını test et
-setupRouter.post("/test-redis", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+setupRouter.post("/test-redis", requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
     const { host = "localhost", port = 6379 } = req.body;
 
@@ -68,7 +68,7 @@ setupRouter.post("/test-redis", authorize("ADMIN", "SUPER_ADMIN"), async (req, r
 });
 
 // Adım 4: Veritabanı oluştur
-setupRouter.post("/create-database", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+setupRouter.post("/create-database", requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
     const { dbConfig, dbName, appUser, appPassword } = req.body;
 
@@ -252,7 +252,7 @@ setupRouter.post("/build-applications", setupLimiter, requireScopes(SCOPES.SETUP
 });
 
 // Adım 11: PM2 ve Nginx yapılandırması
-setupRouter.post("/configure-services", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+setupRouter.post("/configure-services", requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
     const { domain, ports, isLocal, sslEnable, sslEmail } = req.body as { domain: string; ports: any; isLocal?: boolean; sslEnable?: boolean; sslEmail?: string };
 
@@ -464,7 +464,7 @@ setupRouter.post("/finalize", setupLimiter, requireScopes(SCOPES.SETUP_RUN), asy
 });
 
 // WebSocket bağlantısı için
-setupRouter.post("/subscribe", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+setupRouter.post("/subscribe", requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   const { domain } = req.body;
 
   if (!domain) {
