@@ -36,6 +36,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { useAuth } from "@/context/AuthContext"
+import { apiFetch } from "@/lib/api"
 
 const data = {
   user: {
@@ -137,15 +138,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     // Fetch from API for fresh data
     ;(async () => {
       try {
-        const res = await fetch((process.env.NEXT_PUBLIC_INSTALLER_API_URL || 'http://localhost:3031') + '/api/auth/me', {
-          credentials: 'include',
-          ...((() => {
-            try {
-              const t = typeof window !== 'undefined' ? window.localStorage.getItem('qid_access') : null
-              return t ? { headers: { Authorization: 'Bearer ' + t } } : {}
-            } catch { return {} }
-          })()),
-        })
+        const res = await apiFetch('/api/auth/me')
         if (!res.ok) return
         const data = await res.json()
         const u = data?.user || {}
@@ -163,10 +156,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   async function handleLogout() {
     try {
-      await fetch((process.env.NEXT_PUBLIC_INSTALLER_API_URL || 'http://localhost:3031') + '/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      })
+      await apiFetch('/api/auth/logout', { method: 'POST' })
     } catch {}
     try {
       window.localStorage.removeItem('qid_access')

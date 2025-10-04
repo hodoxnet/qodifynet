@@ -65,7 +65,7 @@ export function DeploymentWizard({ onBack, onComplete }: DeploymentWizardProps) 
     // Prefill advanced inputs with saved defaults
     (async () => {
       try {
-        const res = await fetch("http://localhost:3031/api/system/settings");
+        const res = await apiFetch("/api/system/settings");
         const json = await res.json();
         setDefaultDb(json?.db || {});
         setDefaultRedis(json?.redis || {});
@@ -94,7 +94,7 @@ export function DeploymentWizard({ onBack, onComplete }: DeploymentWizardProps) 
 
     setDnsChecking(true);
     try {
-      const response = await fetch("http://localhost:3031/api/dns/check", {
+      const response = await apiFetch("/api/dns/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain }),

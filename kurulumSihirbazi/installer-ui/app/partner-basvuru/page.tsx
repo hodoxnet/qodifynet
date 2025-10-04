@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Building2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api";
 
 export default function PartnerApplicationPage() {
   const router = useRouter();
@@ -42,13 +43,10 @@ export default function PartnerApplicationPage() {
     setLoading(true);
 
     try {
-      // Backend endpoint'e POST isteği
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3031';
-      const res = await fetch(`${API_URL}/api/partner-public/apply`, {
+      // CSRF dahil standart istek
+      const res = await apiFetch(`/api/partner-public/apply`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 

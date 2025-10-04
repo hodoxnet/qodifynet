@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 // Hooks
 import { useSetupWizard } from '@/hooks/setup/useSetupWizard';
 import { useInstallation } from '@/hooks/setup/useInstallation';
+import { useAuth } from '@/context/AuthContext';
 
 // Steps
 import { SystemCheckStep } from '@/components/setup/steps/SystemCheckStep';
@@ -18,6 +19,7 @@ import { InstallationStep } from '@/components/setup/steps/InstallationStep';
 import { WizardStep } from '@/lib/types/setup';
 
 export function SetupWizard() {
+  const { user, loading } = useAuth();
   const {
     currentStep,
     config,
@@ -26,6 +28,9 @@ export function SetupWizard() {
     previousStep,
     updateConfig
   } = useSetupWizard();
+
+  const isStaff = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const isPartner = !isStaff && (!!user?.partnerId || (user?.role || '').startsWith('PARTNER_'));
 
   const {
     installProgress,
@@ -41,6 +46,12 @@ export function SetupWizard() {
     setCurrentStep(WizardStep.INSTALLATION);
   };
 
+  if (loading) {
+    return (
+      <div className="w-full text-center text-gray-500 dark:text-gray-400">Yükleniyor...</div>
+    );
+  }
+
   const renderStep = () => {
     const stepProps = {
       config,
@@ -53,8 +64,12 @@ export function SetupWizard() {
       case WizardStep.SYSTEM_CHECK:
         return <SystemCheckStep onNext={nextStep} />;
       case WizardStep.DATABASE_CONFIG:
+        // Partner kullanıcılar için bu adımı gösterme
+        if (isPartner) return null;
         return <DatabaseStep {...stepProps} />;
       case WizardStep.REDIS_CONFIG:
+        // Partner kullanıcılar için bu adımı gösterme
+        if (isPartner) return null;
         return <RedisStep {...stepProps} />;
       case WizardStep.SITE_CONFIG:
         return <SiteConfigStep {...stepProps} />;

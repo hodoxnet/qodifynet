@@ -62,16 +62,20 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
 }
 
 export async function login(email: string, password: string) {
-  await ensureCsrf();
+  // CSRF token'ı al ve header olarak gönder
+  const csrf = await ensureCsrf();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (csrf) headers['x-csrf-token'] = csrf;
   const res = await fetch(`${API_BASE}/api/auth/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     credentials: "include",
     body: JSON.stringify({ email, password }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error || "Login failed");
+    const err = await res.json().catch(() => ({} as any));
+    const message = err?.error?.message || err?.message || "Giriş başarısız";
+    throw new Error(message);
   }
   const data = await res.json();
   if (data?.accessToken) setAccessToken(data.accessToken);

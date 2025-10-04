@@ -15,6 +15,7 @@ import { useSystemResources } from '@/hooks/system/useSystemResources';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useInstallation } from '@/hooks/setup/useInstallation';
+import { useAuth } from '@/context/AuthContext';
 import { useEffect } from 'react';
 
 interface SummaryStepProps {
@@ -34,9 +35,13 @@ export function SummaryStep({
   onStartInstallation,
   installStatus
 }: SummaryStepProps) {
+  const { user } = useAuth();
   const { isLocalDomain } = useInstallation();
   const isLocal = isLocalDomain(config.domain);
   const { resources } = useSystemResources(false);
+
+  const isStaff = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const isPartner = !isStaff && (!!user?.partnerId || (user?.role || '').startsWith('PARTNER_'));
 
   const totalGB = resources?.memory.totalGB || 0;
   const usedGB = resources?.memory.usedGB || 0;
@@ -69,7 +74,8 @@ export function SummaryStep({
   const summaryItems = [
     { label: "Domain", value: config.domain },
     { label: "Mağaza Adı", value: config.storeName },
-    { label: "Veritabanı", value: config.dbName },
+    // Partner kullanıcılar için veritabanı bilgisini gizle
+    ...(!isPartner ? [{ label: "Veritabanı", value: config.dbName }] : []),
     {
       label: "Template",
       value: config.templateVersion === "latest" ? "v2.4.0 (En Güncel)" : `v${config.templateVersion}`
@@ -118,63 +124,69 @@ export function SummaryStep({
           </div>
         </div>
 
-        {/* Build Bellek Limiti */}
-        <div className="rounded-lg bg-indigo-50 dark:bg-indigo-950/20 p-4 border border-indigo-200 dark:border-indigo-800">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200">Build Bellek Limiti (MB)</p>
-              <p className="text-xs text-indigo-700 dark:text-indigo-300">Önerilen: {suggestedMB} MB (Toplam: {totalGB} GB, Boş: {Math.max(freeGB,0).toFixed(1)} GB)</p>
+        {/* Build Bellek Limiti - Sadece SUPER_ADMIN için */}
+        {!isPartner && (
+          <div className="rounded-lg bg-indigo-50 dark:bg-indigo-950/20 p-4 border border-indigo-200 dark:border-indigo-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200">Build Bellek Limiti (MB)</p>
+                <p className="text-xs text-indigo-700 dark:text-indigo-300">Önerilen: {suggestedMB} MB (Toplam: {totalGB} GB, Boş: {Math.max(freeGB,0).toFixed(1)} GB)</p>
+              </div>
+              <div className="w-32">
+                <Input
+                  type="number"
+                  min={2048}
+                  step={256}
+                  value={heapValue}
+                  onChange={(e) => onConfigUpdate({ buildHeapMB: Number(e.target.value) })}
+                />
+              </div>
             </div>
-            <div className="w-32">
-              <Input
-                type="number"
-                min={2048}
-                step={256}
-                value={heapValue}
-                onChange={(e) => onConfigUpdate({ buildHeapMB: Number(e.target.value) })}
+          </div>
+        )}
+
+        {/* Tip Kontrolü Seçeneği - Sadece SUPER_ADMIN için */}
+        {!isPartner && (
+          <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-4 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Tip kontrolünü build sırasında atla</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Düşük RAM ortamlarında önerilir. Next.js typescript denetimi devre dışı kalır.</p>
+              </div>
+              <Switch
+                checked={Boolean(config.skipTypeCheckFrontend)}
+                onCheckedChange={(v) => onConfigUpdate({ skipTypeCheckFrontend: Boolean(v) })}
               />
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Tip Kontrolü Seçeneği */}
-        <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-4 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Tip kontrolünü build sırasında atla</p>
-              <p className="text-xs text-gray-600 dark:text-gray-400">Düşük RAM ortamlarında önerilir. Next.js typescript denetimi devre dışı kalır.</p>
-            </div>
-            <Switch
-              checked={Boolean(config.skipTypeCheckFrontend)}
-              onCheckedChange={(v) => onConfigUpdate({ skipTypeCheckFrontend: Boolean(v) })}
-            />
-          </div>
-        </div>
-
-        {/* SSL Ayarları */}
-        <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/20 p-4 border border-emerald-200 dark:border-emerald-800">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">Let’s Encrypt ile SSL etkinleştir</p>
-              <p className="text-xs text-emerald-700 dark:text-emerald-300">Ücretsiz sertifika alınır, 80 → 443 yönlendirmesi yapılır.</p>
-            </div>
-            <Switch
-              checked={Boolean(config.sslEnable)}
-              onCheckedChange={(v) => onConfigUpdate({ sslEnable: Boolean(v) })}
-            />
-          </div>
-          {config.sslEnable && (
-            <div className="mt-3">
-              <label className="block text-xs mb-1 text-emerald-900 dark:text-emerald-200">Let’s Encrypt E-posta</label>
-              <Input
-                type="email"
-                value={config.sslEmail || ''}
-                onChange={(e) => onConfigUpdate({ sslEmail: e.target.value })}
-                placeholder={suggestedEmail || 'admin@domain.com'}
+        {/* SSL Ayarları - Sadece SUPER_ADMIN için */}
+        {!isPartner && (
+          <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/20 p-4 border border-emerald-200 dark:border-emerald-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">Let's Encrypt ile SSL etkinleştir</p>
+                <p className="text-xs text-emerald-700 dark:text-emerald-300">Ücretsiz sertifika alınır, 80 → 443 yönlendirmesi yapılır.</p>
+              </div>
+              <Switch
+                checked={Boolean(config.sslEnable)}
+                onCheckedChange={(v) => onConfigUpdate({ sslEnable: Boolean(v) })}
               />
             </div>
-          )}
-        </div>
+            {config.sslEnable && (
+              <div className="mt-3">
+                <label className="block text-xs mb-1 text-emerald-900 dark:text-emerald-200">Let's Encrypt E-posta</label>
+                <Input
+                  type="email"
+                  value={config.sslEmail || ''}
+                  onChange={(e) => onConfigUpdate({ sslEmail: e.target.value })}
+                  placeholder={suggestedEmail || 'admin@domain.com'}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         <Alert className="border-amber-200 bg-amber-50">
           <AlertCircle className="h-4 w-4 text-amber-600" />

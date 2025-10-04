@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Plus, Clock, CheckCircle, AlertCircle, Loader2, Play, Pause, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api";
 
 interface Deployment {
   id: string;
@@ -28,7 +29,7 @@ export default function WizardPage() {
     try {
       setLoading(true);
       // API'den deployment listesini çek
-      const response = await fetch("http://localhost:3031/api/deployments");
+      const response = await apiFetch("/api/deployments");
       const data = await response.json();
       setDeployments(data.filter((d: Deployment) => d.status === "in_progress" || d.status === "pending"));
     } catch (error) {
@@ -40,9 +41,7 @@ export default function WizardPage() {
 
   const handlePause = async (id: string) => {
     try {
-      await fetch(`http://localhost:3031/api/deployments/${id}/pause`, {
-        method: "POST",
-      });
+      await apiFetch(`/api/deployments/${id}/pause`, { method: "POST" });
       toast.success("Kurulum duraklatıldı");
       fetchDeployments();
     } catch (error) {
@@ -52,9 +51,7 @@ export default function WizardPage() {
 
   const handleResume = async (id: string) => {
     try {
-      await fetch(`http://localhost:3031/api/deployments/${id}/resume`, {
-        method: "POST",
-      });
+      await apiFetch(`/api/deployments/${id}/resume`, { method: "POST" });
       toast.success("Kurulum devam ettiriliyor");
       fetchDeployments();
     } catch (error) {
@@ -66,9 +63,7 @@ export default function WizardPage() {
     if (!confirm("Bu kurulumu iptal etmek istediğinize emin misiniz?")) return;
 
     try {
-      await fetch(`http://localhost:3031/api/deployments/${id}`, {
-        method: "DELETE",
-      });
+      await apiFetch(`/api/deployments/${id}`, { method: "DELETE" });
       toast.success("Kurulum iptal edildi");
       fetchDeployments();
     } catch (error) {
