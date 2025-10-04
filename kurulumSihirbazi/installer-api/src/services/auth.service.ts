@@ -1,6 +1,7 @@
 import { prisma } from "../db/prisma";
 import { hashPassword, verifyPassword } from "../utils/password";
 import { signAccessToken, signRefreshToken } from "../utils/jwt";
+import { getPartnerContext } from "../utils/partner-auth";
 import crypto from "crypto";
 
 export class AuthService {
@@ -34,8 +35,13 @@ export class AuthService {
     if (!ok) throw new Error("Invalid credentials");
 
     const jti = crypto.randomUUID();
-    const access = signAccessToken({ sub: user.id, email: user.email, role: user.role });
-    const refresh = signRefreshToken({ sub: user.id, email: user.email, role: user.role, jti });
+
+    // Partner üyeliği varsa partnerId ve partner scope'larını JWT'ye ekle
+    const { partnerId, scopes } = await getPartnerContext(user.id);
+
+    const basePayload = { sub: user.id, email: user.email, role: user.role as any, partnerId, scopes } as const;
+    const access = signAccessToken(basePayload as any);
+    const refresh = signRefreshToken({ ...(basePayload as any), jti } as any);
 
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30d
     await prisma.session.create({
@@ -62,8 +68,13 @@ export class AuthService {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new Error("User not found");
     const newJti = crypto.randomUUID();
-    const access = signAccessToken({ sub: user.id, email: user.email, role: user.role });
-    const refresh = signRefreshToken({ sub: user.id, email: user.email, role: user.role, jti: newJti });
+
+    // Partner bilgisi ve scope'ları koru
+    const { partnerId, scopes } = await getPartnerContext(user.id);
+
+    const basePayload = { sub: user.id, email: user.email, role: user.role as any, partnerId, scopes } as const;
+    const access = signAccessToken(basePayload as any);
+    const refresh = signRefreshToken({ ...(basePayload as any), jti: newJti } as any);
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
     await prisma.$transaction([
       prisma.session.update({ where: { id: existing.id }, data: { revokedAt: new Date() } }),

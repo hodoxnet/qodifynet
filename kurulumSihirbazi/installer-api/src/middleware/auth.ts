@@ -18,6 +18,8 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
       id: payload.sub,
       email: payload.email,
       role: payload.role,
+      partnerId: (payload as any).partnerId,
+      scopes: (payload as any).scopes,
     };
     next();
   } catch (e) {

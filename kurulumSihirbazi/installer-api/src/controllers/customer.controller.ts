@@ -6,9 +6,17 @@ export const customerRouter = Router();
 const customerService = new CustomerService();
 
 // Get all customers
-customerRouter.get("/", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+import { requireScopes } from "../middleware/scopes";
+import { SCOPES } from "../constants/scopes";
+
+customerRouter.get("/", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.CUSTOMER_READ_OWN), async (req, res): Promise<void> => {
   try {
     const customers = await customerService.getAllCustomers();
+    const user = req.user as any;
+    if (user?.partnerId) {
+      res.json(customers.filter(c => c.partnerId === user.partnerId));
+      return;
+    }
     res.json(customers);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch customers" });
@@ -16,13 +24,15 @@ customerRouter.get("/", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"),
 });
 
 // Get customer by ID
-customerRouter.get("/:id", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+customerRouter.get("/:id", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.CUSTOMER_READ_OWN), async (req, res): Promise<void> => {
   try {
     const customer = await customerService.getCustomerById(req.params.id);
     if (!customer) {
       res.status(404).json({ error: "Customer not found" });
       return;
     }
+    const user = req.user as any;
+    if (user?.partnerId && customer.partnerId && customer.partnerId !== user.partnerId) { res.status(403).json({ error: "Forbidden" }); return; }
     res.json(customer);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch customer" });

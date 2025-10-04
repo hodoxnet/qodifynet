@@ -6,7 +6,9 @@ import { CustomerService } from "../services/customer.service";
 import { PM2Service } from "../services/pm2.service";
 import { NginxService } from "../services/nginx.service";
 import { authorize } from "../middleware/authorize";
+import { requireScopes } from "../middleware/scopes";
 import { v4 as uuidv4 } from "uuid";
+import { SCOPES } from "../constants/scopes";
 
 export const setupRouter = Router();
 const setupService = new SetupService();
@@ -83,7 +85,8 @@ setupRouter.post("/create-database", authorize("ADMIN", "SUPER_ADMIN"), async (r
 });
 
 // Adım 5: Template'leri kontrol et
-setupRouter.post("/check-templates", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+// Partnerlar için role kontrolü yerine scope ile geçişe izin veriyoruz; staff için ADMIN/SUPER_ADMIN şartı korunur.
+setupRouter.post("/check-templates", authorize("ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
     const { version = "latest" } = req.body;
     const result = await setupService.checkTemplates(version);
@@ -94,7 +97,7 @@ setupRouter.post("/check-templates", authorize("ADMIN", "SUPER_ADMIN"), async (r
 });
 
 // Adım 6: Template'leri çıkar
-setupRouter.post("/extract-templates", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+setupRouter.post("/extract-templates", authorize("ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
     const { domain, version = "latest" } = req.body;
 
@@ -114,7 +117,7 @@ setupRouter.post("/extract-templates", authorize("ADMIN", "SUPER_ADMIN"), async 
 });
 
 // Adım 7: Ortam değişkenlerini yapılandır
-setupRouter.post("/configure-environment", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+setupRouter.post("/configure-environment", authorize("ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
     const { domain, dbName, dbUser, dbPassword, dbHost, dbPort, redisHost, redisPort, storeName } = req.body;
 
@@ -150,7 +153,7 @@ setupRouter.post("/configure-environment", authorize("ADMIN", "SUPER_ADMIN"), as
 });
 
 // Adım 8: Bağımlılıkları yükle
-setupRouter.post("/install-dependencies", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+setupRouter.post("/install-dependencies", authorize("ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
     const { domain } = req.body;
 
@@ -170,7 +173,7 @@ setupRouter.post("/install-dependencies", authorize("ADMIN", "SUPER_ADMIN"), asy
 });
 
 // Adım 9: Migration'ları çalıştır
-setupRouter.post("/run-migrations", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+setupRouter.post("/run-migrations", authorize("ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
     const { domain } = req.body;
 
@@ -187,7 +190,7 @@ setupRouter.post("/run-migrations", authorize("ADMIN", "SUPER_ADMIN"), async (re
 });
 
 // Adım 10: Uygulamaları derle - Improved version ile detaylı log desteği
-setupRouter.post("/build-applications", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+setupRouter.post("/build-applications", authorize("ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
     const { domain, isLocal, heapMB, skipTypeCheck } = req.body as { domain: string; isLocal?: boolean; heapMB?: number; skipTypeCheck?: boolean };
 
@@ -339,7 +342,8 @@ setupRouter.post("/configure-services", authorize("ADMIN", "SUPER_ADMIN"), async
 });
 
 // Adım 12: Kurulumu tamamla ve servisleri başlat
-setupRouter.post("/finalize", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+setupRouter.post("/finalize", authorize("ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
+  let reserved: { partnerId: string; ledgerId: string } | null = null;
   try {
     const {
       domain,
@@ -357,6 +361,21 @@ setupRouter.post("/finalize", authorize("ADMIN", "SUPER_ADMIN"), async (req, res
     if (!domain || !ports || !dbName || !storeName) {
       res.status(400).json({ ok: false, message: "Gerekli bilgiler eksik" });
       return;
+    }
+
+    // Partner kredisi rezervasyonu (varsa) – atomik düşüm için
+    const user = req.user as { id: string; role: string; partnerId?: string };
+    const partnerId: string | undefined = user?.partnerId;
+    if (partnerId) {
+      const { PartnerService } = await import("../services/partner.service");
+      const svc = new PartnerService();
+      const tempRef = `finalize-${domain}-${Date.now()}`;
+      const r = await svc.reserveSetup(partnerId, tempRef, user.id);
+      if (!r.ok) {
+        res.status(402).json({ ok: false, message: `Yetersiz kredi. Gerekli: ${r.price}, Bakiye: ${r.balance ?? 0}` });
+        return;
+      }
+      reserved = { partnerId, ledgerId: r.ledgerId! };
     }
 
     // Local mode kontrolü ve PM2 ile servisleri başlat
@@ -386,6 +405,7 @@ setupRouter.post("/finalize", authorize("ADMIN", "SUPER_ADMIN"), async (req, res
       domain,
       status: "running",
       createdAt: new Date().toISOString(),
+      partnerId: partnerId,
       ports,
       resources: { cpu: 0, memory: 0 },
       mode: isLocal ? "local" : "production",
@@ -414,6 +434,13 @@ setupRouter.post("/finalize", authorize("ADMIN", "SUPER_ADMIN"), async (req, res
       api: `https://${domain}/api`
     };
 
+    // Rezervasyonu tüketime çevir (commit)
+    if (reserved) {
+      const { PartnerService } = await import("../services/partner.service");
+      const svc = new PartnerService();
+      await svc.commitReservation(reserved.partnerId, reserved.ledgerId, customerId);
+    }
+
     res.json({
       ok: true,
       message: "Kurulum başarıyla tamamlandı!",
@@ -423,6 +450,7 @@ setupRouter.post("/finalize", authorize("ADMIN", "SUPER_ADMIN"), async (req, res
       mode: isLocal ? "local" : "production"
     });
   } catch (error: any) {
+    try { if (reserved) { const { PartnerService } = await import("../services/partner.service"); const svc = new PartnerService(); await svc.cancelReservation(reserved.partnerId, reserved.ledgerId, "setup failed"); } } catch {}
     res.status(500).json({ ok: false, message: error.message || "Kurulum tamamlama hatası" });
   }
 });

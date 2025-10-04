@@ -10,6 +10,8 @@ export type JwtPayload = {
   email: string;
   role: string;
   jti?: string;
+  partnerId?: string;
+  scopes?: string[];
 };
 
 export function signAccessToken(payload: JwtPayload, expiresIn = ACCESS_EXPIRES) {

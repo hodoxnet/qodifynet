@@ -44,10 +44,15 @@ app.use(cookieParser());
 app.use("/api/auth", authRouter);
 // Protected routes
 app.use("/api/system", authenticate, authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), systemRouter);
-app.use("/api/customers", authenticate, authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), customerRouter);
+// Customers: rota bazında yetki kontrolü yapılacak (partner filtreleri için authenticate yeterli)
+app.use("/api/customers", authenticate, customerRouter);
 app.use("/api/dns", authenticate, authorize("ADMIN", "SUPER_ADMIN"), dnsRouter);
 app.use("/api/templates", authenticate, authorize("ADMIN", "SUPER_ADMIN"), templateRouter);
 app.use("/api/setup", authenticate, setupRouter);
+
+// Partner yönetimi
+import { partnerRouter } from "./controllers/partner.controller";
+app.use("/api/partners", authenticate, partnerRouter);
 
 // Health check
 app.get("/health", (_req, res) => {

@@ -3,6 +3,7 @@ export interface Customer {
   domain: string;
   status: "running" | "stopped" | "error";
   createdAt: string;
+  partnerId?: string;
   ports: {
     backend: number;
     admin: number;

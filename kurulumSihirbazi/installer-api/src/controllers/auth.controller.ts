@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { AuthService } from "../services/auth.service";
-import { verifyRefreshToken, verifyAccessToken } from "../utils/jwt";
+import { verifyRefreshToken, verifyAccessToken, type JwtPayload } from "../utils/jwt";
 import rateLimit from "express-rate-limit";
 
 export const authRouter = Router();
@@ -131,8 +131,8 @@ authRouter.get("/me", async (req, res) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
     const access = header.slice(7);
-    const payload = verifyAccessToken(access);
-    return res.json({ user: { id: payload.sub, email: payload.email, role: payload.role } });
+    const payload = verifyAccessToken(access) as JwtPayload;
+    return res.json({ user: { id: payload.sub, email: payload.email, role: payload.role, partnerId: payload.partnerId, scopes: payload.scopes } });
   } catch {
     return res.status(401).json({ error: "Unauthorized" });
   }
