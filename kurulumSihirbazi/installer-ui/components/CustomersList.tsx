@@ -70,7 +70,7 @@ export function CustomersList({ onRefresh }: CustomersListProps) {
       setDeleteDialogOpen(false);
       setCustomerToDelete(null);
     }
-  }, [customerToDelete, deleteCustomer]);
+  }, [customerToDelete, deleteHard]);
 
   const handleSoftDelete = useCallback(async () => {
     if (customerToDelete) {

@@ -170,7 +170,7 @@ export function SummaryStep({
           <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/20 p-4 border border-emerald-200 dark:border-emerald-800">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">Let's Encrypt ile SSL etkinleştir</p>
+                <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">Let&apos;s Encrypt ile SSL etkinleştir</p>
                 <p className="text-xs text-emerald-700 dark:text-emerald-300">Ücretsiz sertifika alınır, 80 → 443 yönlendirmesi yapılır.</p>
               </div>
               <Switch
@@ -180,7 +180,7 @@ export function SummaryStep({
             </div>
             {config.sslEnable && (
               <div className="mt-3">
-                <label className="block text-xs mb-1 text-emerald-900 dark:text-emerald-200">Let's Encrypt E-posta</label>
+                <label className="block text-xs mb-1 text-emerald-900 dark:text-emerald-200">Let&apos;s Encrypt E-posta</label>
                 <Input
                   type="email"
                   value={config.sslEmail || ''}

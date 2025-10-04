@@ -448,6 +448,21 @@ export function useInstallation() {
     }
   }, [API_URL, getAuthHeaders, isLocalDomain, steps]);
 
+  // Rezervasyon iptali helper
+  const cancelReservation = useCallback(async (keepalive: boolean = false) => {
+    try {
+      const body = JSON.stringify({ ledgerId: ledgerRef.current });
+      const headers = getAuthHeaders();
+      await fetch(`${API_URL}/api/setup/cancel-reservation`, {
+        method: 'POST',
+        headers,
+        body,
+        credentials: 'include',
+        keepalive,
+      });
+    } catch {}
+  }, [API_URL, getAuthHeaders]);
+
   // Rezervasyon iptali: kullanıcı ayrılırsa veya sayfa kapanırsa
   useEffect(() => {
     const handler = () => {
@@ -472,20 +487,3 @@ export function useInstallation() {
     isLocalDomain
   };
 }
-  const cancelReservation = useCallback(async (keepalive: boolean = false) => {
-    try {
-      const body = JSON.stringify({ ledgerId: ledgerRef.current });
-      const headers = getAuthHeaders();
-      // Try keepalive fetch for unload
-      await fetch(`${API_URL}/api/setup/cancel-reservation`, {
-        method: 'POST',
-        headers,
-        body,
-        credentials: 'include',
-        // keepalive is best-effort for unload
-        keepalive,
-      });
-    } catch (e) {
-      // swallow
-    }
-  }, [API_URL, getAuthHeaders]);

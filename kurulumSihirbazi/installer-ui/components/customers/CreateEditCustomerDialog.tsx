@@ -43,7 +43,7 @@ export function CreateEditCustomerDialog({
 
   useEffect(() => {
     form.reset(initial || { domain: "", partnerId: "", mode: "local", ports: { backend: 4000, admin: 4001, store: 4002 } });
-  }, [initial]);
+  }, [initial, form]);
 
   const handleSubmit = form.handleSubmit(async (values) => {
     try {
