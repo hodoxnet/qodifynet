@@ -14,13 +14,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useSystemRequirements } from '@/hooks/setup/useSystemRequirements';
+import { useAuth } from '@/context/AuthContext';
 
 interface SystemCheckStepProps {
   onNext: () => void;
 }
 
 export function SystemCheckStep({ onNext }: SystemCheckStepProps) {
+  const { user } = useAuth();
   const { requirements, loading, checkRequirements, canProceed } = useSystemRequirements();
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   useEffect(() => {
     checkRequirements();
@@ -71,57 +74,102 @@ export function SystemCheckStep({ onNext }: SystemCheckStepProps) {
           </div>
         ) : (
           <>
-            <div className="space-y-3">
-              {requirements.map((req) => (
-                <div
-                  key={req.name}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  <div className="flex items-center space-x-3">
-                    {getStatusIcon(req.status)}
-                    <div className="space-y-1">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium text-gray-900 dark:text-gray-100">
-                          {req.name}
-                        </span>
-                        {!req.required && (
-                          <Badge variant="secondary" className="text-xs">
-                            İsteğe Bağlı
-                          </Badge>
-                        )}
+            {isSuperAdmin ? (
+              // SUPER_ADMIN için detaylı görünüm
+              <>
+                <div className="space-y-3">
+                  {requirements.map((req) => (
+                    <div
+                      key={req.name}
+                      className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <div className="flex items-center space-x-3">
+                        {getStatusIcon(req.status)}
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-medium text-gray-900 dark:text-gray-100">
+                              {req.name}
+                            </span>
+                            {!req.required && (
+                              <Badge variant="secondary" className="text-xs">
+                                İsteğe Bağlı
+                              </Badge>
+                            )}
+                          </div>
+                          {req.message && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400">{req.message}</p>
+                          )}
+                        </div>
                       </div>
-                      {req.message && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{req.message}</p>
-                      )}
+                      <div className="flex items-center space-x-2">
+                        {req.version && (
+                          <span className="text-sm text-gray-500 dark:text-gray-400">{req.version}</span>
+                        )}
+                        {getStatusBadge(req.status)}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {req.version && (
-                      <span className="text-sm text-gray-500 dark:text-gray-400">{req.version}</span>
+                  ))}
+                </div>
+
+                <Button
+                  onClick={checkRequirements}
+                  variant="outline"
+                  className="w-full"
+                  disabled={loading}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Yeniden Kontrol Et
+                </Button>
+
+                <Alert className="bg-sky-50 border-sky-200 dark:bg-sky-900/20 dark:border-sky-800">
+                  <AlertCircle className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                  <AlertDescription className="text-sky-700 dark:text-sky-300">
+                    <strong>Not:</strong> Sarı uyarılar production kurulum için gereklidir.
+                    Localhost testi için sadece yeşil olan bileşenler yeterlidir.
+                  </AlertDescription>
+                </Alert>
+              </>
+            ) : (
+              // Partner kullanıcılar için basitleştirilmiş görünüm
+              <>
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
+                  <div className="flex items-center justify-center space-x-4">
+                    {canProceed() ? (
+                      <>
+                        <CheckCircle className="w-12 h-12 text-emerald-500" />
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                            Sistem Hazır
+                          </h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Kuruluma devam edebilirsiniz
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="w-12 h-12 text-rose-500" />
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                            Sistem Hazır Değil
+                          </h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Lütfen sistem yöneticinize başvurun
+                          </p>
+                        </div>
+                      </>
                     )}
-                    {getStatusBadge(req.status)}
                   </div>
                 </div>
-              ))}
-            </div>
 
-            <Button
-              onClick={checkRequirements}
-              variant="outline"
-              className="w-full"
-              disabled={loading}
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Yeniden Kontrol Et
-            </Button>
-
-            <Alert className="bg-sky-50 border-sky-200">
-              <AlertCircle className="h-4 w-4 text-sky-600" />
-              <AlertDescription className="text-sky-700">
-                <strong>Not:</strong> Sarı uyarılar production kurulum için gereklidir.
-                Localhost testi için sadece yeşil olan bileşenler yeterlidir.
-              </AlertDescription>
-            </Alert>
+                <Alert className="bg-sky-50 border-sky-200 dark:bg-sky-900/20 dark:border-sky-800">
+                  <AlertCircle className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                  <AlertDescription className="text-sky-700 dark:text-sky-300">
+                    Sistem gereksinimleri otomatik olarak kontrol edildi.
+                  </AlertDescription>
+                </Alert>
+              </>
+            )}
 
             <div className="flex justify-end">
               <Button
