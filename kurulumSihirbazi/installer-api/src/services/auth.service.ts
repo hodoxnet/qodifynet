@@ -47,17 +47,34 @@ export class AuthService {
     return { user, access, refresh };
   }
 
-  async refresh(jti: string, userId: string) {
-    const session = await prisma.session.findFirst({ where: { refreshJti: jti, userId, revokedAt: null } });
-    if (!session) throw new Error("Invalid session");
+  async refresh(jti: string, userId: string, userAgent?: string, ip?: string) {
+    const existing = await prisma.session.findUnique({ where: { refreshJti: jti } });
+    if (!existing) throw new Error("Invalid session");
+    if (existing.userId !== userId || existing.revokedAt) {
+      await prisma.session.updateMany({ where: { userId }, data: { revokedAt: new Date() } });
+      throw new Error("Token reuse detected");
+    }
+    const now = new Date();
+    if (existing.expiresAt <= now) {
+      await prisma.session.update({ where: { id: existing.id }, data: { revokedAt: new Date() } });
+      throw new Error("Session expired");
+    }
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new Error("User not found");
+    const newJti = crypto.randomUUID();
     const access = signAccessToken({ sub: user.id, email: user.email, role: user.role });
-    return { user, access };
+    const refresh = signRefreshToken({ sub: user.id, email: user.email, role: user.role, jti: newJti });
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
+    await prisma.$transaction([
+      prisma.session.update({ where: { id: existing.id }, data: { revokedAt: new Date() } }),
+      prisma.session.create({
+        data: { userId: user.id, refreshJti: newJti, userAgent, ip, expiresAt },
+      }),
+    ]);
+    return { user, access, refresh };
   }
 
   async logout(jti: string) {
     await prisma.session.updateMany({ where: { refreshJti: jti, revokedAt: null }, data: { revokedAt: new Date() } });
   }
 }
-

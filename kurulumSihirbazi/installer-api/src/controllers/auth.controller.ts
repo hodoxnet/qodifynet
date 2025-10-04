@@ -87,9 +87,23 @@ authRouter.post("/refresh", async (req, res) => {
     if (!token) return res.status(401).json({ error: "No refresh token" });
     const payload = verifyRefreshToken(token);
     if (!payload.jti) return res.status(401).json({ error: "Invalid refresh" });
-    const { user, access } = await auth.refresh(payload.jti, payload.sub);
+
+    const ua = req.headers["user-agent"] as string | undefined;
+    const ip = req.ip;
+    const { user, access, refresh } = await auth.refresh(payload.jti, payload.sub, ua, ip);
+
+    const prod = process.env.NODE_ENV === "production";
+    res.cookie("qid_refresh", refresh, {
+      httpOnly: true,
+      secure: prod,
+      sameSite: prod ? "lax" : "lax",
+      path: "/api/auth",
+      maxAge: 1000 * 60 * 60 * 24 * 30,
+    });
+
     return res.json({ accessToken: access, user: { id: user.id, email: user.email, role: user.role } });
   } catch (e: any) {
+    try { res.clearCookie("qid_refresh", { path: "/api/auth" }); } catch {}
     return res.status(401).json({ error: e?.message || "Refresh failed" });
   }
 });
