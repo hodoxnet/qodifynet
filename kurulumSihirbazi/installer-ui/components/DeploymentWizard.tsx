@@ -145,7 +145,7 @@ export function DeploymentWizard({ onBack, onComplete }: DeploymentWizardProps) 
       };
 
       // 1) Template check (bilgi amaçlı)
-      await call('/api/templates/check', { version: data.templateVersion });
+      await call('/api/setup/check-templates', { version: data.templateVersion });
       setProgressLogs(prev => [...prev, 'Templates kontrol edildi']);
 
       // 2) Extract templates

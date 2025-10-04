@@ -4,12 +4,12 @@ import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 
 export function useSetupWizard() {
-  const { user } = useAuth();
+  const { user, hasScope } = useAuth();
   const [currentStep, setCurrentStep] = useState<WizardStep>(WizardStep.SYSTEM_CHECK);
   const [config, setConfig] = useState<SetupConfig>(DEFAULT_CONFIG);
 
   const isStaff = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
-  const isPartner = !isStaff && (!!user?.partnerId || (user?.role || '').startsWith('PARTNER_'));
+  const isPartner = !isStaff && (hasScope('setup.run') || !!user?.partnerId || (user?.role || '').startsWith('PARTNER_'));
 
   // Partner kullanıcılar için yasak adımlarda otomatik yönlendirme
   useEffect(() => {

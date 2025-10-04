@@ -29,12 +29,12 @@ interface SiteConfigStepProps {
 }
 
 export function SiteConfigStep({ config, onConfigUpdate, onNext, onBack }: SiteConfigStepProps) {
-  const { user } = useAuth();
+  const { user, hasScope } = useAuth();
   const { isLocalDomain } = useInstallation();
   const { testResult, loading: dnsChecking, checkDNS, resetTest } = useDNSCheck();
   const isLocal = config.domain ? isLocalDomain(config.domain) : false;
   const isStaff = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
-  const isPartner = !isStaff && (!!user?.partnerId || (user?.role || '').startsWith('PARTNER_'));
+  const isPartner = !isStaff && (hasScope('setup.run') || !!user?.partnerId || (user?.role || '').startsWith('PARTNER_'));
 
   // Domain değiştiğinde DNS test sonucunu sıfırla
   useEffect(() => {

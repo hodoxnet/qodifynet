@@ -19,7 +19,7 @@ import { InstallationStep } from '@/components/setup/steps/InstallationStep';
 import { WizardStep } from '@/lib/types/setup';
 
 export function SetupWizard() {
-  const { user, loading } = useAuth();
+  const { user, loading, hasScope } = useAuth();
   const {
     currentStep,
     config,
@@ -30,7 +30,7 @@ export function SetupWizard() {
   } = useSetupWizard();
 
   const isStaff = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
-  const isPartner = !isStaff && (!!user?.partnerId || (user?.role || '').startsWith('PARTNER_'));
+  const isPartner = !isStaff && (hasScope('setup.run') || !!user?.partnerId || (user?.role || '').startsWith('PARTNER_'));
 
   const {
     installProgress,

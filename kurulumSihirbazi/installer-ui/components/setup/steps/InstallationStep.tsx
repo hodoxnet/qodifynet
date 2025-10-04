@@ -30,6 +30,7 @@ import { BuildProgress, BuildStep } from '@/components/ui/build-progress';
 import { InstallStatus, CompletedInfo, InstallStep } from '@/lib/types/setup';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
 
 interface InstallationStepProps {
   installStatus: InstallStatus;
@@ -58,6 +59,9 @@ export function InstallationStep({
   steps = [],
   buildLogs = []
 }: InstallationStepProps) {
+  const { user, hasScope } = useAuth();
+  const isStaff = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const isPartner = !isStaff && (hasScope('setup.run') || !!user?.partnerId || (user?.role || '').startsWith('PARTNER_'));
   const [showDetailedLogs, setShowDetailedLogs] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'logs' | 'details'>('overview');
 
@@ -200,15 +204,17 @@ export function InstallationStep({
         <CardContent className="px-6 pb-6">
           {/* Tabs for different views */}
           <Tabs defaultValue="overview" value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsList className={cn("grid w-full mb-6", isPartner ? 'grid-cols-2' : 'grid-cols-3')}>
               <TabsTrigger value="overview" className="flex items-center space-x-1">
                 <Activity className="h-3.5 w-3.5" />
                 <span>Genel Bakış</span>
               </TabsTrigger>
-              <TabsTrigger value="logs" className="flex items-center space-x-1">
-                <TerminalIcon className="h-3.5 w-3.5" />
-                <span>Terminal</span>
-              </TabsTrigger>
+              {!isPartner && (
+                <TabsTrigger value="logs" className="flex items-center space-x-1">
+                  <TerminalIcon className="h-3.5 w-3.5" />
+                  <span>Terminal</span>
+                </TabsTrigger>
+              )}
               <TabsTrigger value="details" className="flex items-center space-x-1">
                 <Settings className="h-3.5 w-3.5" />
                 <span>Detaylar</span>
@@ -264,7 +270,8 @@ export function InstallationStep({
               )}
             </TabsContent>
 
-            {/* Terminal/Logs Tab */}
+            {/* Terminal/Logs Tab - Partner için gizli */}
+            {!isPartner && (
             <TabsContent value="logs" className="mt-0">
               <div className="space-y-4">
                 <Terminal
@@ -300,7 +307,7 @@ export function InstallationStep({
                   </Alert>
                 )}
               </div>
-            </TabsContent>
+            </TabsContent>) }
 
             {/* Details Tab */}
             <TabsContent value="details" className="space-y-4 mt-0">
@@ -327,14 +334,16 @@ export function InstallationStep({
                       <span className="text-gray-500">Tamamlanan:</span>
                       <span>{steps.filter(s => s.status === 'success').length}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Log Sayısı:</span>
-                      <span>{installProgress.length}</span>
-                    </div>
+                    {!isPartner && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Log Sayısı:</span>
+                        <span>{installProgress.length}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Detailed Step Times */}
-                  {steps.filter(s => s.durationMs).length > 0 && (
+                  {!isPartner && steps.filter(s => s.durationMs).length > 0 && (
                     <>
                       <Separator className="my-3" />
                       <div className="space-y-2">
@@ -523,15 +532,19 @@ export function InstallationStep({
               </div>
             )}
             <div className="mt-3">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setActiveTab('logs')}
-                className="text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-700"
-              >
-                <TerminalIcon className="h-3.5 w-3.5 mr-1" />
-                Logları Görüntüle
-              </Button>
+              {!isPartner ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setActiveTab('logs')}
+                  className="text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-700"
+                >
+                  <TerminalIcon className="h-3.5 w-3.5 mr-1" />
+                  Logları Görüntüle
+                </Button>
+              ) : (
+                <span className="text-xs text-gray-600 dark:text-gray-400">Detaylı loglar yalnızca yönetici tarafından görüntülenebilir.</span>
+              )}
             </div>
           </AlertDescription>
         </Alert>

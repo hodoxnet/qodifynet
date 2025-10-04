@@ -35,13 +35,13 @@ export function SummaryStep({
   onStartInstallation,
   installStatus
 }: SummaryStepProps) {
-  const { user } = useAuth();
+  const { user, hasScope } = useAuth();
   const { isLocalDomain } = useInstallation();
   const isLocal = isLocalDomain(config.domain);
   const { resources } = useSystemResources(false);
 
   const isStaff = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
-  const isPartner = !isStaff && (!!user?.partnerId || (user?.role || '').startsWith('PARTNER_'));
+  const isPartner = !isStaff && (hasScope('setup.run') || !!user?.partnerId || (user?.role || '').startsWith('PARTNER_'));
 
   const totalGB = resources?.memory.totalGB || 0;
   const usedGB = resources?.memory.usedGB || 0;
