@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { useInstallation } from '@/hooks/setup/useInstallation';
 import { useAuth } from '@/context/AuthContext';
 import { useEffect } from 'react';
+import { PARTNER_HEAP_MB } from '@/lib/constants';
 
 interface SummaryStepProps {
   config: SetupConfig;
@@ -38,10 +39,9 @@ export function SummaryStep({
   const { user, hasScope } = useAuth();
   const { isLocalDomain } = useInstallation();
   const isLocal = isLocalDomain(config.domain);
-  const { resources } = useSystemResources(false);
-
   const isStaff = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const isPartner = !isStaff && (hasScope('setup.run') || !!user?.partnerId || (user?.role || '').startsWith('PARTNER_'));
+  const { resources } = useSystemResources(false, !isPartner);
 
   const totalGB = resources?.memory.totalGB || 0;
   const usedGB = resources?.memory.usedGB || 0;
@@ -55,14 +55,18 @@ export function SummaryStep({
     return target;
   })();
 
-  const heapValue = typeof config.buildHeapMB === 'number' ? config.buildHeapMB : suggestedMB;
+  const heapValue = typeof config.buildHeapMB === 'number' ? config.buildHeapMB : (isPartner ? PARTNER_HEAP_MB : suggestedMB);
 
   // Önerilen değeri ilk gelişte config'e yaz (kullanıcı değiştirirse override eder)
   useEffect(() => {
-    if (typeof config.buildHeapMB !== 'number' && suggestedMB > 0) {
+    if (isPartner) {
+      if (config.buildHeapMB !== PARTNER_HEAP_MB) {
+        onConfigUpdate({ buildHeapMB: PARTNER_HEAP_MB });
+      }
+    } else if (typeof config.buildHeapMB !== 'number' && suggestedMB > 0) {
       onConfigUpdate({ buildHeapMB: suggestedMB });
     }
-  }, [config.buildHeapMB, suggestedMB, onConfigUpdate]);
+  }, [isPartner, config.buildHeapMB, suggestedMB, onConfigUpdate]);
 
   const suggestedEmail = config.domain ? `admin@${config.domain}` : '';
   useEffect(() => {

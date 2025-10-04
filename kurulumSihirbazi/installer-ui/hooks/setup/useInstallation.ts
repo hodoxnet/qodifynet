@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { PARTNER_HEAP_MB } from '@/lib/constants';
 import { toast } from 'sonner';
 import { io as socketIO, Socket } from 'socket.io-client';
 import { SetupConfig, InstallStatus, CompletedInfo, InstallStep, InstallStepKey } from '@/lib/types/setup';
@@ -10,6 +11,12 @@ export function useInstallation() {
   const [completedInfo, setCompletedInfo] = useState<CompletedInfo | null>(null);
   const [steps, setSteps] = useState<InstallStep[]>([]);
   const [buildLogs, setBuildLogs] = useState<{ service: string; type: 'stdout' | 'stderr'; content: string; timestamp: Date }[]>([]);
+  const [reservationLedgerId, setReservationLedgerId] = useState<string | undefined>(undefined);
+  const statusRef = useRef<InstallStatus>("idle");
+  const ledgerRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => { statusRef.current = installStatus; }, [installStatus]);
+  useEffect(() => { ledgerRef.current = reservationLedgerId; }, [reservationLedgerId]);
 
   const API_URL = process.env.NEXT_PUBLIC_INSTALLER_API_URL || "http://localhost:3031";
 
@@ -226,6 +233,42 @@ export function useInstallation() {
         setInstallProgress(prev => [...prev, logMessage]);
       });
 
+      // 0. Partner kredisi (production modunda) ön-rezervasyonu
+      try {
+        setInstallProgress(prev => [...prev, '💳 Kredi/oturum rezervasyonu yapılıyor...']);
+        const r = await axios.post(`${API_URL}/api/setup/reserve-credits`, {
+          domain: config.domain,
+          isLocal
+        }, { headers: getAuthHeaders(), withCredentials: true });
+        if (r?.data?.ledgerId) {
+          setReservationLedgerId(r.data.ledgerId);
+          setInstallProgress(prev => [...prev, '✅ Kredi rezervasyonu tamamlandı']);
+        } else {
+          setInstallProgress(prev => [...prev, '✅ Oturum kilidi alındı']);
+        }
+      } catch (e: any) {
+        if (e?.response?.status === 402) {
+          const msg = e?.response?.data?.message || 'Kredi yetersiz';
+          setInstallProgress(prev => [...prev, `❌ ${msg}`]);
+          mark('checkTemplates', 'error', msg);
+          setInstallStatus('error');
+          toast.error('Kredi yetersiz. Lütfen bakiyenizi artırın.');
+          if (socket) socket.disconnect();
+          return;
+        } else if (e?.response?.status === 409) {
+          const msg = e?.response?.data?.message || 'Devam eden kurulum var';
+          setInstallProgress(prev => [...prev, `❌ ${msg}`]);
+          mark('checkTemplates', 'error', msg);
+          setInstallStatus('error');
+          toast.error(msg);
+          if (socket) socket.disconnect();
+          return;
+        } else {
+          console.error('Kredi rezervasyon hatası:', e);
+          setInstallProgress(prev => [...prev, '⚠️ Kredi/oturum rezervasyonu sırasında beklenmeyen hata']);
+        }
+      }
+
       // 1. Template kontrolü
       mark('checkTemplates', 'running');
       setInstallProgress(prev => [...prev, "📦 Template'ler kontrol ediliyor..."]);
@@ -315,7 +358,7 @@ export function useInstallation() {
         await axios.post(`${API_URL}/api/setup/build-applications`, {
           domain: config.domain,
           isLocal,
-          heapMB: config.buildHeapMB,
+          heapMB: (typeof config.buildHeapMB === 'number' ? config.buildHeapMB : PARTNER_HEAP_MB),
           skipTypeCheck: config.skipTypeCheckFrontend,
           streamOutput: true // Backend'e build output'ları stream etmesini söyle
         }, { headers: getAuthHeaders(), withCredentials: true });
@@ -367,7 +410,8 @@ export function useInstallation() {
         redisHost: config.redisHost,
         redisPort: config.redisPort,
         storeName: config.storeName,
-        isLocal
+        isLocal,
+        reservationLedgerId
       }, { headers: getAuthHeaders(), withCredentials: true });
 
       setCompletedInfo(finalResponse.data);
@@ -404,6 +448,20 @@ export function useInstallation() {
     }
   }, [API_URL, getAuthHeaders, isLocalDomain, steps]);
 
+  // Rezervasyon iptali: kullanıcı ayrılırsa veya sayfa kapanırsa
+  useEffect(() => {
+    const handler = () => {
+      if (statusRef.current === 'running') {
+        // Attempt best-effort cancel using keepalive; no await
+        cancelReservation(true);
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => {
+      window.removeEventListener('beforeunload', handler);
+    };
+  }, [cancelReservation]);
+
   return {
     installProgress,
     installStatus,
@@ -414,3 +472,20 @@ export function useInstallation() {
     isLocalDomain
   };
 }
+  const cancelReservation = useCallback(async (keepalive: boolean = false) => {
+    try {
+      const body = JSON.stringify({ ledgerId: ledgerRef.current });
+      const headers = getAuthHeaders();
+      // Try keepalive fetch for unload
+      await fetch(`${API_URL}/api/setup/cancel-reservation`, {
+        method: 'POST',
+        headers,
+        body,
+        credentials: 'include',
+        // keepalive is best-effort for unload
+        keepalive,
+      });
+    } catch (e) {
+      // swallow
+    }
+  }, [API_URL, getAuthHeaders]);

@@ -45,6 +45,19 @@ async function refreshAccess(): Promise<string | null> {
   }
 }
 
+function readCookie(name: string): string | null {
+  try {
+    if (typeof document === 'undefined') return null;
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length < 2) return null;
+    const lastPart = parts.pop();
+    if (!lastPart) return null;
+    const token = lastPart.split(';').shift();
+    return token || null;
+  } catch { return null; }
+}
+
 export async function apiFetch(path: string, init: RequestInit = {}) {
   const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
   let token = getAccessToken();
@@ -52,7 +65,20 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   if (token) headers.set("Authorization", `Bearer ${token}`);
   const csrf = await ensureCsrf();
   if (csrf) headers.set('x-csrf-token', csrf);
-  const res = await fetch(url, { ...init, headers, credentials: "include" });
+  let res = await fetch(url, { ...init, headers, credentials: "include" });
+  if (res.status === 403) {
+    try {
+      const j = await res.clone().json().catch(() => ({}));
+      if ((j?.error?.code || '').toString().toUpperCase() === 'CSRF') {
+        try { localStorage.removeItem(CSRF_KEY); } catch {}
+        const fresh = readCookie('qid_csrf') || await ensureCsrf();
+        if (fresh) {
+          headers.set('x-csrf-token', fresh);
+          res = await fetch(url, { ...init, headers, credentials: 'include' });
+        }
+      }
+    } catch {}
+  }
   if (res.status !== 401) return res;
   // try refresh once
   token = await refreshAccess();
@@ -66,12 +92,25 @@ export async function login(email: string, password: string) {
   const csrf = await ensureCsrf();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (csrf) headers['x-csrf-token'] = csrf;
-  const res = await fetch(`${API_BASE}/api/auth/login`, {
+  let res = await fetch(`${API_BASE}/api/auth/login`, {
     method: "POST",
     headers,
     credentials: "include",
     body: JSON.stringify({ email, password }),
   });
+  if (res.status === 403) {
+    const j = await res.json().catch(() => ({} as any));
+    if ((j?.error?.code || '').toString().toUpperCase() === 'CSRF') {
+      try { localStorage.removeItem(CSRF_KEY); } catch {}
+      const fresh = readCookie('qid_csrf') || await ensureCsrf();
+      if (fresh) {
+        headers['x-csrf-token'] = fresh;
+        res = await fetch(`${API_BASE}/api/auth/login`, {
+          method: 'POST', headers, credentials: 'include', body: JSON.stringify({ email, password })
+        });
+      }
+    }
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({} as any));
     const message = err?.error?.message || err?.message || "Giriş başarısız";
@@ -117,8 +156,14 @@ export async function getMe() {
 
 async function ensureCsrf(): Promise<string | null> {
   try {
+    const cookieTok = readCookie('qid_csrf');
     const cached = typeof localStorage !== 'undefined' ? localStorage.getItem(CSRF_KEY) : null;
-    if (cached) return cached;
+    if (cookieTok) {
+      if (cookieTok !== cached) {
+        try { localStorage.setItem(CSRF_KEY, cookieTok); } catch {}
+      }
+      return cookieTok;
+    }
     const res = await fetch(`${API_BASE}/api/csrf-token`, { credentials: 'include' });
     if (!res.ok) return null;
     const j = await res.json();

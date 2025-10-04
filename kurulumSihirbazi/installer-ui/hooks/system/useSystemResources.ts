@@ -27,13 +27,14 @@ export interface SystemResources {
   }>;
 }
 
-export function useSystemResources(autoRefresh: boolean = true) {
+export function useSystemResources(autoRefresh: boolean = true, enabled: boolean = true) {
   const [resources, setResources] = useState<SystemResources | null>(null);
   const [loading, setLoading] = useState(false);
 
   const fetchResources = async () => {
     try {
       setLoading(true);
+      if (!enabled) return;
       const response = await apiFetch("/api/system/resources");
       if (!response.ok) return;
       const data = await response.json();
@@ -46,13 +47,14 @@ export function useSystemResources(autoRefresh: boolean = true) {
   };
 
   useEffect(() => {
+    if (!enabled) return;
     fetchResources();
 
-    if (autoRefresh) {
+    if (enabled && autoRefresh) {
       const interval = setInterval(fetchResources, 5000);
       return () => clearInterval(interval);
     }
-  }, [autoRefresh]);
+  }, [autoRefresh, enabled]);
 
   return {
     resources,

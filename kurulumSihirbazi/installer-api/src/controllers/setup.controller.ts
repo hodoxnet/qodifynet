@@ -13,6 +13,10 @@ import { sanitizeDomain } from "../utils/sanitize";
 import { err, ok } from "../utils/http";
 import rateLimit from "express-rate-limit";
 import { AuditService } from "../services/audit.service";
+import { LockService, type LockRecord } from "../services/lock.service";
+
+const LOCK_TTL_SEC = 15 * 60; // 15 dakika
+const lockService = new LockService();
 
 const setupLimiter = rateLimit({ windowMs: 5 * 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false });
 
@@ -39,6 +43,79 @@ setupRouter.get("/requirements", requireScopes(SCOPES.SETUP_RUN), async (req, re
     res.json({ ok: true, requirements });
   } catch (error: any) {
     res.status(500).json({ ok: false, message: error.message || "Gereksinim kontrolü başarısız" });
+  }
+});
+
+// Opsiyonel: Partner kredisi ön-rezervasyonu (Local modda gerekmez)
+setupRouter.post("/reserve-credits", setupLimiter, requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
+  try {
+    const user = req.user!;
+    const partnerId: string | undefined = user?.partnerId;
+    interface ReserveCreditsBody { domain?: string; isLocal?: boolean }
+    const body = (req.body || {}) as ReserveCreditsBody;
+    const domain = sanitizeDomain(body.domain || "");
+    const isLocal = Boolean(body.isLocal);
+
+    if (!partnerId) {
+      // Staff – rezervasyon ve kilit gerekmiyor
+      return ok(res, { reserved: false });
+    }
+
+    // Concurrency kilidi: partner başına tek kuruluma izin ver
+    const lock = await lockService.get(partnerId);
+    if (lock) {
+      return err(res, 409, "SETUP_IN_PROGRESS", "Bu partner için devam eden bir kurulum var.");
+    }
+
+    // Local mod: sadece kilit al, kredi rezervasyonu yok
+    if (isLocal) {
+      const okLock = await lockService.acquire(partnerId, LOCK_TTL_SEC);
+      if (!okLock) return err(res, 409, 'SETUP_IN_PROGRESS', 'Bu partner için devam eden bir kurulum var.');
+      return ok(res, { reserved: false });
+    }
+
+    const { PartnerService } = await import("../services/partner.service");
+    const svc = new PartnerService();
+    const tempRef = `pre-reserve-${domain || 'setup'}-${Date.now()}`;
+    const r = await svc.reserveSetup(partnerId, tempRef, user.id);
+    if (!r.ok) return err(res, 402, "INSUFFICIENT_CREDIT", `Yetersiz kredi. Gerekli: ${r.price}, Bakiye: ${r.balance ?? 0}`);
+    const okLock = await lockService.acquire(partnerId, LOCK_TTL_SEC, r.ledgerId!);
+    if (!okLock) return err(res, 409, 'SETUP_IN_PROGRESS', 'Bu partner için devam eden bir kurulum var.');
+    return ok(res, { reserved: true, ledgerId: r.ledgerId, price: r.price });
+  } catch (e: any) {
+    return err(res, 500, "RESERVE_FAILED", e?.message || "Kredi rezervasyonu başarısız");
+  }
+});
+
+// Rezervasyon iptal (kullanıcı yarıda bırakırsa)
+setupRouter.post("/cancel-reservation", setupLimiter, requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
+  try {
+    const user = req.user!;
+    const partnerId: string | undefined = user?.partnerId;
+    const ledgerId = (req.body as any)?.ledgerId as string | undefined;
+    if (partnerId) {
+      const lock = await lockService.get(partnerId);
+      if (lock?.status === 'committing') {
+        return ok(res, { cancelled: false, reason: 'committing' });
+      }
+      if (ledgerId) {
+        try {
+          const { PartnerService } = await import("../services/partner.service");
+          const svc = new PartnerService();
+          await svc.cancelReservation(partnerId, ledgerId, 'client-cancel');
+        } catch (e) { console.error('Cancel reservation failed:', e); }
+      } else if (lock?.ledgerId) {
+        try {
+          const { PartnerService } = await import("../services/partner.service");
+          const svc = new PartnerService();
+          await svc.cancelReservation(partnerId, lock.ledgerId, 'client-cancel');
+        } catch (e) { console.error('Cancel reservation failed:', e); }
+      }
+      await lockService.release(partnerId);
+    }
+    return ok(res, { cancelled: true });
+  } catch (e: any) {
+    return err(res, 500, 'CANCEL_FAILED', e?.message || 'İptal başarısız');
   }
 });
 
@@ -386,16 +463,23 @@ setupRouter.post("/finalize", setupLimiter, requireScopes(SCOPES.SETUP_RUN), asy
     // Partner kredisi rezervasyonu (varsa) – atomik düşüm için
     const user = req.user!;
     const partnerId: string | undefined = user?.partnerId;
-    if (partnerId) {
-      const { PartnerService } = await import("../services/partner.service");
-      const svc = new PartnerService();
-      const tempRef = `finalize-${domain}-${Date.now()}`;
-      const r = await svc.reserveSetup(partnerId, tempRef, user.id);
-      if (!r.ok) {
-        err(res, 402, "INSUFFICIENT_CREDIT", `Yetersiz kredi. Gerekli: ${r.price}, Bakiye: ${r.balance ?? 0}`);
-        return;
+    const reservationLedgerId: string | undefined = (req.body as any)?.reservationLedgerId;
+    if (partnerId && !isLocal) {
+      if (reservationLedgerId) {
+        reserved = { partnerId, ledgerId: reservationLedgerId };
+      } else {
+        const { PartnerService } = await import("../services/partner.service");
+        const svc = new PartnerService();
+        const tempRef = `finalize-${domain}-${Date.now()}`;
+        const r = await svc.reserveSetup(partnerId, tempRef, user.id);
+        if (!r.ok) {
+          err(res, 402, "INSUFFICIENT_CREDIT", `Yetersiz kredi. Gerekli: ${r.price}, Bakiye: ${r.balance ?? 0}`);
+          return;
+        }
+        reserved = { partnerId, ledgerId: r.ledgerId! };
       }
-      reserved = { partnerId, ledgerId: r.ledgerId! };
+      // Mark committing
+      await lockService.updateStatus(partnerId, 'committing', LOCK_TTL_SEC);
     }
 
     // Local mode kontrolü ve PM2 ile servisleri başlat
@@ -461,6 +545,9 @@ setupRouter.post("/finalize", setupLimiter, requireScopes(SCOPES.SETUP_RUN), asy
       await svc.commitReservation(reserved.partnerId, reserved.ledgerId, customerId);
     }
 
+    // Lock'u serbest bırak
+    await lockService.release(partnerId);
+
     // Audit
     const audit = new AuditService();
     await audit.log({ actorId: user?.id, action: "SETUP_FINALIZE", targetType: "Customer", targetId: customerId, metadata: { domain, partnerId }, ip: req.ip, userAgent: String(req.headers["user-agent"] || "") });
@@ -469,6 +556,7 @@ setupRouter.post("/finalize", setupLimiter, requireScopes(SCOPES.SETUP_RUN), asy
     return;
   } catch (error: any) {
     try { if (reserved) { const { PartnerService } = await import("../services/partner.service"); const svc = new PartnerService(); await svc.cancelReservation(reserved.partnerId, reserved.ledgerId, "setup failed"); } } catch {}
+    try { await lockService.release((req.user as any)?.partnerId); } catch {}
     res.status(500).json({ ok: false, message: error.message || "Kurulum tamamlama hatası" });
   }
 });
