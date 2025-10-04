@@ -52,6 +52,10 @@ app.use("/api/setup", authenticate, setupRouter);
 
 // Partner yönetimi
 import { partnerRouter } from "./controllers/partner.controller";
+import { partnerPublicRouter } from "./controllers/partner-public.controller";
+// Public partner application endpoint
+app.use("/api/partner-public", partnerPublicRouter);
+// Authenticated partner management endpoints
 app.use("/api/partners", authenticate, partnerRouter);
 
 // Health check

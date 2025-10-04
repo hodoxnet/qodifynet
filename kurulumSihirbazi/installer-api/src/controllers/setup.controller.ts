@@ -9,6 +9,12 @@ import { authorize } from "../middleware/authorize";
 import { requireScopes } from "../middleware/scopes";
 import { v4 as uuidv4 } from "uuid";
 import { SCOPES } from "../constants/scopes";
+import { sanitizeDomain } from "../utils/sanitize";
+import { err, ok } from "../utils/http";
+import rateLimit from "express-rate-limit";
+import { AuditService } from "../services/audit.service";
+
+const setupLimiter = rateLimit({ windowMs: 5 * 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false });
 
 export const setupRouter = Router();
 const setupService = new SetupService();
@@ -86,7 +92,7 @@ setupRouter.post("/create-database", authorize("ADMIN", "SUPER_ADMIN"), async (r
 
 // Adım 5: Template'leri kontrol et
 // Partnerlar için role kontrolü yerine scope ile geçişe izin veriyoruz; staff için ADMIN/SUPER_ADMIN şartı korunur.
-setupRouter.post("/check-templates", authorize("ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
+setupRouter.post("/check-templates", setupLimiter, requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
     const { version = "latest" } = req.body;
     const result = await setupService.checkTemplates(version);
@@ -97,9 +103,10 @@ setupRouter.post("/check-templates", authorize("ADMIN", "SUPER_ADMIN"), requireS
 });
 
 // Adım 6: Template'leri çıkar
-setupRouter.post("/extract-templates", authorize("ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
+setupRouter.post("/extract-templates", setupLimiter, requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
-    const { domain, version = "latest" } = req.body;
+    const { domain: rawDomain, version = "latest" } = req.body;
+    const domain = sanitizeDomain(rawDomain);
 
     if (!domain) {
       res.status(400).json({ ok: false, message: "Domain gerekli" });
@@ -117,9 +124,10 @@ setupRouter.post("/extract-templates", authorize("ADMIN", "SUPER_ADMIN"), requir
 });
 
 // Adım 7: Ortam değişkenlerini yapılandır
-setupRouter.post("/configure-environment", authorize("ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
+setupRouter.post("/configure-environment", setupLimiter, requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
-    const { domain, dbName, dbUser, dbPassword, dbHost, dbPort, redisHost, redisPort, storeName } = req.body;
+    const domain = sanitizeDomain(req.body?.domain);
+    const { dbName, dbUser, dbPassword, dbHost, dbPort, redisHost, redisPort, storeName } = req.body;
 
     if (!domain || !dbName || !dbUser || !dbPassword || !storeName) {
       res.status(400).json({ ok: false, message: "Tüm yapılandırma bilgileri gerekli" });
@@ -153,9 +161,9 @@ setupRouter.post("/configure-environment", authorize("ADMIN", "SUPER_ADMIN"), re
 });
 
 // Adım 8: Bağımlılıkları yükle
-setupRouter.post("/install-dependencies", authorize("ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
+setupRouter.post("/install-dependencies", setupLimiter, requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
-    const { domain } = req.body;
+    const domain = sanitizeDomain(req.body?.domain);
 
     if (!domain) {
       res.status(400).json({ ok: false, message: "Domain gerekli" });
@@ -173,9 +181,9 @@ setupRouter.post("/install-dependencies", authorize("ADMIN", "SUPER_ADMIN"), req
 });
 
 // Adım 9: Migration'ları çalıştır
-setupRouter.post("/run-migrations", authorize("ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
+setupRouter.post("/run-migrations", setupLimiter, requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
-    const { domain } = req.body;
+    const domain = sanitizeDomain(req.body?.domain);
 
     if (!domain) {
       res.status(400).json({ ok: false, message: "Domain gerekli" });
@@ -190,9 +198,10 @@ setupRouter.post("/run-migrations", authorize("ADMIN", "SUPER_ADMIN"), requireSc
 });
 
 // Adım 10: Uygulamaları derle - Improved version ile detaylı log desteği
-setupRouter.post("/build-applications", authorize("ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
+setupRouter.post("/build-applications", setupLimiter, requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
-    const { domain, isLocal, heapMB, skipTypeCheck } = req.body as { domain: string; isLocal?: boolean; heapMB?: number; skipTypeCheck?: boolean };
+    const { isLocal, heapMB, skipTypeCheck } = req.body as { domain: string; isLocal?: boolean; heapMB?: number; skipTypeCheck?: boolean };
+    const domain = sanitizeDomain((req.body as any)?.domain);
 
     if (!domain) {
       res.status(400).json({ ok: false, message: "Domain gerekli" });
@@ -342,11 +351,11 @@ setupRouter.post("/configure-services", authorize("ADMIN", "SUPER_ADMIN"), async
 });
 
 // Adım 12: Kurulumu tamamla ve servisleri başlat
-setupRouter.post("/finalize", authorize("ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
+setupRouter.post("/finalize", setupLimiter, requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   let reserved: { partnerId: string; ledgerId: string } | null = null;
   try {
     const {
-      domain,
+      domain: rawDomain,
       ports,
       dbName,
       dbUser,
@@ -357,6 +366,7 @@ setupRouter.post("/finalize", authorize("ADMIN", "SUPER_ADMIN"), requireScopes(S
       storeName,
       isLocal
     } = req.body;
+    const domain = sanitizeDomain(rawDomain);
 
     if (!domain || !ports || !dbName || !storeName) {
       res.status(400).json({ ok: false, message: "Gerekli bilgiler eksik" });
@@ -364,7 +374,7 @@ setupRouter.post("/finalize", authorize("ADMIN", "SUPER_ADMIN"), requireScopes(S
     }
 
     // Partner kredisi rezervasyonu (varsa) – atomik düşüm için
-    const user = req.user as { id: string; role: string; partnerId?: string };
+    const user = req.user!;
     const partnerId: string | undefined = user?.partnerId;
     if (partnerId) {
       const { PartnerService } = await import("../services/partner.service");
@@ -372,7 +382,7 @@ setupRouter.post("/finalize", authorize("ADMIN", "SUPER_ADMIN"), requireScopes(S
       const tempRef = `finalize-${domain}-${Date.now()}`;
       const r = await svc.reserveSetup(partnerId, tempRef, user.id);
       if (!r.ok) {
-        res.status(402).json({ ok: false, message: `Yetersiz kredi. Gerekli: ${r.price}, Bakiye: ${r.balance ?? 0}` });
+        err(res, 402, "INSUFFICIENT_CREDIT", `Yetersiz kredi. Gerekli: ${r.price}, Bakiye: ${r.balance ?? 0}`);
         return;
       }
       reserved = { partnerId, ledgerId: r.ledgerId! };
@@ -441,14 +451,12 @@ setupRouter.post("/finalize", authorize("ADMIN", "SUPER_ADMIN"), requireScopes(S
       await svc.commitReservation(reserved.partnerId, reserved.ledgerId, customerId);
     }
 
-    res.json({
-      ok: true,
-      message: "Kurulum başarıyla tamamlandı!",
-      customerId,
-      domain,
-      urls,
-      mode: isLocal ? "local" : "production"
-    });
+    // Audit
+    const audit = new AuditService();
+    await audit.log({ actorId: user?.id, action: "SETUP_FINALIZE", targetType: "Customer", targetId: customerId, metadata: { domain, partnerId }, ip: req.ip, userAgent: String(req.headers["user-agent"] || "") });
+
+    ok(res, { message: "Kurulum başarıyla tamamlandı!", customerId, domain, urls, mode: isLocal ? "local" : "production" });
+    return;
   } catch (error: any) {
     try { if (reserved) { const { PartnerService } = await import("../services/partner.service"); const svc = new PartnerService(); await svc.cancelReservation(reserved.partnerId, reserved.ledgerId, "setup failed"); } } catch {}
     res.status(500).json({ ok: false, message: error.message || "Kurulum tamamlama hatası" });

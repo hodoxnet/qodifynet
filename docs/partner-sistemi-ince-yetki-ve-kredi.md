@@ -8,13 +8,11 @@ Bu doküman, partner (iş ortağı) kullanıcılarının yalnızca yetkilendiril
 - Kredi bazlı lisanslama: Partnerin cüzdanından her kurulumda kredinin otomatik düşmesi; kredi yetersiz ise kurulumun engellenmesi.
 - Dosya sistemi ve sistem yönetimi (templates, PM2, DNS, sistem durumu vb.) gibi kritik kaynaklara partnerlerin erişiminin tamamen engellenmesi.
 
-## Mevcut Durum Özeti (Bugün)
+## Mevcut Durum Özeti (Güncel)
 - Kimlik doğrulama: JWT access/refresh + Session tablosu (rotasyon eklendi).
-- Roller: `VIEWER`, `OPERATOR`, `ADMIN`, `SUPER_ADMIN` (sistem içi personel rolleri).
-- Müşteriler: `data/customers.json` ile dosya tabanlı; kullanıcı/partner ilişkisi yok, herkes için ortak listeleniyor.
-- Sistem/Template/DNS/PM2 uçları ADMIN+ korumalı; ancak partner kavramı ve ince taneli izin yok.
-
-Bu haliyle “süper admin tüm müşterileri görsün, diğer adminler yalnızca kendi müşterilerini görsün” ve “partner kurulum yapsın ama dosya sistemi görmesin” gereksinimleri sağlanmıyor.
+- Roller: `VIEWER`, `OPERATOR`, `ADMIN`, `SUPER_ADMIN` (sistem içi personel rolleri) + partner kullanıcıları için scope’lar.
+- Müşteriler (kontrol-plane): Prisma `Customer` tablosunda tutulur; `partnerId` ilişkisi aktiftir. Eski `data/customers.json` kullanılmaz.
+- Sistem/Template/DNS/PM2 uçları ADMIN ile kısıtlı; partner tarafı scope bazlıdır (örn. `setup.run`).
 
 ## Terminoloji
 - Partner: İş ortağı kurumu veya kişi (örn. ajans/bayi).
@@ -197,30 +195,17 @@ Access token payload’ına partner kullanıcıları için şu alanlar eklenir:
 - AuditLog: partner kredi işlemleri, kurulumlar ve başarısız denemeler loglanır.
 - Rate limit: Partner kritik uçlara (setup finalize vb.) ek limit.
 
-## Geçiş ve Uygulama Planı (Aşamalar)
-MVP → Iteratif geliştirme. Mevcut kodu minimum kırarak ilerleme.
+## Geçiş ve Uygulama Durumu
+- Yapıldı (Production-Ready):
+  - Partner tabloları (Prisma) + transaction’lı rezervasyon/commit/cancel kredi akışı (ledger ile).
+  - Partner başvuru/onay, kredi yükleme, pricing ve ledger uçları.
+  - Setup uçları: scope-based yetki + rate limit; finalize audit log.
+  - Customer kontrol‑plane verisi Prisma `Customer` tablosuna taşındı; DB tabanlı CRUD uçları eklendi.
+  - Partner ownership DB’den kontrol ediliyor; eski `customers.json` kaldırıldı.
 
-1) MVP (Dosya tabanlı müşteri, hızlı teslim)
-   - `Customer` tipine `partnerId?: string` (ve opsiyonel `assignedUserIds?: string[]`).
-   - `types/express.d.ts` ve role union’a `PARTNER_ADMIN`, `PARTNER_INSTALLER` ekle.
-   - `utils/jwt.ts`: payload’a `partnerId?`, `scopes?` eklenebilir.
-   - Yeni middleware’ler: `requireScopes`, `enforcePartnerOwnership`.
-   - `/api/customers` liste ve detay uçlarında partner filtresi.
-   - Setup finalize’da “dummy” kredi kontrolü (başlangıçta sabit konfig veya env ile) – hızlı çalışma için.
-
-2) Kredi/Partner Tabloları (Prisma)
-   - `Partner`, `PartnerMember`, `PartnerWallet`, `PartnerLedger`, `PartnerPricing`, `PartnerApplication` tablolarını ekle ve migrate.
-   - Partner başvuru/onay ve kredi yönetimi uçları.
-   - Setup finalize’da gerçek kredi düşümü (DB transaction).
-
-3) Müşterileri Prisma’ya Taşıma
-   - `Customer` verilerini DB’ye al, dosya depoyu terk et.
-   - İlişkisel bütünlük: `Customer.partnerId` zorunlu (partner müşterileri için).
-   - Eski `data/customers.json` sadece geçişte okunur, sonra devre dışı.
-
-4) İnce Taneli Scope’lar ve UI Yetki Matrisi
-   - Menü görünürlüğü ve sayfa düzeyi guard’lar (UI).
-   - Partner-specific raporlar ve loglar.
+- Sıradaki (opsiyonel):
+  - Audit kapsamını genişletme (başvuru onay/ret, pricing değişimi vb.).
+  - UI menü ve sayfa guard’larının scope’lara göre sadeleştirilmesi.
 
 ## Kabul Kriterleri (Özet)
 - Partner kullanıcıları sistem/template/pm2/dns uçlarına ulaşamaz; 403 alır.
@@ -240,4 +225,3 @@ MVP → Iteratif geliştirme. Mevcut kodu minimum kırarak ilerleme.
 - MVP’de dosya tabanlı müşteri ile partnerId alanı kullanılacak; orta vadede Prisma’ya taşınacak.
 - Hata kodu olarak 402 mi 403 mü kullanılacağı: 402 daha semantik, 403 da kabul.
 - Ücretlendirme ürünleri (yalnızca setup mı, ek işlemler?) ileride genişletilebilir.
-

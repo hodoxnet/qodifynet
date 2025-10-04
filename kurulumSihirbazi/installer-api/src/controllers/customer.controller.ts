@@ -1,25 +1,29 @@
 import { Router } from "express";
 import { CustomerService } from "../services/customer.service";
 import { authorize } from "../middleware/authorize";
+import { requireScopes } from "../middleware/scopes";
+import { SCOPES } from "../constants/scopes";
+import { z } from "zod";
+import { sanitizeDomain, sanitizeString } from "../utils/sanitize";
+import { ok, err } from "../utils/http";
 
 export const customerRouter = Router();
 const customerService = new CustomerService();
 
 // Get all customers
-import { requireScopes } from "../middleware/scopes";
-import { SCOPES } from "../constants/scopes";
-
 customerRouter.get("/", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.CUSTOMER_READ_OWN), async (req, res): Promise<void> => {
   try {
     const customers = await customerService.getAllCustomers();
-    const user = req.user as any;
+    const user = req.user;
     if (user?.partnerId) {
-      res.json(customers.filter(c => c.partnerId === user.partnerId));
+      ok(res, { customers: customers.filter(c => c.partnerId === user.partnerId) });
       return;
     }
-    res.json(customers);
+    ok(res, { customers });
+    return;
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch customers" });
+    err(res, 500, "CUSTOMERS_LIST_FAILED", "Failed to fetch customers");
+    return;
   }
 });
 
@@ -27,15 +31,99 @@ customerRouter.get("/", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"),
 customerRouter.get("/:id", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), requireScopes(SCOPES.CUSTOMER_READ_OWN), async (req, res): Promise<void> => {
   try {
     const customer = await customerService.getCustomerById(req.params.id);
-    if (!customer) {
-      res.status(404).json({ error: "Customer not found" });
+    if (!customer) { err(res, 404, "CUSTOMER_NOT_FOUND", "Customer not found"); return; }
+    const user = req.user;
+    if (user?.partnerId && customer.partnerId && customer.partnerId !== user.partnerId) { err(res, 403, "FORBIDDEN", "Forbidden"); return; }
+    ok(res, { customer });
+    return;
+  } catch (error) {
+    err(res, 500, "CUSTOMER_FETCH_FAILED", "Failed to fetch customer");
+    return;
+  }
+});
+
+// Admin CRUD (DB tabanlı)
+const CustomerCreateSchema = z.object({
+  domain: z.string().min(3),
+  partnerId: z.string().optional(),
+  mode: z.enum(["local", "production"]).optional(),
+  ports: z.object({ backend: z.number().int().positive(), admin: z.number().int().positive(), store: z.number().int().positive() }),
+  db: z.object({ name: z.string(), user: z.string(), host: z.string(), port: z.number().int(), schema: z.string().optional() }).optional(),
+  redis: z.object({ host: z.string(), port: z.number().int(), prefix: z.string().optional() }).optional(),
+});
+
+customerRouter.post("/", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const raw = CustomerCreateSchema.parse(req.body || {});
+    const domain = sanitizeDomain(raw.domain);
+    const { v4: uuidv4 } = await import("uuid");
+    const id = uuidv4();
+    const now = new Date().toISOString();
+    await customerService.saveCustomer({
+      id,
+      domain,
+      status: "stopped",
+      createdAt: now,
+      partnerId: raw.partnerId,
+      mode: raw.mode || "local",
+      ports: raw.ports,
+      resources: { cpu: 0, memory: 0 },
+      db: raw.db ? { ...raw.db, name: sanitizeString(raw.db.name, 128), user: sanitizeString(raw.db.user, 128), host: sanitizeString(raw.db.host, 128), schema: raw.db.schema || "public" } : undefined,
+      redis: raw.redis ? { ...raw.redis, host: sanitizeString(raw.redis.host, 128), prefix: raw.redis.prefix ? sanitizeString(raw.redis.prefix, 128) : undefined } : undefined,
+    });
+    ok(res, { id });
+    return;
+  } catch (e: any) {
+    err(res, 400, "CUSTOMER_CREATE_FAILED", e?.message || "Create failed");
+    return;
+  }
+});
+
+const CustomerUpdateSchema = CustomerCreateSchema.partial();
+customerRouter.put("/:id", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const id = req.params.id;
+    const raw = CustomerUpdateSchema.parse(req.body || {});
+    const updates: any = {};
+    if (raw.domain) updates.domain = sanitizeDomain(raw.domain);
+    if (raw.partnerId !== undefined) updates.partnerId = raw.partnerId;
+    if (raw.mode) updates.mode = raw.mode;
+    if (raw.ports) updates.ports = raw.ports;
+    if (raw.db) updates.db = { ...raw.db, name: raw.db.name ? sanitizeString(raw.db.name, 128) : undefined, user: raw.db.user ? sanitizeString(raw.db.user, 128) : undefined, host: raw.db.host ? sanitizeString(raw.db.host, 128) : undefined };
+    if (raw.redis) updates.redis = { ...raw.redis, host: raw.redis.host ? sanitizeString(raw.redis.host, 128) : undefined, prefix: raw.redis.prefix ? sanitizeString(raw.redis.prefix, 128) : undefined };
+    const next = await customerService.updateCustomer?.(id, updates as any);
+    if (!next) { err(res, 404, "CUSTOMER_NOT_FOUND", "Customer not found"); return; }
+    ok(res, { customer: next });
+    return;
+  } catch (e: any) {
+    err(res, 400, "CUSTOMER_UPDATE_FAILED", e?.message || "Update failed");
+    return;
+  }
+});
+
+// DELETE: DB'den sil (tam silme)
+customerRouter.delete("/:id", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const hard = String(req.query.hard || "").toLowerCase() === "true";
+    if (hard) {
+      try {
+        const result = await customerService.deleteCustomer(req.params.id);
+        ok(res, result);
+        return;
+      } catch (e: any) {
+        err(res, 500, "CUSTOMER_HARD_DELETE_FAILED", e?.message || "Hard delete failed");
+        return;
+      }
+    } else {
+      const repo = (await import("../repositories/customer.db.repository")).CustomerDbRepository.getInstance();
+      const okDel = await repo.delete(req.params.id);
+      if (!okDel) { err(res, 404, "CUSTOMER_NOT_FOUND", "Customer not found"); return; }
+      ok(res);
       return;
     }
-    const user = req.user as any;
-    if (user?.partnerId && customer.partnerId && customer.partnerId !== user.partnerId) { res.status(403).json({ error: "Forbidden" }); return; }
-    res.json(customer);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to fetch customer" });
+  } catch (e: any) {
+    err(res, 400, "CUSTOMER_DELETE_FAILED", e?.message || "Delete failed");
+    return;
   }
 });
 

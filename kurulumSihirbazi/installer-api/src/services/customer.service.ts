@@ -1,7 +1,8 @@
 import fs from "fs-extra";
 import path from "path";
 import { Customer } from "../types/customer.types";
-import { CustomerRepository } from "../repositories/customer.repository";
+// import { CustomerRepository } from "../repositories/customer.repository";
+import { CustomerDbRepository } from "../repositories/customer.db.repository";
 import { PM2Repository } from "../repositories/pm2.repository";
 import { EnvConfigService } from "./env-config.service";
 import { LogService } from "./log.service";
@@ -10,7 +11,7 @@ import { PrismaAdminService } from "./prisma-admin.service";
 
 export class CustomerService {
   private readonly customersPath: string;
-  private readonly customerRepository: CustomerRepository;
+  private readonly customerRepository: CustomerDbRepository;
   private readonly pm2Repository: PM2Repository;
   private readonly envConfigService: EnvConfigService;
   private readonly logService: LogService;
@@ -19,7 +20,7 @@ export class CustomerService {
 
   constructor() {
     this.customersPath = process.env.CUSTOMERS_PATH || path.join(process.cwd(), "../customers");
-    this.customerRepository = CustomerRepository.getInstance();
+    this.customerRepository = CustomerDbRepository.getInstance();
     this.pm2Repository = PM2Repository.getInstance();
     this.envConfigService = new EnvConfigService();
     this.logService = new LogService();
@@ -63,6 +64,11 @@ export class CustomerService {
       await this.envConfigService.enrichCustomerWithEnvData(customer, this.customersPath);
     }
     return customer;
+  }
+
+  // Admin CRUD helpers (DB tabanlı repo ile)
+  async updateCustomer(id: string, updates: Partial<Customer>) {
+    return await this.customerRepository.update(id, updates);
   }
 
   async getCustomerStatus(domain: string): Promise<"running" | "stopped" | "error"> {

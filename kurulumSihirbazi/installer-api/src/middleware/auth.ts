@@ -14,13 +14,13 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
     }
 
     const payload = verifyAccessToken(token);
-    (req as any).user = {
+    req.user = {
       id: payload.sub,
       email: payload.email,
-      role: payload.role,
-      partnerId: (payload as any).partnerId,
-      scopes: (payload as any).scopes,
-    };
+      role: payload.role as any,
+      partnerId: payload.partnerId,
+      scopes: payload.scopes,
+    } as any;
     next();
   } catch (e) {
     res.status(401).json({ error: "Unauthorized" });

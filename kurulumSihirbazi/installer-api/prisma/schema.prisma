@@ -157,6 +157,7 @@ model PartnerLedger {
   byUserId   String?
   note       String?
   createdAt  DateTime @default(now())
+  @@index([partnerId, createdAt(sort: Desc)])
 }
 
 model PartnerPricing {
