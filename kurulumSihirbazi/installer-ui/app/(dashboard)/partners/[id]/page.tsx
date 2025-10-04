@@ -37,10 +37,10 @@ import Link from "next/link";
 export default function PartnerDetailPage() {
   const params = useParams();
   const id = String(params?.id || "");
-  const { partner, wallet, members, ledger, loading, refresh, grant, setPricing, addMember, addMemberByEmail } = usePartnerDetail(id);
+  const { partner, wallet, members, ledger, loading, refresh, grant, setPricing, addMemberByEmail } = usePartnerDetail(id);
   const [amount, setAmount] = useState<number>(10);
   const [setupCredits, setSetupCredits] = useState<number>(partner?.pricing?.setupCredits || 1);
-  const [newMember, setNewMember] = useState<{ userId: string; email: string; role: 'PARTNER_ADMIN'|'PARTNER_INSTALLER' }>({ userId: '', email: '', role: 'PARTNER_INSTALLER' });
+  const [newMember, setNewMember] = useState<{ email: string; password: string; name: string; role: 'PARTNER_ADMIN'|'PARTNER_INSTALLER' }>({ email: '', password: '', name: '', role: 'PARTNER_INSTALLER' });
   const [grantLoading, setGrantLoading] = useState(false);
   const [pricingLoading, setPricingLoading] = useState(false);
   const [memberLoading, setMemberLoading] = useState(false);
@@ -125,15 +125,12 @@ export default function PartnerDetailPage() {
     }
   };
 
-  const handleAddMember = async (byEmail: boolean) => {
+  const handleAddMember = async () => {
+    if (!newMember.email || !newMember.password) return;
     setMemberLoading(true);
     try {
-      if (byEmail && newMember.email) {
-        await addMemberByEmail(newMember.email, newMember.role);
-      } else if (!byEmail && newMember.userId) {
-        await addMember(newMember.userId, newMember.role);
-      }
-      setNewMember({ userId: '', email: '', role: 'PARTNER_INSTALLER' });
+      await addMemberByEmail(newMember.email, newMember.role, newMember.password, newMember.name || undefined);
+      setNewMember({ email: '', password: '', name: '', role: 'PARTNER_INSTALLER' });
     } finally {
       setMemberLoading(false);
     }
@@ -329,22 +326,12 @@ export default function PartnerDetailPage() {
                 <UserPlus className="h-5 w-5" />
                 Yeni Üye Ekle
               </CardTitle>
-              <CardDescription>Partner organizasyonuna yeni kullanıcı ekleyin</CardDescription>
+              <CardDescription>Yeni kullanıcı oluşturun ve partner organizasyonuna ekleyin</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="member-userId">Kullanıcı ID (opsiyonel)</Label>
-                  <Input
-                    id="member-userId"
-                    placeholder="user_xxxx"
-                    value={newMember.userId}
-                    onChange={e => setNewMember(v => ({ ...v, userId: e.target.value }))}
-                    disabled={memberLoading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="member-email">E-posta (opsiyonel)</Label>
+                  <Label htmlFor="member-email">E-posta *</Label>
                   <Input
                     id="member-email"
                     type="email"
@@ -352,10 +339,33 @@ export default function PartnerDetailPage() {
                     value={newMember.email}
                     onChange={e => setNewMember(v => ({ ...v, email: e.target.value }))}
                     disabled={memberLoading}
+                    required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="member-role">Rol</Label>
+                  <Label htmlFor="member-password">Şifre *</Label>
+                  <Input
+                    id="member-password"
+                    type="password"
+                    placeholder="En az 6 karakter"
+                    value={newMember.password}
+                    onChange={e => setNewMember(v => ({ ...v, password: e.target.value }))}
+                    disabled={memberLoading}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="member-name">İsim (opsiyonel)</Label>
+                  <Input
+                    id="member-name"
+                    placeholder="Ahmet Yılmaz"
+                    value={newMember.name}
+                    onChange={e => setNewMember(v => ({ ...v, name: e.target.value }))}
+                    disabled={memberLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="member-role">Rol *</Label>
                   <Select
                     value={newMember.role}
                     onValueChange={(v) => setNewMember(m => ({ ...m, role: v as any }))}
@@ -371,25 +381,23 @@ export default function PartnerDetailPage() {
                   </Select>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="default"
-                  onClick={() => handleAddMember(false)}
-                  disabled={memberLoading || !newMember.userId}
-                  className="flex-1"
-                >
-                  ID ile Ekle
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => handleAddMember(true)}
-                  disabled={memberLoading || !newMember.email}
-                  className="flex-1"
-                >
-                  <Mail className="mr-2 h-4 w-4" />
-                  E-posta ile Ekle
-                </Button>
-              </div>
+              <Button
+                className="w-full"
+                onClick={handleAddMember}
+                disabled={memberLoading || !newMember.email || !newMember.password || newMember.password.length < 6}
+              >
+                {memberLoading ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Ekleniyor...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Üye Ekle
+                  </>
+                )}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

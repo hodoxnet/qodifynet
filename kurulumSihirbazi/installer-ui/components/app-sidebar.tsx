@@ -78,23 +78,7 @@ const data = {
       icon: FileCode,
     },
   ],
-  projects: [
-    {
-      name: "Aktif Müşteriler",
-      url: "#",
-      icon: Package,
-    },
-    {
-      name: "Son Kurulumlar",
-      url: "#",
-      icon: Rocket,
-    },
-    {
-      name: "Sistem Kaynakları",
-      url: "#",
-      icon: Database,
-    },
-  ],
+  projects: [],
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {

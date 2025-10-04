@@ -61,13 +61,20 @@ export function usePartnerDetail(id: string) {
     try { const res = await apiFetch(`/api/partners/${id}/pricing`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ setupCredits }) }); if (!res.ok) throw new Error(); toast.success('Pricing güncellendi'); await refresh(); } catch { toast.error('Pricing hatası'); }
   }, [id, refresh]);
 
-  const addMember = useCallback(async (userId: string, role: 'PARTNER_ADMIN'|'PARTNER_INSTALLER') => {
-    try { const res = await apiFetch(`/api/partners/${id}/members`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, role }) }); if (!res.ok) throw new Error(); toast.success('Üye eklendi'); await refresh(); } catch { toast.error('Üye ekleme hatası'); }
+  const addMemberByEmail = useCallback(async (email: string, role: 'PARTNER_ADMIN'|'PARTNER_INSTALLER', password: string, name?: string) => {
+    try {
+      const res = await apiFetch(`/api/partners/${id}/members/by-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name, role })
+      });
+      if (!res.ok) throw new Error();
+      toast.success('Üye eklendi');
+      await refresh();
+    } catch {
+      toast.error('Üye ekleme hatası');
+    }
   }, [id, refresh]);
 
-  const addMemberByEmail = useCallback(async (email: string, role: 'PARTNER_ADMIN'|'PARTNER_INSTALLER') => {
-    try { const res = await apiFetch(`/api/partners/${id}/members/by-email`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, role }) }); if (!res.ok) throw new Error(); toast.success('Üye eklendi'); await refresh(); } catch { toast.error('Üye ekleme hatası'); }
-  }, [id, refresh]);
-
-  return { partner, wallet, members, ledger, loading, refresh, grant, setPricing, addMember, addMemberByEmail };
+  return { partner, wallet, members, ledger, loading, refresh, grant, setPricing, addMemberByEmail };
 }

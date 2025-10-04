@@ -49,33 +49,54 @@ partnerRouter.post("/:id/credits/grant", adminLimiter, async (req, res) => {
   }
 });
 
-const MemberSchema = z.object({ userId: z.string().min(1), role: z.enum(["PARTNER_ADMIN", "PARTNER_INSTALLER"]) });
-partnerRouter.post("/:id/members", adminLimiter, async (req, res) => {
-  try {
-    const user = (req as any).user as { role: string };
-    if (user.role !== "SUPER_ADMIN") return err(res, 403, "FORBIDDEN", "Forbidden");
-    const body = MemberSchema.parse(req.body || {});
-    await service.addMember(req.params.id, body.userId, body.role);
-    await audit.log({ actorId: (req as any).user?.id, action: "PARTNER_MEMBER_ADD", targetType: "Partner", targetId: req.params.id, metadata: { by: "id", userId: body.userId, role: body.role } });
-    return ok(res);
-  } catch (e: any) {
-    return err(res, 400, "ADD_MEMBER_FAILED", e?.message || "Add member failed");
-  }
+// Add member by email - creates new user if not exists (SUPER_ADMIN)
+const MemberByEmailSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  name: z.string().optional(),
+  role: z.enum(["PARTNER_ADMIN", "PARTNER_INSTALLER"])
 });
-
-// Add member by email (SUPER_ADMIN)
-const MemberByEmailSchema = z.object({ email: z.string().email(), role: z.enum(["PARTNER_ADMIN", "PARTNER_INSTALLER"]) });
 partnerRouter.post("/:id/members/by-email", adminLimiter, async (req, res) => {
   try {
-    const user = (req as any).user as { role: string };
+    const user = (req as any).user as { role: string; id: string };
     if (user.role !== "SUPER_ADMIN") return err(res, 403, "FORBIDDEN", "Forbidden");
     const body = MemberByEmailSchema.parse(req.body || {});
     const prisma = (await import("../db/prisma")).prisma;
-    const u = await prisma.user.findUnique({ where: { email: body.email } });
-    if (!u) return err(res, 404, "USER_NOT_FOUND", "User not found");
+
+    // Check if user already exists
+    let u = await prisma.user.findUnique({ where: { email: body.email } });
+    let createdNew = false;
+
+    if (!u) {
+      // Create new user
+      const argon2 = (await import("argon2")).default;
+      const passwordHash = await argon2.hash(body.password, {
+        type: argon2.argon2id,
+        memoryCost: 19456,
+        timeCost: 2,
+        parallelism: 1,
+      });
+
+      u = await prisma.user.create({
+        data: {
+          email: body.email,
+          passwordHash,
+          name: body.name || body.email.split('@')[0],
+          role: 'VIEWER', // Default role for partner members
+        }
+      });
+      createdNew = true;
+    }
+
     await service.addMember(req.params.id, u.id, body.role);
-    await audit.log({ actorId: (req as any).user?.id, action: "PARTNER_MEMBER_ADD", targetType: "Partner", targetId: req.params.id, metadata: { by: "email", email: body.email, role: body.role } });
-    return ok(res);
+    await audit.log({
+      actorId: user.id,
+      action: "PARTNER_MEMBER_ADD",
+      targetType: "Partner",
+      targetId: req.params.id,
+      metadata: { by: "email", email: body.email, role: body.role, createdNew }
+    });
+    return ok(res, { userId: u.id, createdNew });
   } catch (e: any) {
     return err(res, 400, "ADD_MEMBER_EMAIL_FAILED", e?.message || "Add member by email failed");
   }

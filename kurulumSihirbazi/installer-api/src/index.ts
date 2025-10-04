@@ -53,10 +53,13 @@ app.use("/api/setup", authenticate, setupRouter);
 // Partner yönetimi
 import { partnerRouter } from "./controllers/partner.controller";
 import { partnerPublicRouter } from "./controllers/partner-public.controller";
+import { auditRouter } from "./controllers/audit.controller";
 // Public partner application endpoint
 app.use("/api/partner-public", partnerPublicRouter);
 // Authenticated partner management endpoints
 app.use("/api/partners", authenticate, partnerRouter);
+// Audit logs
+app.use("/api/audit", authenticate, authorize("ADMIN", "SUPER_ADMIN"), auditRouter);
 
 // Health check
 app.get("/health", (_req, res) => {
