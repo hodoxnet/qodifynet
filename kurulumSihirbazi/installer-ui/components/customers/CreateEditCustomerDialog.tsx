@@ -16,7 +16,11 @@ const Schema = z.object({
   domain: z.string().min(3),
   partnerId: z.string().optional(),
   mode: z.enum(["local", "production"]).default("local"),
-  ports: z.object({ backend: z.number().int().positive(), admin: z.number().int().positive(), store: z.number().int().positive() }),
+  ports: z.object({
+    backend: z.number().int().min(1024).max(65535),
+    admin: z.number().int().min(1024).max(65535),
+    store: z.number().int().min(1024).max(65535)
+  }),
 });
 
 type FormValues = z.infer<typeof Schema>;

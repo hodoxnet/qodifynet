@@ -349,7 +349,7 @@ export default function PartnersPage() {
                   <strong>{deleteDialog.partner?.name}</strong> partnerini silmek istediğinizden emin misiniz?
                 </p>
                 <p className="text-red-600 font-medium">
-                  Bu işlem geri alınamaz! Partner'a ait tüm üyeler, işlem geçmişi ve kredi kayıtları silinecektir.
+                  Bu işlem geri alınamaz! Partner&apos;a ait tüm üyeler, işlem geçmişi ve kredi kayıtları silinecektir.
                 </p>
                 <p className="text-sm">
                   Not: Eğer partnerin aktif müşterileri varsa silme işlemi başarısız olacaktır.
@@ -382,4 +382,3 @@ export default function PartnersPage() {
     </div>
   );
 }
-

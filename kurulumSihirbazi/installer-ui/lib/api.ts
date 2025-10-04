@@ -2,6 +2,7 @@
 
 const API_BASE = process.env.NEXT_PUBLIC_INSTALLER_API_URL || "http://localhost:3031";
 const ACCESS_KEY = "qid_access";
+const CSRF_KEY = "qid_csrf_token";
 
 let memoryAccess: string | null = null;
 
@@ -23,9 +24,13 @@ export function getAccessToken(): string | null {
 
 async function refreshAccess(): Promise<string | null> {
   try {
+    const headers: Record<string, string> = {};
+    const csrf = await ensureCsrf();
+    if (csrf) headers['x-csrf-token'] = csrf;
     const res = await fetch(`${API_BASE}/api/auth/refresh`, {
       method: "POST",
       credentials: "include",
+      headers,
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -45,6 +50,8 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   let token = getAccessToken();
   const headers = new Headers(init.headers || {});
   if (token) headers.set("Authorization", `Bearer ${token}`);
+  const csrf = await ensureCsrf();
+  if (csrf) headers.set('x-csrf-token', csrf);
   const res = await fetch(url, { ...init, headers, credentials: "include" });
   if (res.status !== 401) return res;
   // try refresh once
@@ -55,6 +62,7 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
 }
 
 export async function login(email: string, password: string) {
+  await ensureCsrf();
   const res = await fetch(`${API_BASE}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -81,9 +89,13 @@ export async function login(email: string, password: string) {
 
 export async function logout() {
   try {
+    const headers: Record<string, string> = {};
+    const csrf = await ensureCsrf();
+    if (csrf) headers['x-csrf-token'] = csrf;
     await fetch(`${API_BASE}/api/auth/logout`, {
       method: 'POST',
       credentials: 'include',
+      headers,
     });
   } catch {}
   clearAccessToken();
@@ -97,4 +109,22 @@ export async function getMe() {
   const res = await fetch(`${API_BASE}/api/auth/me`, { headers, credentials: 'include' });
   if (!res.ok) return null;
   return res.json();
+}
+
+async function ensureCsrf(): Promise<string | null> {
+  try {
+    const cached = typeof localStorage !== 'undefined' ? localStorage.getItem(CSRF_KEY) : null;
+    if (cached) return cached;
+    const res = await fetch(`${API_BASE}/api/csrf-token`, { credentials: 'include' });
+    if (!res.ok) return null;
+    const j = await res.json();
+    const tok = j?.token as string | undefined;
+    if (tok) {
+      try { localStorage.setItem(CSRF_KEY, tok); } catch {}
+      return tok;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }

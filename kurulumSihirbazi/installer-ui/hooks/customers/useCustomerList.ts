@@ -34,7 +34,7 @@ export interface Customer {
   };
 }
 
-export function useCustomerList() {
+export function useCustomerList(opts?: { partnerId?: string }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +50,8 @@ export function useCustomerList() {
       const arr = Array.isArray(data) ? data : Array.isArray(data?.customers) ? data.customers : null;
       if (!arr) throw new Error("Beklenmeyen veri formatı");
 
-      setCustomers(arr);
+      const filtered = opts?.partnerId ? arr.filter((c: any) => c.partnerId === opts.partnerId) : arr;
+      setCustomers(filtered as any);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Müşteri listesi yüklenemedi";
       setError(errorMsg);
@@ -59,7 +60,7 @@ export function useCustomerList() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [opts?.partnerId]);
 
   const refreshCustomers = useCallback(() => {
     return fetchCustomers();

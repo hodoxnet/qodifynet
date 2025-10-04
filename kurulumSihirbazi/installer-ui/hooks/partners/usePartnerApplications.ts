@@ -9,6 +9,7 @@ export type PartnerApplication = {
   status: string; // pending|approved|rejected
   form: any;
   createdAt: string;
+  partnerId?: string | null;
 };
 
 export function usePartnerApplications(initialStatus: string = "pending") {
@@ -74,4 +75,3 @@ export function usePartnerApplications(initialStatus: string = "pending") {
 
   return { status, setStatus, items, loading, approve, reject, refresh: fetchList };
 }
-

@@ -52,8 +52,8 @@ export default function PartnerDetailPage() {
   const [memberLoading, setMemberLoading] = useState(false);
 
   // Customer management
-  const { customers, loading: customersLoading, error: customersError, refresh: refreshCustomers } = useCustomerList({ partnerId: id });
-  const { handleStart, handleStop, handleRestart, handleDelete, actionLoading } = useCustomerActions(refreshCustomers);
+  const { customers, loading: customersLoading, error: customersError, refreshCustomers } = useCustomerList({ partnerId: id });
+  const { actionLoading, startCustomer: handleStart, stopCustomer: handleStop, restartCustomer: handleRestart, deleteHard: handleDelete, deleteSoft } = useCustomerActions(refreshCustomers);
   const [infoCustomer, setInfoCustomer] = useState<any>(null);
   const [deleteCustomer, setDeleteCustomer] = useState<any>(null);
 
@@ -547,6 +547,7 @@ export default function PartnerDetailPage() {
         customer={infoCustomer}
         open={!!infoCustomer}
         onOpenChange={(open) => !open && setInfoCustomer(null)}
+        onOpenLogs={() => { /* partner detayında log viewer kullanılmıyor */ }}
       />
 
       {/* Delete Customer Dialog */}
@@ -554,11 +555,11 @@ export default function PartnerDetailPage() {
         customer={deleteCustomer}
         open={!!deleteCustomer}
         onOpenChange={(open) => !open && setDeleteCustomer(null)}
-        onConfirm={async () => {
-          if (deleteCustomer) {
-            await handleDelete(deleteCustomer.id, deleteCustomer.domain);
-            setDeleteCustomer(null);
-          }
+        onSoftDelete={async () => {
+          if (deleteCustomer) { await deleteSoft(deleteCustomer.id); setDeleteCustomer(null); }
+        }}
+        onHardDelete={async () => {
+          if (deleteCustomer) { await handleDelete(deleteCustomer.id); setDeleteCustomer(null); }
         }}
       />
     </div>
