@@ -9,12 +9,15 @@ import {
   FileCode,
   Loader2,
   FolderOpen,
+  ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { Card, CardContent } from "@/components/ui/card";
+import { useAuth } from "@/context/AuthContext";
 
 // Components
 import { TemplateCard } from "@/components/templates/TemplateCard";
@@ -27,6 +30,7 @@ import { useTemplates, TemplateFile } from "@/hooks/templates/useTemplates";
 import { useTemplateUpload } from "@/hooks/templates/useTemplateUpload";
 
 export default function TemplatesPage() {
+  const { user } = useAuth();
   const {
     templates,
     loading,
@@ -95,6 +99,30 @@ export default function TemplatesPage() {
     // TODO: Implement bulk upload functionality
     toast.info("Toplu yükleme özelliği yakında eklenecek");
   };
+
+  if (user?.role !== "SUPER_ADMIN") {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="p-3 rounded-full bg-red-100 dark:bg-red-900/20">
+                <ShieldAlert className="h-8 w-8 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                  Yetkisiz Erişim
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Bu sayfaya erişim yetkiniz bulunmamaktadır. Template dosya yönetimi özellikleri sadece SUPER_ADMIN rolüne sahip kullanıcılar tarafından kullanılabilir.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

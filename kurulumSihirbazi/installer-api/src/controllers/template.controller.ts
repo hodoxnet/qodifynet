@@ -27,7 +27,7 @@ const upload = multer({
   },
 });
 
-templateRouter.get("/", async (_req, res): Promise<void> => {
+templateRouter.get("/", authorize("SUPER_ADMIN"), async (_req, res): Promise<void> => {
   try {
     const templates = await templateService.getAvailableTemplates();
     res.json(templates);
@@ -36,7 +36,7 @@ templateRouter.get("/", async (_req, res): Promise<void> => {
   }
 });
 
-templateRouter.get("/:version", async (req, res): Promise<void> => {
+templateRouter.get("/:version", authorize("SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const template = await templateService.getTemplateInfo(req.params.version);
     if (!template) {
@@ -49,7 +49,7 @@ templateRouter.get("/:version", async (req, res): Promise<void> => {
   }
 });
 
-templateRouter.post("/check", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+templateRouter.post("/check", authorize("SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const { version = "latest" } = req.body;
     const [availability, files] = await Promise.all([
@@ -72,7 +72,7 @@ templateRouter.post("/check", authorize("ADMIN", "SUPER_ADMIN"), async (req, res
   }
 });
 
-templateRouter.post("/upload", authorize("ADMIN", "SUPER_ADMIN"), upload.single("template"), async (req, res): Promise<void> => {
+templateRouter.post("/upload", authorize("SUPER_ADMIN"), upload.single("template"), async (req, res): Promise<void> => {
   try {
     if (!req.file) {
       res.status(400).json({ error: "Dosya yüklenmedi" });
@@ -119,7 +119,7 @@ templateRouter.post("/upload", authorize("ADMIN", "SUPER_ADMIN"), upload.single(
   }
 });
 
-templateRouter.delete("/:filename", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+templateRouter.delete("/:filename", authorize("SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const { filename } = req.params;
 

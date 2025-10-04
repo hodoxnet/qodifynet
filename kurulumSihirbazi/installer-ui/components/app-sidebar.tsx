@@ -84,7 +84,14 @@ const data = {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user: authUser } = useAuth()
   const [user, setUser] = React.useState(data.user)
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const navItems = React.useMemo(() => {
+    if (!mounted) return data.navMain
     const items = [...data.navMain]
     if (authUser?.role === 'SUPER_ADMIN') {
       if (!items.find(i => i.url === '/partners')) {
@@ -96,7 +103,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       }
     }
     return items
-  }, [authUser])
+  }, [authUser, mounted])
+
+  const navSecondaryItems = React.useMemo(() => {
+    if (!mounted) return data.navSecondary
+    // Sistem Durumu ve Template Dosyaları sadece SUPER_ADMIN için
+    if (authUser?.role === 'SUPER_ADMIN') {
+      return data.navSecondary
+    }
+    return []
+  }, [authUser, mounted])
 
   React.useEffect(() => {
     const defaultAvatar = process.env.NEXT_PUBLIC_USER_AVATAR || "/api/avatar"
@@ -176,7 +192,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         <NavMain items={navItems} />
         <NavProjects projects={data.projects} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavSecondary items={navSecondaryItems} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} onLogout={handleLogout} />

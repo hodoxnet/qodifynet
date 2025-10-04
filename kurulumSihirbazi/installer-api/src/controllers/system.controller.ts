@@ -11,7 +11,7 @@ const systemService = new SystemService();
 const settingsService = new SettingsService();
 const pm2Service = new PM2Service();
 
-systemRouter.get("/status", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+systemRouter.get("/status", authorize("SUPER_ADMIN"), async (_req, res): Promise<void> => {
   try {
     const status = await systemService.checkSystemStatus();
     res.json(status);
@@ -20,7 +20,7 @@ systemRouter.get("/status", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMI
   }
 });
 
-systemRouter.get("/resources", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+systemRouter.get("/resources", authorize("SUPER_ADMIN"), async (_req, res): Promise<void> => {
   try {
     const resources = await systemService.getSystemResources();
     res.json(resources);
@@ -30,7 +30,7 @@ systemRouter.get("/resources", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_A
 });
 
 // PM2 controls
-systemRouter.get("/pm2/info", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+systemRouter.get("/pm2/info", authorize("SUPER_ADMIN"), async (_req, res): Promise<void> => {
   try {
     const info = await detectPm2();
     res.json({
@@ -42,7 +42,7 @@ systemRouter.get("/pm2/info", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_AD
   }
 });
 
-systemRouter.get("/pm2/list", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+systemRouter.get("/pm2/list", authorize("SUPER_ADMIN"), async (_req, res): Promise<void> => {
   try {
     const list = await pm2Service.pm2List();
     res.json(list);
@@ -51,32 +51,32 @@ systemRouter.get("/pm2/list", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_AD
   }
 });
 
-systemRouter.post("/pm2/save", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+systemRouter.post("/pm2/save", authorize("SUPER_ADMIN"), async (_req, res): Promise<void> => {
   const result = await pm2Service.pm2Save();
   res.status(result.success ? 200 : 500).json(result);
 });
 
-systemRouter.post("/pm2/startup", authorize("ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+systemRouter.post("/pm2/startup", authorize("SUPER_ADMIN"), async (_req, res): Promise<void> => {
   const result = await pm2Service.pm2Startup();
   res.status(result.success ? 200 : 500).json(result);
 });
 
-systemRouter.post("/pm2/stop-all", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+systemRouter.post("/pm2/stop-all", authorize("SUPER_ADMIN"), async (_req, res): Promise<void> => {
   const result = await pm2Service.pm2StopAll();
   res.status(result.success ? 200 : 500).json(result);
 });
 
-systemRouter.post("/pm2/restart-all", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+systemRouter.post("/pm2/restart-all", authorize("SUPER_ADMIN"), async (_req, res): Promise<void> => {
   const result = await pm2Service.pm2RestartAll();
   res.status(result.success ? 200 : 500).json(result);
 });
 
-systemRouter.post("/pm2/update", authorize("OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+systemRouter.post("/pm2/update", authorize("SUPER_ADMIN"), async (_req, res): Promise<void> => {
   const result = await pm2Service.pm2Update();
   res.status(result.success ? 200 : 500).json(result);
 });
 
-systemRouter.post("/check-requirements", authorize("ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+systemRouter.post("/check-requirements", authorize("SUPER_ADMIN"), async (_req, res): Promise<void> => {
   try {
     const requirements = await systemService.checkRequirements();
     res.json(requirements);
@@ -85,7 +85,7 @@ systemRouter.post("/check-requirements", authorize("ADMIN", "SUPER_ADMIN"), asyn
   }
 });
 
-systemRouter.post("/check/:service", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+systemRouter.post("/check/:service", authorize("SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const { service } = req.params;
     const status = await systemService.checkSingleService(service);
@@ -95,7 +95,7 @@ systemRouter.post("/check/:service", authorize("ADMIN", "SUPER_ADMIN"), async (r
   }
 });
 
-systemRouter.post("/install/:service", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+systemRouter.post("/install/:service", authorize("SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const { service } = req.params;
     const { os } = req.body;
@@ -113,7 +113,7 @@ systemRouter.post("/install/:service", authorize("ADMIN", "SUPER_ADMIN"), async 
 });
 
 // Settings - get
-systemRouter.get("/settings", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), async (_req, res): Promise<void> => {
+systemRouter.get("/settings", authorize("SUPER_ADMIN"), async (_req, res): Promise<void> => {
   try {
     const saved = await settingsService.getSettings();
 
@@ -161,7 +161,7 @@ systemRouter.get("/settings", authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_AD
 });
 
 // Settings - save
-systemRouter.post("/settings", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+systemRouter.post("/settings", authorize("SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const next = await settingsService.saveSettings(req.body || {});
     res.json(next);
@@ -171,7 +171,7 @@ systemRouter.post("/settings", authorize("ADMIN", "SUPER_ADMIN"), async (req, re
 });
 
 // DB connection test
-systemRouter.post("/test/db", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+systemRouter.post("/test/db", authorize("SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const { host, port, user, password } = req.body || {};
     const db = new DatabaseService({ host, port, user, password });
@@ -187,7 +187,7 @@ systemRouter.post("/test/db", authorize("ADMIN", "SUPER_ADMIN"), async (req, res
 });
 
 // Redis connection test
-systemRouter.post("/test/redis", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+systemRouter.post("/test/redis", authorize("SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const { host = "localhost", port = 6379 } = req.body || {};
     const result = await systemService.testRedisConnection(host, Number(port));
