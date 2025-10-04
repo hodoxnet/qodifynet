@@ -28,6 +28,33 @@ export class PartnerService {
     return prisma.partner.findMany({ orderBy: { createdAt: 'desc' }, include: { wallet: true, pricing: true } });
   }
 
+  async deletePartner(partnerId: string) {
+    // Check if partner has customers
+    const customerCount = await prisma.customer.count({ where: { partnerId } });
+    if (customerCount > 0) {
+      throw new Error(`Partner has ${customerCount} customer(s). Cannot delete partner with active customers.`);
+    }
+
+    // Delete partner and related records in transaction
+    return prisma.$transaction(async (tx) => {
+      // Delete related records
+      await tx.partnerLedger.deleteMany({ where: { partnerId } });
+      await tx.partnerMember.deleteMany({ where: { partnerId } });
+      await tx.partnerWallet.delete({ where: { partnerId } }).catch(() => {}); // Ignore if doesn't exist
+      await tx.partnerPricing.delete({ where: { partnerId } }).catch(() => {}); // Ignore if doesn't exist
+
+      // Clean up partner applications - set partnerId to null instead of deleting
+      await tx.partnerApplication.updateMany({
+        where: { partnerId },
+        data: { partnerId: null }
+      });
+
+      // Delete partner
+      const deleted = await tx.partner.delete({ where: { id: partnerId } });
+      return deleted;
+    });
+  }
+
   async findByUserId(userId: string) {
     const mem = await prisma.partnerMember.findUnique({ where: { userId }, include: { partner: true } });
     if (!mem) return null;

@@ -114,6 +114,27 @@ partnerRouter.get("/", async (req, res) => {
   }
 });
 
+// Delete partner (SUPER_ADMIN)
+partnerRouter.delete("/:id", adminLimiter, async (req, res) => {
+  try {
+    const user = (req as any).user as { role: string; id: string };
+    if (user.role !== "SUPER_ADMIN") return err(res, 403, "FORBIDDEN", "Forbidden");
+
+    await service.deletePartner(req.params.id);
+    await audit.log({
+      actorId: user.id,
+      action: "PARTNER_DELETE",
+      targetType: "Partner",
+      targetId: req.params.id,
+      metadata: {}
+    });
+
+    return ok(res, { deleted: true });
+  } catch (e: any) {
+    return err(res, 400, "PARTNER_DELETE_FAILED", e?.message || "Delete partner failed");
+  }
+});
+
 // List applications (SUPER_ADMIN) - MUST be before /:id routes
 partnerRouter.get("/applications", async (req, res) => {
   try {

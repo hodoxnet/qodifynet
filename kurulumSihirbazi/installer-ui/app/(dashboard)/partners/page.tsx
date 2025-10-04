@@ -21,15 +21,29 @@ import {
   CreditCard,
   CheckCircle2,
   XCircle,
-  Clock
+  Clock,
+  Trash2,
+  AlertTriangle
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function PartnersPage() {
-  const { items, loading, refresh, create } = usePartners();
+  const { items, loading, refresh, create, deletePartner } = usePartners();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [credits, setCredits] = useState(1);
   const [creating, setCreating] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; partner: any | null }>({ open: false, partner: null });
+  const [deleting, setDeleting] = useState(false);
 
   const stats = {
     total: items.length,
@@ -50,6 +64,19 @@ export default function PartnersPage() {
       setOpen(false);
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteDialog.partner) return;
+    setDeleting(true);
+    try {
+      await deletePartner(deleteDialog.partner.id);
+      setDeleteDialog({ open: false, partner: null });
+    } catch (e) {
+      // Error already shown by hook
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -226,12 +253,22 @@ export default function PartnersPage() {
                         </div>
                       </td>
                       <td className="p-4 text-right">
-                        <Link href={`/partners/${p.id}`}>
-                          <Button variant="ghost" size="sm">
-                            Detay
-                            <ArrowRight className="ml-2 h-4 w-4" />
+                        <div className="flex items-center justify-end gap-2">
+                          <Link href={`/partners/${p.id}`}>
+                            <Button variant="ghost" size="sm">
+                              Detay
+                              <ArrowRight className="ml-2 h-4 w-4" />
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteDialog({ open: true, partner: p })}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
-                        </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -297,6 +334,51 @@ export default function PartnersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialog.open} onOpenChange={(open) => !deleting && setDeleteDialog({ open, partner: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              Partner Sil
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  <strong>{deleteDialog.partner?.name}</strong> partnerini silmek istediğinizden emin misiniz?
+                </p>
+                <p className="text-red-600 font-medium">
+                  Bu işlem geri alınamaz! Partner'a ait tüm üyeler, işlem geçmişi ve kredi kayıtları silinecektir.
+                </p>
+                <p className="text-sm">
+                  Not: Eğer partnerin aktif müşterileri varsa silme işlemi başarısız olacaktır.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>İptal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleting ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Siliniyor...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Partneri Sil
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

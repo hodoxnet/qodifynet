@@ -35,6 +35,9 @@ export default function PartnerApplicationsPage() {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Filter out orphaned approved applications (partner deleted)
+  const activeApprovedApps = approvedApps.items.filter(app => app.partnerId);
+
   const getStatusBadge = (status: string) => {
     const variants = {
       pending: { label: "Bekliyor", icon: Clock, className: "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400" },
@@ -222,6 +225,14 @@ export default function PartnerApplicationsPage() {
   };
 
   const ApplicationList = ({ apps, loading, showActions }: { apps: any[]; loading: boolean; showActions: boolean }) => {
+    // Filter out orphaned applications (approved but partner deleted)
+    const filteredApps = apps.filter(app => {
+      if (app.status === 'approved' && !app.partnerId) {
+        return false; // Don't show approved applications whose partner was deleted
+      }
+      return true;
+    });
+
     if (loading) {
       return (
         <div className="space-y-4">
@@ -242,7 +253,7 @@ export default function PartnerApplicationsPage() {
       );
     }
 
-    if (apps.length === 0) {
+    if (filteredApps.length === 0) {
       return (
         <Card>
           <CardContent className="py-12 text-center">
@@ -258,7 +269,7 @@ export default function PartnerApplicationsPage() {
 
     return (
       <div className="space-y-4">
-        {apps.map((app) => (
+        {filteredApps.map((app) => (
           <ApplicationCard key={app.id} app={app} showActions={showActions} />
         ))}
       </div>
@@ -309,7 +320,7 @@ export default function PartnerApplicationsPage() {
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{approvedApps.items.length}</div>
+            <div className="text-2xl font-bold">{activeApprovedApps.length}</div>
             <p className="text-xs text-muted-foreground">
               Partner olarak eklendi
             </p>
@@ -341,7 +352,9 @@ export default function PartnerApplicationsPage() {
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="approved">Onaylanan</TabsTrigger>
+          <TabsTrigger value="approved">
+            Onaylanan ({activeApprovedApps.length})
+          </TabsTrigger>
           <TabsTrigger value="rejected">Reddedilen</TabsTrigger>
         </TabsList>
 
@@ -376,8 +389,13 @@ export default function PartnerApplicationsPage() {
         onOpenChange={setApproveOpen}
         onApprove={async (payload) => {
           if (selectedId) {
-            await pendingApps.approve(selectedId, payload);
-            approvedApps.refresh();
+            try {
+              await pendingApps.approve(selectedId, payload);
+            } finally {
+              // Always refresh both lists even if approve fails
+              pendingApps.refresh();
+              approvedApps.refresh();
+            }
           }
         }}
       />
@@ -387,8 +405,13 @@ export default function PartnerApplicationsPage() {
         onOpenChange={setRejectOpen}
         onReject={async (reason) => {
           if (selectedId) {
-            await pendingApps.reject(selectedId, reason);
-            rejectedApps.refresh();
+            try {
+              await pendingApps.reject(selectedId, reason);
+            } finally {
+              // Always refresh both lists even if reject fails
+              pendingApps.refresh();
+              rejectedApps.refresh();
+            }
           }
         }}
       />

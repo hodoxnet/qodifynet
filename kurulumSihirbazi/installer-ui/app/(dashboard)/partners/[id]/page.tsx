@@ -30,9 +30,15 @@ import {
   Building2,
   Plus,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Package
 } from "lucide-react";
 import Link from "next/link";
+import { useCustomerList } from "@/hooks/customers/useCustomerList";
+import { useCustomerActions } from "@/hooks/customers/useCustomerActions";
+import { CustomersTable } from "@/components/customers/CustomersTable";
+import { CustomerInfoDialog } from "@/components/customers/CustomerInfoDialog";
+import { DeleteCustomerDialog } from "@/components/customers/DeleteCustomerDialog";
 
 export default function PartnerDetailPage() {
   const params = useParams();
@@ -44,6 +50,12 @@ export default function PartnerDetailPage() {
   const [grantLoading, setGrantLoading] = useState(false);
   const [pricingLoading, setPricingLoading] = useState(false);
   const [memberLoading, setMemberLoading] = useState(false);
+
+  // Customer management
+  const { customers, loading: customersLoading, error: customersError, refresh: refreshCustomers } = useCustomerList({ partnerId: id });
+  const { handleStart, handleStop, handleRestart, handleDelete, actionLoading } = useCustomerActions(refreshCustomers);
+  const [infoCustomer, setInfoCustomer] = useState<any>(null);
+  const [deleteCustomer, setDeleteCustomer] = useState<any>(null);
 
   if (!id) {
     return (
@@ -213,6 +225,9 @@ export default function PartnerDetailPage() {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Genel Bakış</TabsTrigger>
+          <TabsTrigger value="customers">
+            Müşteriler ({customers.length})
+          </TabsTrigger>
           <TabsTrigger value="members">Üyeler ({members.length})</TabsTrigger>
           <TabsTrigger value="ledger">İşlem Geçmişi ({ledger.length})</TabsTrigger>
         </TabsList>
@@ -453,6 +468,31 @@ export default function PartnerDetailPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="customers">
+          <Card>
+            <CardHeader>
+              <CardTitle>Müşteri Listesi</CardTitle>
+              <CardDescription>Bu partnere ait tüm müşteriler ve durumları</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CustomersTable
+                customers={customers}
+                loading={customersLoading}
+                error={customersError}
+                actionLoading={actionLoading}
+                onStart={handleStart}
+                onStop={handleStop}
+                onRestart={handleRestart}
+                onDelete={(customerId, domain) => {
+                  const customer = customers.find(c => c.id === customerId);
+                  if (customer) setDeleteCustomer(customer);
+                }}
+                onInfo={(customer) => setInfoCustomer(customer)}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="ledger">
           <Card>
             <CardHeader>
@@ -501,6 +541,26 @@ export default function PartnerDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Customer Info Dialog */}
+      <CustomerInfoDialog
+        customer={infoCustomer}
+        open={!!infoCustomer}
+        onOpenChange={(open) => !open && setInfoCustomer(null)}
+      />
+
+      {/* Delete Customer Dialog */}
+      <DeleteCustomerDialog
+        customer={deleteCustomer}
+        open={!!deleteCustomer}
+        onOpenChange={(open) => !open && setDeleteCustomer(null)}
+        onConfirm={async () => {
+          if (deleteCustomer) {
+            await handleDelete(deleteCustomer.id, deleteCustomer.domain);
+            setDeleteCustomer(null);
+          }
+        }}
+      />
     </div>
   );
 }

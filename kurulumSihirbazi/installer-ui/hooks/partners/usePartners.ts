@@ -23,7 +23,22 @@ export function usePartners() {
     try { const res = await apiFetch('/api/partners', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, setupCredits }) }); if (!res.ok) throw new Error(); toast.success('Partner oluşturuldu'); await fetchList(); } catch { toast.error('Oluşturma hatası'); }
   }, [fetchList]);
 
-  return { items, loading, refresh: fetchList, create };
+  const deletePartner = useCallback(async (id: string) => {
+    try {
+      const res = await apiFetch(`/api/partners/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data?.error?.message || 'Silme hatası');
+      }
+      toast.success('Partner silindi');
+      await fetchList();
+    } catch (e: any) {
+      toast.error(e.message || 'Silme hatası');
+      throw e;
+    }
+  }, [fetchList]);
+
+  return { items, loading, refresh: fetchList, create, deletePartner };
 }
 
 export function usePartnerDetail(id: string) {

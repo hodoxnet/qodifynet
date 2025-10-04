@@ -43,7 +43,8 @@ export default function PartnerApplicationPage() {
 
     try {
       // Backend endpoint'e POST isteği
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/partner-public/apply`, {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3031';
+      const res = await fetch(`${API_URL}/api/partner-public/apply`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -51,12 +52,12 @@ export default function PartnerApplicationPage() {
         body: JSON.stringify(formData),
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: { message: 'Sunucu hatası' } }));
         throw new Error(data.error?.message || "Başvuru gönderilemedi");
       }
 
+      const data = await res.json();
       setSuccess(true);
       toast.success("Başvurunuz başarıyla alındı!");
     } catch (e: any) {

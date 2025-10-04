@@ -39,10 +39,17 @@ export function usePartnerApplications(initialStatus: string = "pending") {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload || {}),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error?.message || 'Onaylama hatası');
+      }
       toast.success('Başvuru onaylandı');
       await fetchList();
-    } catch { toast.error('Onaylama hatası'); }
+      return true;
+    } catch (e: any) {
+      toast.error(e?.message || 'Onaylama hatası');
+      throw e;
+    }
   }, [fetchList]);
 
   const reject = useCallback(async (id: string, reason?: string) => {
@@ -52,10 +59,17 @@ export function usePartnerApplications(initialStatus: string = "pending") {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error?.message || 'Reddetme hatası');
+      }
       toast.success('Başvuru reddedildi');
       await fetchList();
-    } catch { toast.error('Reddetme hatası'); }
+      return true;
+    } catch (e: any) {
+      toast.error(e?.message || 'Reddetme hatası');
+      throw e;
+    }
   }, [fetchList]);
 
   return { status, setStatus, items, loading, approve, reject, refresh: fetchList };
