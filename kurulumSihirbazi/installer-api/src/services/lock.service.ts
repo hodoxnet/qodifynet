@@ -8,7 +8,6 @@ export class LockService {
   private host: string = '127.0.0.1';
   private port: number = 6379;
   private redis?: Redis;
-  private redisOk = false;
   private settingsPromise: Promise<void> | null = null;
   private fallback = new Map<string, LockRecord>();
   private CHECK_INTERVAL_MS = 5000;
@@ -32,9 +31,9 @@ export class LockService {
         const host = process.env.REDIS_HOST || this.host;
         const port = Number(process.env.REDIS_PORT || this.port);
         this.redis = new Redis({ host, port, lazyConnect: true, maxRetriesPerRequest: 0, enableOfflineQueue: false, retryStrategy: () => null });
-        this.redis.on('connect', () => { this.redisOk = true; this.statusCache = { available: true, checkedAt: Date.now() }; });
-        this.redis.on('error', () => { this.redisOk = false; this.statusCache = { available: false, checkedAt: Date.now() }; });
-        try { await this.redis.connect(); this.redisOk = true; } catch { this.redisOk = false; }
+        this.redis.on('connect', () => { this.statusCache = { available: true, checkedAt: Date.now() }; });
+        this.redis.on('error', () => { this.statusCache = { available: false, checkedAt: Date.now() }; });
+        try { await this.redis.connect(); this.statusCache = { available: true, checkedAt: Date.now() }; } catch { this.statusCache = { available: false, checkedAt: Date.now() }; }
       })();
     }
     await this.settingsPromise;
@@ -62,10 +61,9 @@ export class LockService {
     const value = JSON.stringify({ ledgerId, status: 'reserved', timestamp: Date.now() } satisfies LockRecord);
     if (!(await this.redisAvailable())) return this.acquireFallback(partnerId, ttlSec, ledgerId);
     try {
-      const result = await this.redis!.set(this.key(partnerId), value, 'NX', 'EX', ttlSec);
+      const result = await this.redis!.set(this.key(partnerId), value, 'EX', ttlSec, 'NX');
       return result === 'OK';
     } catch {
-      this.redisOk = false;
       return this.acquireFallback(partnerId, ttlSec, ledgerId);
     }
   }
@@ -78,13 +76,12 @@ export class LockService {
       const value = JSON.stringify({ ...current, status, timestamp: Date.now() });
       let res: string | null;
       if (typeof ttlSec === 'number') {
-        res = await this.redis!.set(this.key(partnerId), value, 'XX', 'EX', ttlSec);
+        res = await this.redis!.set(this.key(partnerId), value, 'EX', ttlSec, 'XX');
       } else {
         res = await this.redis!.set(this.key(partnerId), value, 'XX');
       }
       return res === 'OK';
     } catch {
-      this.redisOk = false;
       return this.updateFallback(partnerId, status);
     }
   }
@@ -92,7 +89,7 @@ export class LockService {
   async release(partnerId: string): Promise<void> {
     if (!(await this.redisAvailable())) { this.fallback.delete(partnerId); return; }
     try { await this.redis!.del(this.key(partnerId)); }
-    catch { this.redisOk = false; this.fallback.delete(partnerId); }
+    catch { this.fallback.delete(partnerId); }
   }
 
   // Fallback helpers (with TTL ~15 min)
@@ -121,4 +118,3 @@ export class LockService {
     }
   }
 }
-

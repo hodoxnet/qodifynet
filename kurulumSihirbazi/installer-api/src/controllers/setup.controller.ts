@@ -5,7 +5,6 @@ import { SetupService } from "../services/setup.service";
 import { CustomerService } from "../services/customer.service";
 import { PM2Service } from "../services/pm2.service";
 import { NginxService } from "../services/nginx.service";
-import { authorize } from "../middleware/authorize";
 import { requireScopes } from "../middleware/scopes";
 import { v4 as uuidv4 } from "uuid";
 import { SCOPES } from "../constants/scopes";
@@ -13,7 +12,7 @@ import { sanitizeDomain } from "../utils/sanitize";
 import { err, ok } from "../utils/http";
 import rateLimit from "express-rate-limit";
 import { AuditService } from "../services/audit.service";
-import { LockService, type LockRecord } from "../services/lock.service";
+import { LockService } from "../services/lock.service";
 
 const LOCK_TTL_SEC = 15 * 60; // 15 dakika
 const lockService = new LockService();
@@ -58,32 +57,37 @@ setupRouter.post("/reserve-credits", setupLimiter, requireScopes(SCOPES.SETUP_RU
 
     if (!partnerId) {
       // Staff – rezervasyon ve kilit gerekmiyor
-      return ok(res, { reserved: false });
+      ok(res, { reserved: false });
+      return;
     }
 
     // Concurrency kilidi: partner başına tek kuruluma izin ver
     const lock = await lockService.get(partnerId);
     if (lock) {
-      return err(res, 409, "SETUP_IN_PROGRESS", "Bu partner için devam eden bir kurulum var.");
+      err(res, 409, "SETUP_IN_PROGRESS", "Bu partner için devam eden bir kurulum var.");
+      return;
     }
 
     // Local mod: sadece kilit al, kredi rezervasyonu yok
     if (isLocal) {
       const okLock = await lockService.acquire(partnerId, LOCK_TTL_SEC);
-      if (!okLock) return err(res, 409, 'SETUP_IN_PROGRESS', 'Bu partner için devam eden bir kurulum var.');
-      return ok(res, { reserved: false });
+      if (!okLock) { err(res, 409, 'SETUP_IN_PROGRESS', 'Bu partner için devam eden bir kurulum var.'); return; }
+      ok(res, { reserved: false });
+      return;
     }
 
     const { PartnerService } = await import("../services/partner.service");
     const svc = new PartnerService();
     const tempRef = `pre-reserve-${domain || 'setup'}-${Date.now()}`;
     const r = await svc.reserveSetup(partnerId, tempRef, user.id);
-    if (!r.ok) return err(res, 402, "INSUFFICIENT_CREDIT", `Yetersiz kredi. Gerekli: ${r.price}, Bakiye: ${r.balance ?? 0}`);
+    if (!r.ok) { err(res, 402, "INSUFFICIENT_CREDIT", `Yetersiz kredi. Gerekli: ${r.price}, Bakiye: ${r.balance ?? 0}`); return; }
     const okLock = await lockService.acquire(partnerId, LOCK_TTL_SEC, r.ledgerId!);
-    if (!okLock) return err(res, 409, 'SETUP_IN_PROGRESS', 'Bu partner için devam eden bir kurulum var.');
-    return ok(res, { reserved: true, ledgerId: r.ledgerId, price: r.price });
+    if (!okLock) { err(res, 409, 'SETUP_IN_PROGRESS', 'Bu partner için devam eden bir kurulum var.'); return; }
+    ok(res, { reserved: true, ledgerId: r.ledgerId, price: r.price });
+    return;
   } catch (e: any) {
-    return err(res, 500, "RESERVE_FAILED", e?.message || "Kredi rezervasyonu başarısız");
+    err(res, 500, "RESERVE_FAILED", e?.message || "Kredi rezervasyonu başarısız");
+    return;
   }
 });
 
@@ -96,7 +100,8 @@ setupRouter.post("/cancel-reservation", setupLimiter, requireScopes(SCOPES.SETUP
     if (partnerId) {
       const lock = await lockService.get(partnerId);
       if (lock?.status === 'committing') {
-        return ok(res, { cancelled: false, reason: 'committing' });
+        ok(res, { cancelled: false, reason: 'committing' });
+        return;
       }
       if (ledgerId) {
         try {
@@ -113,9 +118,11 @@ setupRouter.post("/cancel-reservation", setupLimiter, requireScopes(SCOPES.SETUP
       }
       await lockService.release(partnerId);
     }
-    return ok(res, { cancelled: true });
+    ok(res, { cancelled: true });
+    return;
   } catch (e: any) {
-    return err(res, 500, 'CANCEL_FAILED', e?.message || 'İptal başarısız');
+    err(res, 500, 'CANCEL_FAILED', e?.message || 'İptal başarısız');
+    return;
   }
 });
 
@@ -546,7 +553,7 @@ setupRouter.post("/finalize", setupLimiter, requireScopes(SCOPES.SETUP_RUN), asy
     }
 
     // Lock'u serbest bırak
-    await lockService.release(partnerId);
+    if (partnerId) { await lockService.release(partnerId); }
 
     // Audit
     const audit = new AuditService();
