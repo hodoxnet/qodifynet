@@ -1,11 +1,14 @@
 import { Router } from "express";
 import { DnsService } from "../services/dns.service";
 import { authorize } from "../middleware/authorize";
+import { requireScopes } from "../middleware/scopes";
+import { SCOPES } from "../constants/scopes";
 
 export const dnsRouter = Router();
 const dnsService = new DnsService();
 
-dnsRouter.post("/check", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+// Staff (ADMIN/SUPER_ADMIN) ve partner (scope: setup.run) erişebilir
+dnsRouter.post("/check", requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
     const { domain } = req.body;
 

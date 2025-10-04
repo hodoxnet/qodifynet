@@ -23,9 +23,19 @@ const pm2Service = new PM2Service();
 const nginxService = new NginxService();
 
 // Adım 1: Sistem gereksinimlerini kontrol et
-setupRouter.get("/requirements", requireScopes(SCOPES.SETUP_RUN), async (_req, res): Promise<void> => {
+setupRouter.get("/requirements", requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
     const requirements = await setupService.checkSystemRequirements();
+    // Partner kullanıcılar için detayları maskele: yalnızca genel durum dön
+    const viewer = (req as any).user as { role?: string; partnerId?: string } | undefined;
+    const isStaff = viewer?.role === 'SUPER_ADMIN' || viewer?.role === 'ADMIN';
+    const isPartner = !isStaff && !!viewer?.partnerId;
+    if (isPartner) {
+      const hasRequiredError = requirements.some(r => r.required && r.status === 'error');
+      const masked = [{ name: 'Sistem', status: hasRequiredError ? 'error' : 'ok', required: true }];
+      res.json({ ok: true, requirements: masked });
+      return;
+    }
     res.json({ ok: true, requirements });
   } catch (error: any) {
     res.status(500).json({ ok: false, message: error.message || "Gereksinim kontrolü başarısız" });

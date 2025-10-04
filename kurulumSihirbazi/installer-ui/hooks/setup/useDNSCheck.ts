@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import axios from 'axios';
+import { apiFetch } from '@/lib/api';
 import { DNSCheckResult } from '@/lib/types/setup';
 
 export function useDNSCheck() {
@@ -48,13 +49,13 @@ export function useDNSCheck() {
     setTestResult(null);
 
     try {
-      const response = await axios.post(
-        `${API_URL}/api/dns/check`,
-        { domain },
-        { headers: getAuthHeaders() }
-      );
-
-      const { valid, ip, serverIp } = response.data;
+      // CSRF + Auth için apiFetch kullan
+      const response = await apiFetch(`/api/dns/check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain })
+      });
+      const { valid, ip, serverIp } = await response.json();
 
       setTestResult({
         valid,

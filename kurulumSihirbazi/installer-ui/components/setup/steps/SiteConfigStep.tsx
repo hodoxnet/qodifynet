@@ -19,6 +19,7 @@ import { SetupConfig } from '@/lib/types/setup';
 import { useInstallation } from '@/hooks/setup/useInstallation';
 import { useDNSCheck } from '@/hooks/setup/useDNSCheck';
 import { useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 interface SiteConfigStepProps {
   config: SetupConfig;
@@ -28,9 +29,12 @@ interface SiteConfigStepProps {
 }
 
 export function SiteConfigStep({ config, onConfigUpdate, onNext, onBack }: SiteConfigStepProps) {
+  const { user } = useAuth();
   const { isLocalDomain } = useInstallation();
   const { testResult, loading: dnsChecking, checkDNS, resetTest } = useDNSCheck();
   const isLocal = config.domain ? isLocalDomain(config.domain) : false;
+  const isStaff = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const isPartner = !isStaff && (!!user?.partnerId || (user?.role || '').startsWith('PARTNER_'));
 
   // Domain değiştiğinde DNS test sonucunu sıfırla
   useEffect(() => {
@@ -41,12 +45,15 @@ export function SiteConfigStep({ config, onConfigUpdate, onNext, onBack }: SiteC
     checkDNS(config.domain);
   };
 
-  const isFormValid =
-    config.domain &&
-    config.storeName &&
-    config.dbName &&
-    config.appDbUser &&
-    config.appDbPassword;
+  const isFormValid = isPartner
+    ? Boolean(config.domain && config.storeName)
+    : Boolean(
+        config.domain &&
+        config.storeName &&
+        config.dbName &&
+        config.appDbUser &&
+        config.appDbPassword
+      );
 
   return (
     <Card className="w-full">
@@ -144,49 +151,53 @@ export function SiteConfigStep({ config, onConfigUpdate, onNext, onBack }: SiteC
           </div>
         </div>
 
-        <Separator />
+        {!isPartner && (
+          <>
+            <Separator />
 
-        {/* Veritabanı Bilgileri */}
-        <div className="space-y-4">
-          <h3 className="font-medium">Veritabanı Ayarları</h3>
+            {/* Veritabanı Bilgileri - Sadece ADMIN/SUPER_ADMIN */}
+            <div className="space-y-4">
+              <h3 className="font-medium">Veritabanı Ayarları</h3>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="db-name">Veritabanı Adı</Label>
-              <Input
-                id="db-name"
-                type="text"
-                value={config.dbName}
-                onChange={(e) => onConfigUpdate({ dbName: e.target.value })}
-                placeholder="qodify_example_com"
-              />
-              <p className="text-xs text-gray-500">Otomatik önerildi</p>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="db-name">Veritabanı Adı</Label>
+                  <Input
+                    id="db-name"
+                    type="text"
+                    value={config.dbName}
+                    onChange={(e) => onConfigUpdate({ dbName: e.target.value })}
+                    placeholder="qodify_example_com"
+                  />
+                  <p className="text-xs text-gray-500">Otomatik önerildi</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="app-db-user">Uygulama DB Kullanıcısı</Label>
+                  <Input
+                    id="app-db-user"
+                    type="text"
+                    value={config.appDbUser}
+                    onChange={(e) => onConfigUpdate({ appDbUser: e.target.value })}
+                    placeholder="qodify_user"
+                  />
+                  <p className="text-xs text-gray-500">Yeni oluşturulacak</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="app-db-password">Uygulama DB Şifresi</Label>
+                <Input
+                  id="app-db-password"
+                  type="password"
+                  value={config.appDbPassword}
+                  onChange={(e) => onConfigUpdate({ appDbPassword: e.target.value })}
+                  placeholder="••••••••"
+                />
+              </div>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="app-db-user">Uygulama DB Kullanıcısı</Label>
-              <Input
-                id="app-db-user"
-                type="text"
-                value={config.appDbUser}
-                onChange={(e) => onConfigUpdate({ appDbUser: e.target.value })}
-                placeholder="qodify_user"
-              />
-              <p className="text-xs text-gray-500">Yeni oluşturulacak</p>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="app-db-password">Uygulama DB Şifresi</Label>
-            <Input
-              id="app-db-password"
-              type="password"
-              value={config.appDbPassword}
-              onChange={(e) => onConfigUpdate({ appDbPassword: e.target.value })}
-              placeholder="••••••••"
-            />
-          </div>
-        </div>
+          </>
+        )}
 
         <Separator />
 

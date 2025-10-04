@@ -59,7 +59,8 @@ app.use("/api/auth", authRouter);
 app.use("/api/system", authenticate, authorize("VIEWER", "OPERATOR", "ADMIN", "SUPER_ADMIN"), systemRouter);
 // Customers: rota bazında yetki kontrolü yapılacak (partner filtreleri için authenticate yeterli)
 app.use("/api/customers", authenticate, customerRouter);
-app.use("/api/dns", authenticate, authorize("ADMIN", "SUPER_ADMIN"), dnsRouter);
+// DNS: partnerlar da kontrol yapabilsin (scope tabanlı). Router kendi içinde kontrol ediyor.
+app.use("/api/dns", authenticate, dnsRouter);
 app.use("/api/templates", authenticate, authorize("ADMIN", "SUPER_ADMIN"), templateRouter);
 app.use("/api/setup", authenticate, setupRouter);
 
