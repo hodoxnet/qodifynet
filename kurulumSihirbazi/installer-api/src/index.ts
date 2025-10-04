@@ -33,7 +33,8 @@ const io = new Server(httpServer, {
   },
 });
 
-const PORT = process.env.PORT || 3031;
+const PORT = Number(process.env.PORT || 3031);
+const HOST = process.env.HOST || '127.0.0.1';
 
 // Middleware
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
@@ -108,6 +109,6 @@ httpServer.timeout = 5 * 60 * 1000; // 5 minutes
 httpServer.keepAliveTimeout = 5 * 60 * 1000; // 5 minutes
 httpServer.headersTimeout = 5 * 60 * 1000; // 5 minutes
 
-httpServer.listen(PORT, () => {
-  console.log(`🚀 Installer API running on http://localhost:${PORT}`);
+httpServer.listen(PORT, HOST, () => {
+  console.log(`🚀 Installer API running on http://${HOST}:${PORT}`);
 });

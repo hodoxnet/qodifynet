@@ -46,6 +46,7 @@ export class PM2Service {
           env: {
             NODE_ENV: devMode ? "development" : "production",
             PORT: ports.backend,
+            HOST: "127.0.0.1",
             // Dotenv'i her zaman doğru dosyadan yüklemek için mutlak yol kullan
             NODE_OPTIONS: "-r dotenv/config",
             DOTENV_CONFIG_PATH: path.join(beCwd, ".env"),
@@ -62,7 +63,7 @@ export class PM2Service {
         {
           name: `${domain}-admin`,
           script: "node_modules/.bin/next",
-          args: `${devMode ? "dev" : "start"} -p ${ports.admin}`,
+          args: `${devMode ? "dev" : "start"} -p ${ports.admin} -H 127.0.0.1`,
           cwd: adminCwd,
           instances: 1,
           exec_mode: "fork",
@@ -81,7 +82,7 @@ export class PM2Service {
         {
           name: `${domain}-store`,
           script: "node_modules/.bin/next",
-          args: `${devMode ? "dev" : "start"} -p ${ports.store}`,
+          args: `${devMode ? "dev" : "start"} -p ${ports.store} -H 127.0.0.1`,
           cwd: storeCwd,
           instances: 1,
           exec_mode: "fork",
