@@ -167,7 +167,9 @@ export class SetupService {
 
       if (result.ok) {
         // Versiyon bilgisini al
-        const { stdout } = await execAsync(`redis-cli -h ${host} -p ${port} INFO server 2>&1`);
+        const password = process.env.REDIS_PASSWORD || "";
+        const authFlag = password ? `-a "${password}"` : "";
+        const { stdout } = await execAsync(`redis-cli -h ${host} -p ${port} ${authFlag} INFO server 2>&1`);
         const versionMatch = stdout.match(/redis_version:(\d+\.\d+\.\d+)/);
         const version = versionMatch ? versionMatch[1] : "Unknown";
 

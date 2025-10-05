@@ -33,8 +33,10 @@ export class SystemService {
 
   async checkRedis(): Promise<string> {
     try {
-      const { stdout } = await execAsync("redis-cli ping 2>&1");
-      return stdout.trim() === "PONG" ? "running" : "error";
+      const password = process.env.REDIS_PASSWORD || "";
+      const authFlag = password ? `-a "${password}"` : "";
+      const { stdout } = await execAsync(`redis-cli ${authFlag} ping 2>&1`);
+      return stdout.trim() === "PONG" || stdout.includes("PONG") ? "running" : "error";
     } catch (error: any) {
       if (error.message?.includes("command not found")) {
         return "error";
@@ -161,7 +163,9 @@ export class SystemService {
   async testRedisConnection(host: string, port: number): Promise<{ ok: boolean; message?: string }> {
     try {
       // Prefer redis-cli for simplicity
-      const { stdout } = await execAsync(`redis-cli -h ${host} -p ${port} ping 2>&1`);
+      const password = process.env.REDIS_PASSWORD || "";
+      const authFlag = password ? `-a "${password}"` : "";
+      const { stdout } = await execAsync(`redis-cli -h ${host} -p ${port} ${authFlag} ping 2>&1`);
       if (stdout.trim().includes("PONG")) return { ok: true };
       return { ok: false, message: stdout.trim() };
     } catch (e: any) {
