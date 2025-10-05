@@ -149,7 +149,7 @@ export function TemplateUploadDialog({
                   Dosya sürükleyin veya tıklayın
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  ZIP dosyası (maksimum 100MB)
+                  ZIP dosyası (maksimum 1GB)
                 </p>
               </>
             )}
@@ -187,7 +187,7 @@ export function TemplateUploadDialog({
             <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
               <li>• Dosya adı: {template?.category}-{template?.version}.zip</li>
               <li>• Format: ZIP arşivi</li>
-              <li>• Maksimum boyut: 100MB</li>
+              <li>• Maksimum boyut: 1GB</li>
             </ul>
           </div>
         </div>
