@@ -13,6 +13,7 @@ import { err, ok } from "../utils/http";
 import rateLimit from "express-rate-limit";
 import { AuditService } from "../services/audit.service";
 import { LockService } from "../services/lock.service";
+import { DemoDataService } from "../services/demo-data.service";
 
 const LOCK_TTL_SEC = 15 * 60; // 15 dakika
 const lockService = new LockService();
@@ -24,6 +25,7 @@ const setupService = new SetupService();
 const customerService = new CustomerService();
 const pm2Service = new PM2Service();
 const nginxService = new NginxService();
+const demoService = new DemoDataService();
 
 // Adım 1: Sistem gereksinimlerini kontrol et
 setupRouter.get("/requirements", requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
@@ -579,4 +581,28 @@ setupRouter.post("/subscribe", requireScopes(SCOPES.SETUP_RUN), async (req, res)
 
   // Socket.io subscription logic handled in client
   res.json({ ok: true, message: "WebSocket subscription için client socket.io kullanmalı" });
+});
+
+// Opsiyonel: Kurulum sonrası demo veri içe aktarma
+// Body: { domain: string, version?: string, packName?: string, packPath?: string, overwriteUploads?: boolean }
+setupRouter.post("/import-demo", requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
+  try {
+    const body = (req.body || {}) as any;
+    const domain = sanitizeDomain(body.domain || "");
+    if (!domain) { err(res, 400, "BAD_REQUEST", "Domain gerekli"); return; }
+
+    const result = await demoService.importDemo({
+      domain,
+      version: body.version,
+      template: body.template,
+      packName: body.packName,
+      packPath: body.packPath,
+      overwriteUploads: body.overwriteUploads !== false,
+    });
+
+    if (!result.ok) { err(res, 500, "DEMO_IMPORT_FAILED", result.message); return; }
+    ok(res, { ok: true, message: result.message });
+  } catch (error: any) {
+    err(res, 500, "DEMO_IMPORT_ERROR", error?.message || "Demo içe aktarma hatası");
+  }
 });

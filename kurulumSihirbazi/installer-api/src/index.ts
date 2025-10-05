@@ -21,10 +21,29 @@ import { mutatingLimiter } from "./middleware/ratelimit";
 
 const app = express();
 const httpServer = createServer(app);
-const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || "http://localhost:3030")
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
+function expandOrigins(list: string[]): string[] {
+  const out = new Set<string>();
+  for (const item of list) {
+    const s = item.trim();
+    if (!s) continue;
+    out.add(s);
+    try {
+      const u = new URL(s);
+      if (u.hostname === 'localhost') {
+        out.add(`${u.protocol}//127.0.0.1${u.port ? ':' + u.port : ''}`);
+      } else if (u.hostname === '127.0.0.1') {
+        out.add(`${u.protocol}//localhost${u.port ? ':' + u.port : ''}`);
+      }
+    } catch {
+      // ignore invalid
+    }
+  }
+  return Array.from(out);
+}
+
+const ALLOWED_ORIGINS = expandOrigins(
+  (process.env.CORS_ORIGIN || "http://localhost:3030").split(",").filter(Boolean)
+);
 const io = new Server(httpServer, {
   cors: {
     origin: ALLOWED_ORIGINS,
@@ -111,4 +130,5 @@ httpServer.headersTimeout = 5 * 60 * 1000; // 5 minutes
 
 httpServer.listen(PORT, HOST, () => {
   console.log(`🚀 Installer API running on http://${HOST}:${PORT}`);
+  console.log(`CORS origins: ${ALLOWED_ORIGINS.join(', ')}`);
 });

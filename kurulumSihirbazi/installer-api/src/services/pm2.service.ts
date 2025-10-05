@@ -14,6 +14,7 @@ export class PM2Service {
     // PM2'ye installer-api'nin JWT_* env değişkenlerini taşımayalım (çakışmayı engelle)
     const cleanEnv = { ...process.env } as Record<string, any>;
     delete cleanEnv.JWT_SECRET;
+    delete cleanEnv.JWT_ACCESS_SECRET;
     delete cleanEnv.JWT_REFRESH_SECRET;
     // Bazı ortamlarda SESSION_SECRET da çakışabilir; tedbir amaçlı temizleyelim
     delete cleanEnv.SESSION_SECRET;

@@ -36,7 +36,8 @@ templateRouter.get("/", authorize("SUPER_ADMIN"), async (_req, res): Promise<voi
   }
 });
 
-templateRouter.get("/:version", authorize("SUPER_ADMIN"), async (req, res): Promise<void> => {
+// NOTE: More specific routes (e.g., /demo-*) must be defined before this.
+templateRouter.get("/version/:version", authorize("SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
     const template = await templateService.getTemplateInfo(req.params.version);
     if (!template) {
@@ -116,6 +117,46 @@ templateRouter.post("/upload", authorize("SUPER_ADMIN"), upload.single("template
     res.json({ success: true, version, ...availability });
   } catch (error: any) {
     res.status(500).json({ error: error?.message || "Upload failed" });
+  }
+});
+
+// ============ DEMO PACKS MANAGEMENT ============
+// List demo packs for a version
+templateRouter.get("/demo-packs", authorize("SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const version = String((req.query.version as string) || '2.4.0');
+    const list = await templateService.listDemoPacks(version);
+    res.json({ version, packs: list });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || "Demo pack listesi alınamadı" });
+  }
+});
+
+// Upload demo pack under stable/<version>/demo
+templateRouter.post("/demo/upload", authorize("SUPER_ADMIN"), upload.single("file"), async (req, res): Promise<void> => {
+  try {
+    if (!req.file) { res.status(400).json({ error: "Dosya yüklenmedi" }); return; }
+    const version = String((req.body.version as string) || '2.4.0');
+    await templateService.importDemoPack(req.file.path, version, 'stable');
+    try { await fs.remove(req.file.path); } catch {}
+    const list = await templateService.listDemoPacks(version);
+    res.json({ success: true, version, packs: list });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || "Demo pack yükleme başarısız" });
+  }
+});
+
+// Delete a demo pack by version and filename
+templateRouter.delete("/demo/:version/:filename", authorize("SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const version = String(req.params.version);
+    const filename = String(req.params.filename);
+    const result = await templateService.deleteDemoPack(version, filename);
+    if (!result.success) { res.status(404).json({ error: result.message || 'Silinemedi' }); return; }
+    const list = await templateService.listDemoPacks(version);
+    res.json({ success: true, version, packs: list, message: result.message });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || "Demo pack silme başarısız" });
   }
 });
 

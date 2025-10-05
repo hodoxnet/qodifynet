@@ -31,6 +31,85 @@ export class TemplateService {
     }
   }
 
+  // =============== DEMO PACKS ===============
+  async listDemoPacks(version: string): Promise<Array<{ name: string; size: string; uploadDate: string; category?: string; path: string }>> {
+    const templatesPath = await this.resolveTemplatesPath();
+    await this.ensureTemplatesDirectory(templatesPath);
+    const categories = ["stable", "beta", "archived"];
+    const results: Array<{ name: string; size: string; uploadDate: string; category?: string; path: string }> = [];
+
+    // Search in categories under <category>/<version>/demo
+    for (const category of categories) {
+      const demoDir = path.join(templatesPath, category, version, "demo");
+      if (await fs.pathExists(demoDir)) {
+        const files = await fs.readdir(demoDir).catch(() => []);
+        for (const f of files) {
+          if (!f.toLowerCase().endsWith('.zip')) continue;
+          const full = path.join(demoDir, f);
+          const stats = await fs.stat(full);
+          results.push({
+            name: f,
+            size: this.formatBytes(stats.size),
+            uploadDate: stats.mtime.toISOString(),
+            category,
+            path: full,
+          });
+        }
+      }
+    }
+
+    // Also check root version dir: <version>/demo
+    const rootDemo = path.join(templatesPath, version, "demo");
+    if (await fs.pathExists(rootDemo)) {
+      const files = await fs.readdir(rootDemo).catch(() => []);
+      for (const f of files) {
+        if (!f.toLowerCase().endsWith('.zip')) continue;
+        const full = path.join(rootDemo, f);
+        const stats = await fs.stat(full);
+        results.push({
+          name: f,
+          size: this.formatBytes(stats.size),
+          uploadDate: stats.mtime.toISOString(),
+          category: 'root',
+          path: full,
+        });
+      }
+    }
+
+    // Sort by uploadDate desc
+    results.sort((a, b) => b.uploadDate.localeCompare(a.uploadDate));
+    return results;
+  }
+
+  async importDemoPack(zipPath: string, version: string, category: 'stable' | 'beta' | 'archived' = 'stable') {
+    const templatesPath = await this.resolveTemplatesPath();
+    await this.ensureTemplatesDirectory(templatesPath);
+    const demoDir = path.join(templatesPath, category, version, 'demo');
+    await fs.ensureDir(demoDir);
+    const filename = path.basename(zipPath);
+    const target = path.join(demoDir, filename);
+    await fs.copy(zipPath, target, { overwrite: true });
+    return { success: true, path: target };
+  }
+
+  async deleteDemoPack(version: string, filename: string): Promise<{ success: boolean; message?: string }> {
+    const templatesPath = await this.resolveTemplatesPath();
+    const categories = ["stable", "beta", "archived"];
+
+    let deleted = false;
+    for (const category of categories) {
+      const filePath = path.join(templatesPath, category, version, 'demo', filename);
+      if (await fs.pathExists(filePath)) { await fs.remove(filePath); deleted = true; }
+    }
+    const rootPath = path.join(templatesPath, version, 'demo', filename);
+    if (await fs.pathExists(rootPath)) { await fs.remove(rootPath); deleted = true; }
+
+    if (!deleted) {
+      return { success: false, message: `Demo paketi bulunamadı: ${filename}` };
+    }
+    return { success: true, message: `${filename} silindi` };
+  }
+
   private async ensureTemplatesDirectory(basePath?: string) {
     const root = basePath || (await this.resolveTemplatesPath());
     await fs.ensureDir(root);

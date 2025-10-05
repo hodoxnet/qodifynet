@@ -13,6 +13,7 @@ import {
   Database,
   ArrowLeft,
   Loader2,
+  Upload,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ import { useCustomerDatabase } from "@/hooks/customers/useCustomerDatabase";
 import { EnvironmentTab } from "@/components/customers/config/EnvironmentTab";
 import { AdminsTab } from "@/components/customers/config/AdminsTab";
 import { DatabaseTab } from "@/components/customers/config/DatabaseTab";
+import { DemoDataTab } from "@/components/customers/config/DemoDataTab";
 
 const TAB_CONFIG = [
   { value: "backend", label: "Backend API", icon: Server },
@@ -37,6 +39,7 @@ const TAB_CONFIG = [
   { value: "store", label: "Store", icon: ShoppingBag },
   { value: "admins", label: "Yöneticiler", icon: Users },
   { value: "database", label: "Veritabanı", icon: Database },
+  { value: "demo", label: "Demo Veriler", icon: Upload },
 ];
 
 export default function CustomerConfigPage() {
@@ -238,6 +241,11 @@ export default function CustomerConfigPage() {
                 onRunMigrations={runMigrations}
                 onSeedDatabase={seedDatabase}
               />
+            </TabsContent>
+
+            {/* Demo Data Tab */}
+            <TabsContent value="demo" className="mt-0">
+              <DemoDataTab domain={envConfig.domain} />
             </TabsContent>
           </CardContent>
         </Tabs>
