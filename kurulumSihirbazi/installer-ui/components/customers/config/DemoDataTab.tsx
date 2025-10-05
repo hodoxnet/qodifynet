@@ -26,7 +26,7 @@ export function DemoDataTab({ domain }: { domain: string }) {
       const res = await apiFetch('/api/setup/import-demo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain, version: latestVersion, packName: selected, overwriteUploads: true }),
+        body: JSON.stringify({ domain, version: latestVersion, packName: selected, overwriteUploads: true, mode: 'schema-restore' }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -96,4 +96,3 @@ export function DemoDataTab({ domain }: { domain: string }) {
     </div>
   );
 }
-

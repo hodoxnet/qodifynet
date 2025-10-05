@@ -598,6 +598,7 @@ setupRouter.post("/import-demo", requireScopes(SCOPES.SETUP_RUN), async (req, re
       packName: body.packName,
       packPath: body.packPath,
       overwriteUploads: body.overwriteUploads !== false,
+      mode: (body.mode as any) || 'strict',
     });
 
     if (!result.ok) { err(res, 500, "DEMO_IMPORT_FAILED", result.message); return; }

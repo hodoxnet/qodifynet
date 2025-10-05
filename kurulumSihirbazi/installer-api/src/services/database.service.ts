@@ -170,9 +170,11 @@ export class DatabaseService {
     const backupFile = `${backupPath}/${safeName}_${timestamp}.sql`;
 
     try {
-      await execAsync(
-        `pg_dump -U ${this.pgConfig.user} -h ${this.pgConfig.host} -p ${this.pgConfig.port} -d ${safeName} -f ${backupFile}`
-      );
+      const cmd = `pg_dump -U ${this.pgConfig.user} -h ${this.pgConfig.host} -p ${this.pgConfig.port} -d ${safeName} -f "${backupFile}"`;
+      await execAsync(cmd, {
+        env: { ...process.env, PGPASSWORD: this.pgConfig.password },
+        maxBuffer: 1024 * 1024 * 256, // 256MB buffer to avoid overflow
+      });
       console.log(`Database backed up to ${backupFile}`);
     } catch (error) {
       console.error("Failed to backup database:", error);
@@ -184,13 +186,68 @@ export class DatabaseService {
     const safeName = dbName.replace(/[^a-zA-Z0-9_]/g, "_");
 
     try {
-      await execAsync(
-        `psql -U ${this.pgConfig.user} -h ${this.pgConfig.host} -p ${this.pgConfig.port} -d ${safeName} -f ${backupFile}`
-      );
+      // -q: quiet (reduce output), ON_ERROR_STOP: stop on first error
+      const cmd = `psql -v ON_ERROR_STOP=1 -q -U ${this.pgConfig.user} -h ${this.pgConfig.host} -p ${this.pgConfig.port} -d ${safeName} -f "${backupFile}"`;
+      await execAsync(cmd, {
+        env: { ...process.env, PGPASSWORD: this.pgConfig.password },
+        maxBuffer: 1024 * 1024 * 512, // 512MB buffer for large stderr/stdout
+      });
       console.log(`Database restored from ${backupFile}`);
     } catch (error) {
       console.error("Failed to restore database:", error);
       throw error;
+    }
+  }
+
+  async dropAndRecreatePublicSchema(dbName: string): Promise<void> {
+    const client = new Client({
+      host: this.pgConfig.host,
+      port: this.pgConfig.port,
+      user: this.pgConfig.user,
+      password: this.pgConfig.password,
+      database: dbName.replace(/[^a-zA-Z0-9_]/g, "_"),
+    } as any);
+    try {
+      await client.connect();
+      await client.query(`DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;`);
+    } finally {
+      try { await client.end(); } catch {}
+    }
+  }
+
+  async restoreFromCustomDump(dbName: string, dumpFile: string, options?: { resetSchema?: boolean }): Promise<void> {
+    const safeName = dbName.replace(/[^a-zA-Z0-9_]/g, "_");
+    if (options?.resetSchema) {
+      await this.dropAndRecreatePublicSchema(safeName);
+    }
+    const cmd = `pg_restore -U ${this.pgConfig.user} -h ${this.pgConfig.host} -p ${this.pgConfig.port} -d ${safeName} --clean --if-exists --no-owner --no-privileges "${dumpFile}"`;
+    await execAsync(cmd, {
+      env: { ...process.env, PGPASSWORD: this.pgConfig.password },
+      maxBuffer: 1024 * 1024 * 512,
+    });
+  }
+
+  async truncateAllTables(dbName: string, exclude: string[] = ["_prisma_migrations"]): Promise<void> {
+    const client = new Client({
+      host: this.pgConfig.host,
+      port: this.pgConfig.port,
+      user: this.pgConfig.user,
+      password: this.pgConfig.password,
+      database: dbName.replace(/[^a-zA-Z0-9_]/g, "_"),
+    } as any);
+    try {
+      await client.connect();
+      const { rows } = await client.query(
+        `SELECT tablename FROM pg_tables WHERE schemaname='public'`
+      );
+      const tables = rows
+        .map((r: any) => r.tablename as string)
+        .filter((t) => !exclude.includes(t));
+      if (tables.length === 0) return;
+      const qualified = tables.map((t) => `"public"."${t}"`).join(", ");
+      await client.query(`TRUNCATE TABLE ${qualified} RESTART IDENTITY CASCADE;`);
+    } finally {
+      try { await client.end(); } catch {}
     }
   }
 

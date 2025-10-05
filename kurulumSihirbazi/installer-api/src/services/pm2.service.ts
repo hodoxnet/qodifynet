@@ -47,6 +47,10 @@ export class PM2Service {
           env: {
             NODE_ENV: devMode ? "development" : "production",
             PORT: ports.backend,
+            // Env kirlenmesini önlemek için kritik anahtarları boşlayıp .env'e bırak
+            JWT_ACCESS_SECRET: "",
+            JWT_REFRESH_SECRET: "",
+            SESSION_SECRET: "",
             HOST: "127.0.0.1",
             // Dotenv'i her zaman doğru dosyadan yüklemek için mutlak yol kullan
             NODE_OPTIONS: "-r dotenv/config",

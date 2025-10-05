@@ -15,6 +15,8 @@ export type DemoImportParams = {
   packName?: string; // templates/<ver>/demo/ altındaki zip adı
   packPath?: string; // tam yol ile zip (opsiyonel)
   overwriteUploads?: boolean;
+  // strict: hatada dur; best-effort: hataları atlayıp devam; schema-restore: .dump ile şema+veri geri yükle
+  mode?: 'strict' | 'best-effort' | 'schema-restore';
 };
 
 export class DemoDataService {
@@ -88,13 +90,13 @@ export class DemoDataService {
       const zip = new AdmZip(packPath);
       zip.extractAllTo(tmpBase, true);
 
-      // 2) dump dosyasını bul (.sql tercih edilir)
+      // 2) dump dosyasını bul (.sql veya .dump kabul edilir)
       const entries = await fs.readdir(tmpBase);
       let dumpFile: string | null = null;
       for (const e of entries) {
         const full = path.join(tmpBase, e);
         const stat = await fs.stat(full);
-        if (stat.isFile() && e.toLowerCase().endsWith(".sql")) { dumpFile = full; break; }
+        if (stat.isFile() && (e.toLowerCase().endsWith(".sql") || e.toLowerCase().endsWith(".dump"))) { dumpFile = full; break; }
       }
       if (!dumpFile) {
         // alt klasörlerde ara
@@ -104,13 +106,13 @@ export class DemoDataService {
             const p = path.join(dir, it);
             const st = await fs.stat(p);
             if (st.isDirectory()) { const f = await walk(p); if (f) return f; }
-            else if (st.isFile() && it.toLowerCase().endsWith(".sql")) return p;
+            else if (st.isFile() && (it.toLowerCase().endsWith(".sql") || it.toLowerCase().endsWith(".dump"))) return p;
           }
           return null;
         };
         dumpFile = await walk(tmpBase);
       }
-      if (!dumpFile) throw new Error("Demo paketinde .sql dump dosyası bulunamadı");
+      if (!dumpFile) throw new Error("Demo paketinde .sql/.dump dosyası bulunamadı");
 
       // 3) uploads klasörünü bul
       const uploadsCandidates = [path.join(tmpBase, "uploads")];
@@ -144,9 +146,33 @@ export class DemoDataService {
         try { await dbService.backupDatabase(db.name, backupsDir); } catch (e) { this.emit(domain, `DB yedekleme uyarı: ${e}`); }
         this.emit(domain, "DB yedeği tamamlandı");
 
-        // 5) Dump'ı uygula (plain SQL)
+      // 5) Truncate + restore (SQL) veya custom dump (.dump) ile şema+veri geri yükleme
+      const isCustom = dumpFile.toLowerCase().endsWith('.dump');
+      const mode = params.mode || 'strict';
+
+      if (isCustom && mode === 'schema-restore') {
+        this.emit(domain, 'Şema reset + pg_restore başlatılıyor...');
+        await dbService.restoreFromCustomDump(db.name, dumpFile, { resetSchema: true });
+      } else {
+        this.emit(domain, "Mevcut veriler temizleniyor (TRUNCATE ALL)...");
+        await dbService.truncateAllTables(db.name, ["_prisma_migrations"]);
         this.emit(domain, `Demo dump uygulanıyor: ${path.basename(dumpFile)}`);
-        await dbService.restoreDatabase(db.name, dumpFile);
+        try {
+          await dbService.restoreDatabase(db.name, dumpFile);
+        } catch (e: any) {
+          if (mode === 'best-effort') {
+            // Hataları atlayarak devam et
+            const { exec } = await import('child_process');
+            const { promisify } = await import('util');
+            const execAsync2 = promisify(exec);
+            const cmd = `psql -v ON_ERROR_STOP=0 -q -U ${adminCfg.user} -h ${adminCfg.host} -p ${adminCfg.port} -d ${db.name} -f "${dumpFile}"`;
+            await execAsync2(cmd, { env: { ...process.env, PGPASSWORD: adminCfg.password }, maxBuffer: 1024 * 1024 * 512 });
+            this.emit(domain, 'Uyarı: Bazı satırlar hatalı olabilir (best-effort).');
+          } else {
+            throw e;
+          }
+        }
+      }
       } finally {
         if (prevPwd === undefined) delete process.env.PGPASSWORD; else process.env.PGPASSWORD = prevPwd;
       }
