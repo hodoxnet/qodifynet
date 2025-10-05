@@ -227,6 +227,10 @@ export class DatabaseService {
     });
   }
 
+  async ensureSchemaPrivileges(dbName: string, appUser: string): Promise<void> {
+    await this.applySchemaPrivileges(dbName, appUser);
+  }
+
   async truncateAllTables(dbName: string, exclude: string[] = ["_prisma_migrations"]): Promise<void> {
     const client = new Client({
       host: this.pgConfig.host,

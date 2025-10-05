@@ -176,6 +176,13 @@ export class DemoDataService {
       } finally {
         if (prevPwd === undefined) delete process.env.PGPASSWORD; else process.env.PGPASSWORD = prevPwd;
       }
+      if (db.user) {
+        this.emit(domain, `Şema yetkileri ${db.user} için yeniden uygulanıyor...`);
+        await dbService.ensureSchemaPrivileges(db.name, db.user);
+        this.emit(domain, `Şema yetkileri ${db.user} için yeniden uygulandı`);
+      } else {
+        this.emit(domain, "Uyarı: Müşteri veritabanı kullanıcısı bulunamadı, şema yetkileri tekrar uygulanamadı");
+      }
       this.emit(domain, "Demo dump başarıyla uygulandı");
 
       // 6) Uploads kopyala (varsa)
