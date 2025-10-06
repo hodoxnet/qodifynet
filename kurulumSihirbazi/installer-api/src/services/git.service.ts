@@ -34,6 +34,40 @@ export class GitService {
   private customersPath = process.env.CUSTOMERS_PATH || "/var/qodify/customers";
   private metadataFile = "deployment.json";
   private settingsService = new SettingsService();
+  private readonly protectedFiles = [
+    path.join("backend", ".env"),
+    path.join("admin", ".env"),
+    path.join("store", ".env"),
+  ];
+
+  private async backupProtectedFiles(customerPath: string): Promise<Array<{ fullPath: string; content: Buffer }>> {
+    const backups: Array<{ fullPath: string; content: Buffer }> = [];
+    for (const rel of this.protectedFiles) {
+      const fullPath = path.join(customerPath, rel);
+      try {
+        if (await fs.pathExists(fullPath)) {
+          const stat = await fs.stat(fullPath);
+          if (stat.isFile()) {
+            backups.push({ fullPath, content: await fs.readFile(fullPath) });
+          }
+        }
+      } catch (err) {
+        console.warn(`Protected dosya yedeklenemedi (${fullPath}):`, err);
+      }
+    }
+    return backups;
+  }
+
+  private async restoreProtectedFiles(backups: Array<{ fullPath: string; content: Buffer }>) {
+    for (const backup of backups) {
+      try {
+        await fs.ensureDir(path.dirname(backup.fullPath));
+        await fs.writeFile(backup.fullPath, backup.content);
+      } catch (err) {
+        console.warn(`Protected dosya geri yüklenemedi (${backup.fullPath}):`, err);
+      }
+    }
+  }
 
   private sanitizeDomain(domain: string): string {
     return domain.replace(/\./g, "-");
@@ -216,25 +250,31 @@ export class GitService {
 
     const remote = this.buildRemoteUrl(merged.repoUrl, merged.accessToken, merged.username);
 
-    await this.runGit(customerPath, ["remote", "set-url", "origin", remote]);
-
-    const targetBranch = merged.branch || metadata.branch || "main";
-    await this.runGit(customerPath, ["fetch", "origin", targetBranch]);
+    const backups = await this.backupProtectedFiles(customerPath);
 
     try {
-      await this.runGit(customerPath, ["checkout", targetBranch]);
-    } catch {
-      await this.runGit(customerPath, ["checkout", "-B", targetBranch, `origin/${targetBranch}`]);
-    }
+      await this.runGit(customerPath, ["remote", "set-url", "origin", remote]);
 
-    if (merged.reset === false) {
-      await this.runGit(customerPath, ["pull", "origin", targetBranch]);
-    } else {
-      await this.runGit(customerPath, ["reset", "--hard", `origin/${targetBranch}`]);
-    }
+      const targetBranch = merged.branch || metadata.branch || "main";
+      await this.runGit(customerPath, ["fetch", "origin", targetBranch]);
 
-    if (merged.commit) {
-      await this.runGit(customerPath, ["checkout", merged.commit]);
+      try {
+        await this.runGit(customerPath, ["checkout", targetBranch]);
+      } catch {
+        await this.runGit(customerPath, ["checkout", "-B", targetBranch, `origin/${targetBranch}`]);
+      }
+
+      if (merged.reset === false) {
+        await this.runGit(customerPath, ["pull", "origin", targetBranch]);
+      } else {
+        await this.runGit(customerPath, ["reset", "--hard", `origin/${targetBranch}`]);
+      }
+
+      if (merged.commit) {
+        await this.runGit(customerPath, ["checkout", merged.commit]);
+      }
+    } finally {
+      await this.restoreProtectedFiles(backups);
     }
 
     const branch = await this.getCurrentBranch(customerPath);
