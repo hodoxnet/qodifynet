@@ -400,9 +400,19 @@ export class SetupService {
       };
 
       // Compute URLs
-      const appUrl = isLocal ? `http://localhost:${config.ports.backend}` : `https://${customerDomain}`;
-      const storeUrl = isLocal ? `http://localhost:${config.ports.store}` : `https://${customerDomain}`;
-      const adminUrl = isLocal ? `http://localhost:${config.ports.admin}` : `https://${customerDomain}/qpanel`;
+      const productionApiUrl = `https://${customerDomain}/api`;
+      const runtimeApiUrl = isLocal
+        ? `http://localhost:${config.ports.backend}`
+        : productionApiUrl;
+      const storeUrl = isLocal
+        ? `http://localhost:${config.ports.store}`
+        : `https://${customerDomain}`;
+      const adminUrl = isLocal
+        ? `http://localhost:${config.ports.admin}`
+        : `https://${customerDomain}/admin`;
+      const appUrl = isLocal
+        ? `http://localhost:${config.ports.backend}`
+        : `https://${customerDomain}`;
       const assetUrl = new URL(storeUrl);
       const assetHost = assetUrl.port ? `${assetUrl.hostname}:${assetUrl.port}` : assetUrl.hostname;
       const imageHosts = new Set<string>();
@@ -458,12 +468,20 @@ export class SetupService {
       const adminEnvPath = path.join(customerPath, "admin", ".env");
       const adminExisting = await readEnv(adminEnvPath);
       const adminUpdates: Record<string, string> = {
+        NODE_ENV: isLocal ? "development" : "production",
+        PORT: String(config.ports.admin),
         NEXT_PUBLIC_AUTO_DETECT_DOMAIN: String(!isLocal),
         NEXT_PUBLIC_PROD_DOMAIN: customerDomain,
-        NEXT_PUBLIC_PROD_API_URL: isLocal ? appUrl : `https://${customerDomain}/api`,
+        NEXT_PUBLIC_BACKEND_PORT: String(config.ports.backend),
+        NEXT_PUBLIC_API_URL: runtimeApiUrl,
+        NEXT_PUBLIC_API_BASE_URL: runtimeApiUrl,
+        NEXT_PUBLIC_APP_URL: adminUrl,
+        NEXT_PUBLIC_STORE_URL: storeUrl,
+        NEXT_PUBLIC_PROD_API_URL: productionApiUrl,
+        NEXT_PUBLIC_PROD_APP_URL: adminUrl,
+        NEXT_PUBLIC_PROD_STORE_URL: storeUrl,
         NEXT_PUBLIC_IMAGE_HOSTS: imageHostEnv,
       };
-      if (isLocal) adminUpdates["NEXT_PUBLIC_API_URL"] = appUrl;
       const adminMerged = { ...adminExisting, ...adminUpdates };
       await writeEnv(adminEnvPath, adminMerged);
 
@@ -471,12 +489,20 @@ export class SetupService {
       const storeEnvPath = path.join(customerPath, "store", ".env");
       const storeExisting = await readEnv(storeEnvPath);
       const storeUpdates: Record<string, string> = {
+        NODE_ENV: isLocal ? "development" : "production",
+        PORT: String(config.ports.store),
         NEXT_PUBLIC_AUTO_DETECT_DOMAIN: String(!isLocal),
         NEXT_PUBLIC_PROD_DOMAIN: customerDomain,
-        NEXT_PUBLIC_PROD_API_URL: isLocal ? appUrl : `https://${customerDomain}/api`,
+        NEXT_PUBLIC_BACKEND_PORT: String(config.ports.backend),
+        NEXT_PUBLIC_API_URL: runtimeApiUrl,
+        NEXT_PUBLIC_API_BASE_URL: runtimeApiUrl,
+        NEXT_PUBLIC_APP_URL: storeUrl,
+        NEXT_PUBLIC_STORE_URL: storeUrl,
+        NEXT_PUBLIC_PROD_API_URL: productionApiUrl,
+        NEXT_PUBLIC_PROD_APP_URL: storeUrl,
+        NEXT_PUBLIC_PROD_STORE_URL: storeUrl,
         NEXT_PUBLIC_IMAGE_HOSTS: imageHostEnv,
       };
-      if (isLocal) storeUpdates["NEXT_PUBLIC_API_URL"] = appUrl;
       const storeMerged = { ...storeExisting, ...storeUpdates };
       await writeEnv(storeEnvPath, storeMerged);
 

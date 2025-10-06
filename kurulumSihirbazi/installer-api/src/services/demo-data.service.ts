@@ -242,9 +242,12 @@ export class DemoDataService {
     const isLocal = customer.mode === "local" || this.isLocalDomain(finalDomain);
     const backendUrl = isLocal ? `http://localhost:${ports.backend}` : `https://${finalDomain}`;
     const storeUrl = isLocal ? `http://localhost:${ports.store}` : `https://${finalDomain}`;
-    const adminUrl = isLocal ? `http://localhost:${ports.admin}` : `https://${finalDomain}/qpanel`;
-    const apiUrl = `${backendUrl}/api`;
+    const adminUrl = isLocal ? `http://localhost:${ports.admin}` : `https://${finalDomain}/admin`;
+    const apiRuntimeUrl = isLocal
+      ? `http://localhost:${ports.backend}`
+      : `https://${finalDomain}/api`;
 
+    const productionApiUrl = `https://${finalDomain}/api`;
     const assetUrl = new URL(storeUrl);
     const assetBase = `${assetUrl.protocol}//${assetUrl.host}`;
     const assetHost = assetUrl.port ? `${assetUrl.hostname}:${assetUrl.port}` : assetUrl.hostname;
@@ -402,18 +405,34 @@ export class DemoDataService {
       const imageHostEnv = Array.from(imageHosts).join(",");
 
       await mergeEnvFile(adminEnvPath, {
+        NODE_ENV: isLocal ? "development" : "production",
+        PORT: String(ports.admin),
         NEXT_PUBLIC_AUTO_DETECT_DOMAIN: String(!isLocal),
         NEXT_PUBLIC_PROD_DOMAIN: finalDomain,
-        NEXT_PUBLIC_PROD_API_URL: apiUrl,
-        NEXT_PUBLIC_API_URL: apiUrl,
+        NEXT_PUBLIC_BACKEND_PORT: String(ports.backend),
+        NEXT_PUBLIC_API_URL: apiRuntimeUrl,
+        NEXT_PUBLIC_API_BASE_URL: apiRuntimeUrl,
+        NEXT_PUBLIC_APP_URL: adminUrl,
+        NEXT_PUBLIC_STORE_URL: storeUrl,
+        NEXT_PUBLIC_PROD_API_URL: productionApiUrl,
+        NEXT_PUBLIC_PROD_APP_URL: adminUrl,
+        NEXT_PUBLIC_PROD_STORE_URL: storeUrl,
         NEXT_PUBLIC_IMAGE_HOSTS: imageHostEnv,
       });
 
       await mergeEnvFile(storeEnvPath, {
+        NODE_ENV: isLocal ? "development" : "production",
+        PORT: String(ports.store),
         NEXT_PUBLIC_AUTO_DETECT_DOMAIN: String(!isLocal),
         NEXT_PUBLIC_PROD_DOMAIN: finalDomain,
-        NEXT_PUBLIC_PROD_API_URL: apiUrl,
-        NEXT_PUBLIC_API_URL: apiUrl,
+        NEXT_PUBLIC_BACKEND_PORT: String(ports.backend),
+        NEXT_PUBLIC_API_URL: apiRuntimeUrl,
+        NEXT_PUBLIC_API_BASE_URL: apiRuntimeUrl,
+        NEXT_PUBLIC_APP_URL: storeUrl,
+        NEXT_PUBLIC_STORE_URL: storeUrl,
+        NEXT_PUBLIC_PROD_API_URL: productionApiUrl,
+        NEXT_PUBLIC_PROD_APP_URL: storeUrl,
+        NEXT_PUBLIC_PROD_STORE_URL: storeUrl,
         NEXT_PUBLIC_IMAGE_HOSTS: imageHostEnv,
       });
 
