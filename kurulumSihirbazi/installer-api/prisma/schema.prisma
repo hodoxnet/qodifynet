@@ -178,3 +178,14 @@ model PartnerApplication {
   decidedAt DateTime?
   decidedBy String?
 }
+
+model GitSettings {
+  id            Int      @id @default(autoincrement())
+  defaultRepo   String?
+  defaultBranch String?  @default("main")
+  depth         Int?     @default(1)
+  username      String?
+  token         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

@@ -277,3 +277,5 @@ templates/node_modules/
 templates/**/.env
 templates/**/.env.*
 templates/**/*.log
+# Installer runtime settings
+installer-api/data/settings.json
