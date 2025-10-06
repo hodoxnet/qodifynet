@@ -14,6 +14,7 @@ import {
   ArrowLeft,
   Loader2,
   Upload,
+  GitBranch,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ import { EnvironmentTab } from "@/components/customers/config/EnvironmentTab";
 import { AdminsTab } from "@/components/customers/config/AdminsTab";
 import { DatabaseTab } from "@/components/customers/config/DatabaseTab";
 import { DemoDataTab } from "@/components/customers/config/DemoDataTab";
+import { UpdateTab } from "@/components/customers/config/UpdateTab";
 
 const TAB_CONFIG = [
   { value: "backend", label: "Backend API", icon: Server },
@@ -39,6 +41,7 @@ const TAB_CONFIG = [
   { value: "store", label: "Store", icon: ShoppingBag },
   { value: "admins", label: "Yöneticiler", icon: Users },
   { value: "database", label: "Veritabanı", icon: Database },
+  { value: "update", label: "Güncellemeler", icon: GitBranch },
   { value: "demo", label: "Demo Veriler", icon: Upload },
 ];
 
@@ -240,6 +243,15 @@ export default function CustomerConfigPage() {
                 onPushSchema={pushSchema}
                 onRunMigrations={runMigrations}
                 onSeedDatabase={seedDatabase}
+              />
+            </TabsContent>
+
+            {/* Update Tab */}
+            <TabsContent value="update" className="mt-0">
+              <UpdateTab
+                customerId={customerId}
+                domain={envConfig.domain}
+                defaultHeapMB={envConfig?.buildHeapMB}
               />
             </TabsContent>
 

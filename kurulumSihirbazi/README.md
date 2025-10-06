@@ -100,6 +100,15 @@ zip -r store-2.4.0.zip qodify-store/
 cp *.zip /var/qodify/templates/
 ```
 
+### Git Tabanlı Kaynakla Çalışma
+
+- Kurulum sihirbazında **Kurulum Kaynağı** seçimini `Git Deposu` olarak değiştirin.
+- Repo URL, branch, opsiyonel clone derinliği ve erişim bilgilerini girin.
+- Sistem repo'yu ilgili müşteri dizinine klonlar, ardından klasik adımlar (env, bağımlılık, build, PM2) otomatik devam eder.
+- Klonlama sırasında proje kökünde `backend/`, `admin/`, `store/` klasörlerinin bulunması zorunludur.
+- İlk kurulum sonrası müşteri kaydında git kaynağı metadata'sı tutulur; Güncellemeler sekmesinde `git pull` akışı tetiklenebilir.
+- Git erişim token'ları ve varsayılan kullanıcı/branch bilgileri **Templates → Git Ayarları** sekmesinden tanımlanır ve `data/settings.json` dosyasında şifrelenmeden saklanır. Sunucu dosya izinlerini buna göre kısıtlayın.
+
 ## 💻 Kullanım
 
 ### Web UI
@@ -119,6 +128,11 @@ http://localhost:3030
 - `POST /api/customers/deploy` - Yeni müşteri kurulumu
 - `POST /api/customers/:id/start` - Müşteriyi başlat
 - `POST /api/customers/:id/stop` - Müşteriyi durdur
+- `GET /api/customers/:id/deployment` - (Yeni) Müşteri kaynağı metadata'sı (git/template)
+- `POST /api/customers/:id/update/git` - (Yeni) Git deposundan güncelle
+- `POST /api/customers/:id/update/install-dependencies` - (Yeni) Bağımlılıkları yeniden yükle
+- `POST /api/customers/:id/update/build` - (Yeni) Build işlemini tetikle
+- `POST /api/customers/:id/database/push` - Prisma db push (güncelleme sekmesinden tetiklenir)
 
 #### DNS
 - `POST /api/dns/check` - Domain DNS kontrolü
@@ -130,7 +144,7 @@ http://localhost:3030
 ## 🛠 Deployment Flow
 
 1. Domain doğrulama (DNS A)
-2. Template çıkarma (ZIP)
+2. Kaynak hazırlama (Template kontrol/çıkarma veya Git klonu)
 3. Database oluşturma (PostgreSQL)
 4. Environment yazma (.env)
 5. Bağımlılık kurulumu (npm install)
@@ -140,6 +154,12 @@ http://localhost:3030
 9. Nginx setup (reverse proxy)
 10. SSL sertifikası (Let's Encrypt)
 11. Servisleri başlatma (PM2)
+
+### Güncellemeler Sekmesi (Yeni)
+
+- Müşteri detaylarında **Güncellemeler** sekmesi git tabanlı kurulumlar için `git pull`, bağımlılık yeniden yükleme, build ve `prisma db push` işlemlerini tek ekrandan tetikler.
+- Build belleği ve `skip type check` gibi ayarlar hızlıca değiştirilebilir.
+- Her işlem sonrası log penceresi otomatik güncellenir.
 
 ## 📊 İzleme
 

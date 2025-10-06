@@ -62,11 +62,15 @@ export function useInstallation() {
   const startInstallation = useCallback(async (config: SetupConfig) => {
     setInstallStatus("running");
     setInstallProgress([]);
+    const usingGit = config.installSource === 'git';
+
     // Adım listesi başlangıç durumu
     const initialSteps: InstallStep[] = [
-      { key: 'checkTemplates', label: "📦 Template'ler kontrol ediliyor...", status: 'pending' },
+      usingGit
+        ? { key: 'prepareGit', label: "📥 Git deposu hazırlanıyor...", status: 'pending' }
+        : { key: 'checkTemplates', label: "📦 Template'ler kontrol ediliyor...", status: 'pending' },
       { key: 'createDatabase', label: "🗄️ Veritabanı oluşturuluyor...", status: 'pending' },
-      { key: 'extractTemplates', label: "📂 Template'ler çıkarılıyor...", status: 'pending' },
+      ...(!usingGit ? [{ key: 'extractTemplates', label: "📂 Template'ler çıkarılıyor...", status: 'pending' }] : []),
       { key: 'configureEnvironment', label: "⚙️ Ortam değişkenleri yapılandırılıyor...", status: 'pending' },
       { key: 'installDependencies', label: "📥 Bağımlılıklar yükleniyor (bu biraz zaman alabilir)...", status: 'pending' },
       { key: 'runMigrations', label: "🔄 Veritabanı tabloları oluşturuluyor...", status: 'pending' },
@@ -132,6 +136,7 @@ export function useInstallation() {
           configure: 'configureEnvironment',
           service: 'configureServices',
           template: 'checkTemplates',
+          git: 'prepareGit',
           finalize: 'finalize'
         };
 
@@ -269,16 +274,33 @@ export function useInstallation() {
         }
       }
 
-      // 1. Template kontrolü
-      mark('checkTemplates', 'running');
-      setInstallProgress(prev => [...prev, "📦 Template'ler kontrol ediliyor..."]);
-      setInstallProgress(prev => [...prev, `📁 Template sürümü: ${config.templateVersion || 'latest'}`]);
-      await axios.post(`${API_URL}/api/setup/check-templates`,
-        { version: config.templateVersion },
-        { headers: getAuthHeaders(), withCredentials: true }
-      );
-      setInstallProgress(prev => [...prev, "✅ Template'ler hazır"]);
-      mark('checkTemplates', 'success');
+      if (usingGit) {
+        if (!config.gitRepoUrl) {
+          throw new Error("Git depo adresi gerekli");
+        }
+        mark('prepareGit', 'running');
+        setInstallProgress(prev => [...prev, "📥 Git deposu klonlanıyor..."]);
+        await axios.post(`${API_URL}/api/setup/prepare-git`, {
+          domain: config.domain,
+          repoUrl: config.gitRepoUrl,
+          branch: config.gitBranch,
+          depth: config.gitDepth,
+          accessToken: config.gitAccessToken,
+          username: config.gitUsername
+        }, { headers: getAuthHeaders(), withCredentials: true });
+        setInstallProgress(prev => [...prev, "✅ Git deposu hazırlandı"]);
+        mark('prepareGit', 'success');
+      } else {
+        mark('checkTemplates', 'running');
+        setInstallProgress(prev => [...prev, "📦 Template'ler kontrol ediliyor..."]);
+        setInstallProgress(prev => [...prev, `📁 Template sürümü: ${config.templateVersion || 'latest'}`]);
+        await axios.post(`${API_URL}/api/setup/check-templates`,
+          { version: config.templateVersion },
+          { headers: getAuthHeaders(), withCredentials: true }
+        );
+        setInstallProgress(prev => [...prev, "✅ Template'ler hazır"]);
+        mark('checkTemplates', 'success');
+      }
 
       // 2. Veritabanı oluştur
       mark('createDatabase', 'running');
@@ -299,14 +321,15 @@ export function useInstallation() {
       setInstallProgress(prev => [...prev, "✅ Veritabanı başarıyla oluşturuldu"]);
       mark('createDatabase', 'success');
 
-      // 3. Template'leri çıkar
-      mark('extractTemplates', 'running');
-      setInstallProgress(prev => [...prev, "📂 Template'ler çıkarılıyor..."]);
-      await axios.post(`${API_URL}/api/setup/extract-templates`, {
-        domain: config.domain,
-        version: config.templateVersion
-      }, { headers: getAuthHeaders(), withCredentials: true });
-      mark('extractTemplates', 'success');
+      if (!usingGit) {
+        mark('extractTemplates', 'running');
+        setInstallProgress(prev => [...prev, "📂 Template'ler çıkarılıyor..."]);
+        await axios.post(`${API_URL}/api/setup/extract-templates`, {
+          domain: config.domain,
+          version: config.templateVersion
+        }, { headers: getAuthHeaders(), withCredentials: true });
+        mark('extractTemplates', 'success');
+      }
 
       // 4. Ortam değişkenlerini yapılandır
       mark('configureEnvironment', 'running');

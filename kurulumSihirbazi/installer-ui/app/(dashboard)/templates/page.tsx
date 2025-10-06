@@ -30,6 +30,7 @@ import { useTemplates, TemplateFile } from "@/hooks/templates/useTemplates";
 import { useTemplateUpload } from "@/hooks/templates/useTemplateUpload";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DemoPacksSection } from "@/components/templates/DemoPacksSection";
+import { GitSettingsTab } from "@/components/templates/GitSettingsTab";
 
 export default function TemplatesPage() {
   const { user } = useAuth();
@@ -166,6 +167,9 @@ export default function TemplatesPage() {
           <TabsTrigger value="demo" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-6 py-3 font-medium">
             Demo Veriler
           </TabsTrigger>
+          <TabsTrigger value="git" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-6 py-3 font-medium">
+            Git Ayarları
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="templates" className="mt-6 space-y-6">
@@ -300,6 +304,10 @@ export default function TemplatesPage() {
 
         <TabsContent value="demo" className="mt-6">
           <DemoPacksSection />
+        </TabsContent>
+
+        <TabsContent value="git" className="mt-6">
+          <GitSettingsTab />
         </TabsContent>
       </Tabs>
     </div>

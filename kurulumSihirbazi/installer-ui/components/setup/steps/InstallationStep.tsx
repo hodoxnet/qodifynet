@@ -17,7 +17,8 @@ import {
   Shield,
   Eye,
   EyeOff,
-  AlertCircle
+  AlertCircle,
+  GitBranch
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,7 @@ interface InstallationStepProps {
 
 const stepIcons: Record<string, React.ReactNode> = {
   'checkTemplates': <Package className="h-4 w-4" />,
+  'prepareGit': <GitBranch className="h-4 w-4" />,
   'createDatabase': <Database className="h-4 w-4" />,
   'extractTemplates': <FolderOpen className="h-4 w-4" />,
   'configureEnvironment': <Settings className="h-4 w-4" />,

@@ -8,6 +8,8 @@ import { EnvConfigService } from "./env-config.service";
 import { LogService } from "./log.service";
 import { HealthService } from "./health.service";
 import { PrismaAdminService } from "./prisma-admin.service";
+import { GitService, GitUpdateOptions, DeploymentMetadata } from "./git.service";
+import { SetupService } from "./setup.service";
 
 export class CustomerService {
   private readonly customersPath: string;
@@ -17,6 +19,8 @@ export class CustomerService {
   private readonly logService: LogService;
   private readonly healthService: HealthService;
   private readonly prismaAdminService: PrismaAdminService;
+  private readonly gitService: GitService;
+  private readonly setupService: SetupService;
 
   constructor() {
     this.customersPath = process.env.CUSTOMERS_PATH || path.join(process.cwd(), "../customers");
@@ -26,6 +30,8 @@ export class CustomerService {
     this.logService = new LogService();
     this.healthService = new HealthService();
     this.prismaAdminService = new PrismaAdminService();
+    this.gitService = new GitService();
+    this.setupService = new SetupService();
   }
 
   async getAllCustomers(): Promise<Customer[]> {
@@ -272,5 +278,50 @@ export class CustomerService {
     if (!customer) throw new Error("Customer not found");
 
     return await this.prismaAdminService.runSeed(customer.domain);
+  }
+
+  async getDeploymentInfo(customerId: string): Promise<DeploymentMetadata | null> {
+    const customer = await this.getCustomerById(customerId);
+    if (!customer) throw new Error("Customer not found");
+    return await this.gitService.getMetadata(customer.domain);
+  }
+
+  async updateFromGit(customerId: string, options: GitUpdateOptions & { repoUrl?: string }): Promise<any> {
+    const customer = await this.getCustomerById(customerId);
+    if (!customer) throw new Error("Customer not found");
+
+    this.setupService.emitProgress(customer.domain, "git", "Git deposu güncelleniyor...");
+    const result = await this.gitService.updateRepository(customer.domain, options);
+    this.setupService.emitProgress(
+      customer.domain,
+      "git",
+      `Güncellendi: ${result.commit ? result.commit.substring(0, 7) : ""}${result.branch ? ` (${result.branch})` : ""}`.trim()
+    );
+
+    return {
+      success: true,
+      message: "Git deposu güncellendi",
+      branch: result.branch,
+      commit: result.commit
+    };
+  }
+
+  async installDependencies(customerId: string): Promise<any> {
+    const customer = await this.getCustomerById(customerId);
+    if (!customer) throw new Error("Customer not found");
+
+    return await this.setupService.installDependencies(customer.domain);
+  }
+
+  async buildApplications(customerId: string, options?: { heapMB?: number; skipTypeCheck?: boolean }): Promise<any> {
+    const customer = await this.getCustomerById(customerId);
+    if (!customer) throw new Error("Customer not found");
+    const isLocal = customer.mode === "local";
+    return await this.setupService.buildApplications(
+      customer.domain,
+      isLocal,
+      undefined,
+      options
+    );
   }
 }

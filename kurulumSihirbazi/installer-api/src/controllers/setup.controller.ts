@@ -219,6 +219,39 @@ setupRouter.post("/extract-templates", setupLimiter, requireScopes(SCOPES.SETUP_
   }
 });
 
+// Alternatif: Git deposundan proje hazırlığı
+setupRouter.post("/prepare-git", setupLimiter, requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
+  try {
+    const { domain: rawDomain, repoUrl, branch, depth, accessToken, username, commit } = req.body || {};
+    const domain = sanitizeDomain(rawDomain);
+
+    if (!domain) {
+      res.status(400).json({ ok: false, message: "Domain gerekli" });
+      return;
+    }
+
+    const result = await setupService.prepareFromGit(domain, {
+      repoUrl,
+      branch,
+      depth: depth ? Number(depth) : undefined,
+      accessToken,
+      username,
+      commit
+    }, (message) => {
+      setupService.emitProgress(domain, "git", message);
+    });
+
+    if (!result.ok) {
+      res.status(500).json({ ok: false, message: result.message });
+      return;
+    }
+
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ ok: false, message: error.message || "Git hazırlık hatası" });
+  }
+});
+
 // Adım 7: Ortam değişkenlerini yapılandır
 setupRouter.post("/configure-environment", setupLimiter, requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {

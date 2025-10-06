@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { SystemService } from "../services/system.service";
 import { DatabaseService } from "../services/database.service";
-import { SettingsService } from "../services/settings.service";
+import { InstallerSettings, SettingsService } from "../services/settings.service";
 import { authorize } from "../middleware/authorize";
 import { PM2Service } from "../services/pm2.service";
 import { detectPm2 } from "../utils/pm2-utils";
@@ -10,6 +10,53 @@ export const systemRouter = Router();
 const systemService = new SystemService();
 const settingsService = new SettingsService();
 const pm2Service = new PM2Service();
+
+function buildSettingsResponse(saved: InstallerSettings) {
+  const envDefaults = {
+    db: {
+      host: process.env.DB_HOST || "localhost",
+      port: parseInt(process.env.DB_PORT || "5432"),
+      user: process.env.DB_USER || "postgres",
+      password: process.env.DB_PASSWORD || "postgres",
+    },
+    redis: {
+      host: process.env.REDIS_HOST || "localhost",
+      port: parseInt(process.env.REDIS_PORT || "6379"),
+      prefix: "",
+    },
+    paths: {
+      templates: process.env.TEMPLATES_PATH || "/var/qodify/templates",
+      customers: process.env.CUSTOMERS_PATH || "/var/qodify/customers",
+    },
+  };
+
+  const gitSaved = saved.git || {};
+
+  return {
+    db: {
+      host: saved.db?.host ?? envDefaults.db.host,
+      port: saved.db?.port ?? envDefaults.db.port,
+      user: saved.db?.user ?? envDefaults.db.user,
+      password: saved.db?.password ?? envDefaults.db.password,
+    },
+    redis: {
+      host: saved.redis?.host ?? envDefaults.redis.host,
+      port: saved.redis?.port ?? envDefaults.redis.port,
+      prefix: saved.redis?.prefix ?? envDefaults.redis.prefix,
+    },
+    paths: {
+      templates: saved.paths?.templates ?? envDefaults.paths.templates,
+      customers: saved.paths?.customers ?? envDefaults.paths.customers,
+    },
+    git: {
+      defaultRepo: gitSaved.defaultRepo ?? "",
+      defaultBranch: gitSaved.defaultBranch ?? "main",
+      depth: gitSaved.depth ?? 1,
+      username: gitSaved.username ?? "",
+      tokenSet: Boolean(gitSaved.token),
+    },
+  };
+}
 
 systemRouter.get("/status", authorize("SUPER_ADMIN"), async (_req, res): Promise<void> => {
   try {
@@ -116,45 +163,7 @@ systemRouter.post("/install/:service", authorize("SUPER_ADMIN"), async (req, res
 systemRouter.get("/settings", authorize("SUPER_ADMIN"), async (_req, res): Promise<void> => {
   try {
     const saved = await settingsService.getSettings();
-
-    const envDefaults = {
-      db: {
-        host: process.env.DB_HOST || "localhost",
-        port: parseInt(process.env.DB_PORT || "5432"),
-        user: process.env.DB_USER || "postgres",
-        password: process.env.DB_PASSWORD || "postgres",
-      },
-      redis: {
-        host: process.env.REDIS_HOST || "localhost",
-        port: parseInt(process.env.REDIS_PORT || "6379"),
-        // prefix is customer-specific; keep empty by default
-        prefix: "",
-      },
-      paths: {
-        templates: process.env.TEMPLATES_PATH || "/var/qodify/templates",
-        customers: process.env.CUSTOMERS_PATH || "/var/qodify/customers",
-      },
-    };
-
-    const merged = {
-      db: {
-        host: saved.db?.host ?? envDefaults.db.host,
-        port: saved.db?.port ?? envDefaults.db.port,
-        user: saved.db?.user ?? envDefaults.db.user,
-        password: saved.db?.password ?? envDefaults.db.password,
-      },
-      redis: {
-        host: saved.redis?.host ?? envDefaults.redis.host,
-        port: saved.redis?.port ?? envDefaults.redis.port,
-        prefix: saved.redis?.prefix ?? envDefaults.redis.prefix,
-      },
-      paths: {
-        templates: saved.paths?.templates ?? envDefaults.paths.templates,
-        customers: saved.paths?.customers ?? envDefaults.paths.customers,
-      },
-    };
-
-    res.json(merged);
+    res.json(buildSettingsResponse(saved));
   } catch (error) {
     res.status(500).json({ error: "Failed to load settings" });
   }
@@ -163,8 +172,21 @@ systemRouter.get("/settings", authorize("SUPER_ADMIN"), async (_req, res): Promi
 // Settings - save
 systemRouter.post("/settings", authorize("SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
-    const next = await settingsService.saveSettings(req.body || {});
-    res.json(next);
+    const body = (req.body || {}) as InstallerSettings & { git?: any };
+    if (body.git) {
+      const git = { ...body.git };
+      if (typeof git.tokenSet !== "undefined") {
+        delete git.tokenSet;
+      }
+      if (git.clearToken) {
+        git.token = "";
+        delete git.clearToken;
+      }
+      body.git = git;
+    }
+
+    const next = await settingsService.saveSettings(body);
+    res.json(buildSettingsResponse(next));
   } catch (error) {
     res.status(500).json({ error: "Failed to save settings" });
   }

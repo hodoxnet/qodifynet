@@ -24,6 +24,12 @@ export interface SetupConfig {
   domain: string;
   storeName: string;
   templateVersion: string;
+  installSource: 'template' | 'git';
+  gitRepoUrl?: string;
+  gitBranch?: string;
+  gitDepth?: number;
+  gitAccessToken?: string;
+  gitUsername?: string;
   // Build seçenekleri
   buildHeapMB?: number; // NODE_OPTIONS --max-old-space-size
   skipTypeCheckFrontend?: boolean; // Next.js build'de tip kontrolünü atla
@@ -73,6 +79,7 @@ export type InstallStatus = "idle" | "running" | "completed" | "error";
 // Kurulum adımları için tipler
 export type InstallStepKey =
   | "checkTemplates"
+  | "prepareGit"
   | "createDatabase"
   | "extractTemplates"
   | "configureEnvironment"
@@ -126,6 +133,10 @@ export const DEFAULT_CONFIG: SetupConfig = {
   domain: "",
   storeName: "",
   templateVersion: "latest",
+  installSource: "template",
+  gitRepoUrl: "",
+  gitBranch: "main",
+  gitDepth: 1,
   buildHeapMB: undefined,
   skipTypeCheckFrontend: false
   ,sslEnable: true,

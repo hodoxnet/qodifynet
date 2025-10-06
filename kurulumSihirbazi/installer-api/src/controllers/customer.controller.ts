@@ -295,3 +295,55 @@ customerRouter.post("/:id/database/seed", authorize("ADMIN", "SUPER_ADMIN"), asy
     res.status(500).json({ error: "Failed to run seed" });
   }
 });
+
+// Deployment bilgisi
+customerRouter.get("/:id/deployment", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const info = await customerService.getDeploymentInfo(req.params.id);
+    res.json({ success: true, info });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error?.message || "Deployment bilgisi alınamadı" });
+  }
+});
+
+// Git üzerinden güncelle
+customerRouter.post("/:id/update/git", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const result = await customerService.updateFromGit(req.params.id, req.body || {});
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error?.message || "Git güncellemesi başarısız" });
+  }
+});
+
+// Bağımlılıkları yeniden yükle
+customerRouter.post("/:id/update/install-dependencies", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const result = await customerService.installDependencies(req.params.id);
+    if (!result?.ok) {
+      res.status(500).json(result);
+      return;
+    }
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error?.message || "Bağımlılık yükleme hatası" });
+  }
+});
+
+// Build işlemi
+customerRouter.post("/:id/update/build", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const body = (req.body || {}) as { heapMB?: number; skipTypeCheck?: boolean };
+    const result = await customerService.buildApplications(req.params.id, {
+      heapMB: typeof body.heapMB === 'number' ? body.heapMB : undefined,
+      skipTypeCheck: Boolean(body.skipTypeCheck)
+    });
+    if (!result?.ok) {
+      res.status(500).json(result);
+      return;
+    }
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ ok: false, message: error?.message || "Build işlemi başarısız" });
+  }
+});

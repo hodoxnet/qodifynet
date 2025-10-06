@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { SetupConfig, DEFAULT_CONFIG, WizardStep } from '@/lib/types/setup';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
+import { apiFetch } from '@/lib/api';
 
 export function useSetupWizard() {
   const { user, hasScope } = useAuth();
@@ -26,6 +27,43 @@ export function useSetupWizard() {
       setConfig(prev => ({ ...prev, dbName }));
     }
   }, [config.domain]);
+
+  // Varsayılan Git ayarlarını yükle (yalnızca staff)
+  useEffect(() => {
+    if (!isStaff) return;
+
+    (async () => {
+      try {
+        const res = await apiFetch('/api/system/settings');
+        if (!res.ok) return;
+        const data = await res.json();
+        const git = data?.git || {};
+        setConfig(prev => {
+          const next = { ...prev };
+
+          if (!prev.gitRepoUrl && git.defaultRepo) {
+            next.gitRepoUrl = git.defaultRepo;
+          }
+
+          if (git.defaultBranch && (prev.gitBranch === DEFAULT_CONFIG.gitBranch || !prev.gitBranch)) {
+            next.gitBranch = git.defaultBranch;
+          }
+
+          if (typeof git.depth === 'number' && (prev.gitDepth === undefined || prev.gitDepth === DEFAULT_CONFIG.gitDepth)) {
+            next.gitDepth = git.depth;
+          }
+
+          if (!prev.gitUsername && git.username) {
+            next.gitUsername = git.username;
+          }
+
+          return next;
+        });
+      } catch {
+        // sessiz geç
+      }
+    })();
+  }, [isStaff]);
 
   // Token kontrolü
   useEffect(() => {

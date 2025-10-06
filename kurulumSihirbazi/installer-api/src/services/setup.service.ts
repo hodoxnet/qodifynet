@@ -7,6 +7,7 @@ import { DatabaseService, PgAdminConfig } from "./database.service";
 import { SystemService } from "./system.service";
 import { SettingsService } from "./settings.service";
 import { ImprovedSetupService } from "./setup-improved.service";
+import { GitService, GitCloneOptions } from "./git.service";
 import { io } from "../index";
 
 const execAsync = promisify(exec);
@@ -31,6 +32,7 @@ export class SetupService {
   private settingsService: SettingsService;
   private databaseService?: DatabaseService;
   private improvedSetupService: ImprovedSetupService;
+  private gitService: GitService;
 
   private templatesPath = process.env.TEMPLATES_PATH || "/var/qodify/templates";
   private customersPath = process.env.CUSTOMERS_PATH || "/var/qodify/customers";
@@ -39,6 +41,7 @@ export class SetupService {
     this.systemService = new SystemService();
     this.settingsService = new SettingsService();
     this.improvedSetupService = new ImprovedSetupService();
+    this.gitService = new GitService();
   }
 
   // Ortak müşteri yolu hesaplayıcı (tek kaynaktan)
@@ -320,6 +323,9 @@ export class SetupService {
         await this.normalizeExtractedStructure(targetPath);
       }
 
+      await this.ensureProjectStructure(customerDomain);
+      await this.gitService.recordTemplateSource(customerDomain, { templateVersion: version });
+
       return {
         ok: true,
         message: "Tüm template'ler başarıyla çıkarıldı"
@@ -328,6 +334,40 @@ export class SetupService {
       return {
         ok: false,
         message: error.message || "Template çıkarma hatası"
+      };
+    }
+  }
+
+  async prepareFromGit(
+    customerDomain: string,
+    options: GitCloneOptions,
+    onProgress?: (message: string) => void
+  ): Promise<{ ok: boolean; message: string; branch?: string; commit?: string }> {
+    try {
+      if (onProgress) onProgress("Git deposu hazırlanıyor...");
+      this.emitProgress(customerDomain, "git", "Git deposu hazırlanıyor...");
+
+      const result = await this.gitService.cloneRepository(customerDomain, { ...options, force: true });
+
+      if (onProgress) onProgress("Proje yapısı kontrol ediliyor...");
+      await this.ensureProjectStructure(customerDomain);
+
+      this.emitProgress(
+        customerDomain,
+        "git",
+        `Depo klonlandı: ${result.commit ? result.commit.substring(0, 7) : ""}${result.branch ? ` (${result.branch})` : ""}`.trim()
+      );
+
+      return {
+        ok: true,
+        message: "Git deposu başarıyla klonlandı",
+        branch: result.branch,
+        commit: result.commit
+      };
+    } catch (error: any) {
+      return {
+        ok: false,
+        message: error?.message || "Git deposu hazırlanamadı"
       };
     }
   }
@@ -359,6 +399,22 @@ export class SetupService {
     for (const entry of entries) {
       if (entry.startsWith("__MACOSX") || entry === ".DS_Store") {
         await fs.remove(path.join(targetPath, entry)).catch(() => {});
+      }
+    }
+  }
+
+  private async ensureProjectStructure(customerDomain: string) {
+    const customerPath = this.getCustomerPath(customerDomain);
+    const required = ["backend", "admin", "store"];
+    for (const dir of required) {
+      const full = path.join(customerPath, dir);
+      const exists = await fs.pathExists(full);
+      if (!exists) {
+        throw new Error(`Proje yapısı eksik: '${dir}' klasörü bulunamadı`);
+      }
+      const stat = await fs.stat(full);
+      if (!stat.isDirectory()) {
+        throw new Error(`Proje yapısı geçersiz: '${dir}' bir klasör değil`);
       }
     }
   }
@@ -404,6 +460,7 @@ export class SetupService {
       const runtimeApiUrl = isLocal
         ? `http://localhost:${config.ports.backend}`
         : productionApiUrl;
+      const internalApiUrl = `http://localhost:${config.ports.backend}/api`;
       const storeUrl = isLocal
         ? `http://localhost:${config.ports.store}`
         : `https://${customerDomain}`;
@@ -481,6 +538,7 @@ export class SetupService {
         NEXT_PUBLIC_PROD_APP_URL: adminUrl,
         NEXT_PUBLIC_PROD_STORE_URL: storeUrl,
         NEXT_PUBLIC_IMAGE_HOSTS: imageHostEnv,
+        INTERNAL_API_URL: internalApiUrl,
       };
       const adminMerged = { ...adminExisting, ...adminUpdates };
       await writeEnv(adminEnvPath, adminMerged);
