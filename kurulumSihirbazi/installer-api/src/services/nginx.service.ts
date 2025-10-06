@@ -110,6 +110,16 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 
+    # Backend uploads (statik dosyalar)
+    location ^~ /uploads/ {
+        proxy_pass http://localhost:${ports.backend}/uploads/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     # Admin Panel (Next.js with basePath: '/admin')
     location /admin {
         proxy_pass http://localhost:${ports.admin};
@@ -173,6 +183,16 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_cache_bypass $http_upgrade;
+    }
+
+    # Backend uploads (statik dosyalar)
+    location ^~ /uploads/ {
+        proxy_pass http://localhost:${ports.backend}/uploads/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     # Admin Panel (Next.js with basePath: '/admin')
