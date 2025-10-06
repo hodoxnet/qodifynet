@@ -599,11 +599,36 @@ setupRouter.post("/import-demo", requireScopes(SCOPES.SETUP_RUN), async (req, re
       packPath: body.packPath,
       overwriteUploads: body.overwriteUploads !== false,
       mode: (body.mode as any) || 'strict',
+      skipProcessRestart: body.skipProcessRestart === true,
     });
 
     if (!result.ok) { err(res, 500, "DEMO_IMPORT_FAILED", result.message); return; }
     ok(res, { ok: true, message: result.message });
   } catch (error: any) {
     err(res, 500, "DEMO_IMPORT_ERROR", error?.message || "Demo içe aktarma hatası");
+  }
+});
+
+// Demo verileri refaktör adımı
+setupRouter.post("/import-demo/refactor", requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
+  try {
+    const body = (req.body || {}) as any;
+    const domain = sanitizeDomain(body.domain || "");
+    if (!domain) { err(res, 400, "BAD_REQUEST", "Domain gerekli"); return; }
+
+    const targetDomainRaw = typeof body.targetDomain === "string" ? body.targetDomain.trim() : "";
+    const sanitizedTarget = targetDomainRaw ? sanitizeDomain(targetDomainRaw) : "";
+    const targetDomain = sanitizedTarget || undefined;
+
+    const result = await demoService.refactorDemoData({
+      domain,
+      targetDomain,
+      restartServices: body.restartServices !== false,
+    });
+
+    if (!result.ok) { err(res, 500, "DEMO_REFACTOR_FAILED", result.message); return; }
+    ok(res, { ok: true, message: result.message });
+  } catch (error: any) {
+    err(res, 500, "DEMO_REFACTOR_ERROR", error?.message || "Demo refaktör hatası");
   }
 });

@@ -110,7 +110,7 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 
-    # Admin Panel
+    # Admin Panel (Next.js with basePath: '/admin')
     location /admin {
         proxy_pass http://localhost:${ports.admin};
         proxy_http_version 1.1;
@@ -175,7 +175,7 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 
-    # Admin Panel
+    # Admin Panel (Next.js with basePath: '/admin')
     location /admin {
         proxy_pass http://localhost:${ports.admin};
         proxy_http_version 1.1;

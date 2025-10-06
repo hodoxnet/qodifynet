@@ -403,6 +403,14 @@ export class SetupService {
       const appUrl = isLocal ? `http://localhost:${config.ports.backend}` : `https://${customerDomain}`;
       const storeUrl = isLocal ? `http://localhost:${config.ports.store}` : `https://${customerDomain}`;
       const adminUrl = isLocal ? `http://localhost:${config.ports.admin}` : `https://${customerDomain}/qpanel`;
+      const assetUrl = new URL(storeUrl);
+      const assetHost = assetUrl.port ? `${assetUrl.hostname}:${assetUrl.port}` : assetUrl.hostname;
+      const imageHosts = new Set<string>();
+      imageHosts.add(assetHost);
+      if (!assetHost.startsWith('www.') && !assetHost.includes('localhost') && !assetHost.includes('127.0.0.1')) {
+        imageHosts.add(`www.${assetHost}`);
+      }
+      const imageHostEnv = Array.from(imageHosts).join(',');
 
       // Backend .env: merge existing with required updates
       const backendEnvPath = path.join(customerPath, "backend", ".env");
@@ -453,6 +461,7 @@ export class SetupService {
         NEXT_PUBLIC_AUTO_DETECT_DOMAIN: String(!isLocal),
         NEXT_PUBLIC_PROD_DOMAIN: customerDomain,
         NEXT_PUBLIC_PROD_API_URL: isLocal ? appUrl : `https://${customerDomain}/api`,
+        NEXT_PUBLIC_IMAGE_HOSTS: imageHostEnv,
       };
       if (isLocal) adminUpdates["NEXT_PUBLIC_API_URL"] = appUrl;
       const adminMerged = { ...adminExisting, ...adminUpdates };
@@ -465,6 +474,7 @@ export class SetupService {
         NEXT_PUBLIC_AUTO_DETECT_DOMAIN: String(!isLocal),
         NEXT_PUBLIC_PROD_DOMAIN: customerDomain,
         NEXT_PUBLIC_PROD_API_URL: isLocal ? appUrl : `https://${customerDomain}/api`,
+        NEXT_PUBLIC_IMAGE_HOSTS: imageHostEnv,
       };
       if (isLocal) storeUpdates["NEXT_PUBLIC_API_URL"] = appUrl;
       const storeMerged = { ...storeExisting, ...storeUpdates };
