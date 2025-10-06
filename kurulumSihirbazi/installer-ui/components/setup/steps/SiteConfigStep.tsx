@@ -287,7 +287,7 @@ export function SiteConfigStep({ config, onConfigUpdate, onNext, onBack }: SiteC
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="git-token">Erişim Token'ı (opsiyonel)</Label>
+                  <Label htmlFor="git-token">Erişim Token&apos;ı (opsiyonel)</Label>
                   <Input
                     id="git-token"
                     type="password"

@@ -130,7 +130,7 @@ export function UpdateTab({ customerId, domain, defaultHeapMB }: UpdateTabProps)
               className="gap-2"
             >
               {operation === 'git' ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitBranch className="h-4 w-4" />}
-              Git'ten Güncelle
+              Git&apos;ten Güncelle
             </Button>
             <Button
               onClick={handleDependencies}

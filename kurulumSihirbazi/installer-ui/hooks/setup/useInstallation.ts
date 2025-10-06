@@ -67,16 +67,16 @@ export function useInstallation() {
     // Adım listesi başlangıç durumu
     const initialSteps: InstallStep[] = [
       usingGit
-        ? { key: 'prepareGit', label: "📥 Git deposu hazırlanıyor...", status: 'pending' }
-        : { key: 'checkTemplates', label: "📦 Template'ler kontrol ediliyor...", status: 'pending' },
-      { key: 'createDatabase', label: "🗄️ Veritabanı oluşturuluyor...", status: 'pending' },
-      ...(!usingGit ? [{ key: 'extractTemplates', label: "📂 Template'ler çıkarılıyor...", status: 'pending' }] : []),
-      { key: 'configureEnvironment', label: "⚙️ Ortam değişkenleri yapılandırılıyor...", status: 'pending' },
-      { key: 'installDependencies', label: "📥 Bağımlılıklar yükleniyor (bu biraz zaman alabilir)...", status: 'pending' },
-      { key: 'runMigrations', label: "🔄 Veritabanı tabloları oluşturuluyor...", status: 'pending' },
-      { key: 'buildApplications', label: "🏗️ Uygulamalar derleniyor...", status: 'pending' },
-      { key: 'configureServices', label: "🚀 Servisler yapılandırılıyor...", status: 'pending' },
-      { key: 'finalize', label: "✅ Kurulum tamamlanıyor...", status: 'pending' },
+        ? { key: 'prepareGit' as const, label: "📥 Git deposu hazırlanıyor...", status: 'pending' as const }
+        : { key: 'checkTemplates' as const, label: "📦 Template'ler kontrol ediliyor...", status: 'pending' as const },
+      { key: 'createDatabase' as const, label: "🗄️ Veritabanı oluşturuluyor...", status: 'pending' as const },
+      ...(!usingGit ? [{ key: 'extractTemplates' as const, label: "📂 Template'ler çıkarılıyor...", status: 'pending' as const }] : []),
+      { key: 'configureEnvironment' as const, label: "⚙️ Ortam değişkenleri yapılandırılıyor...", status: 'pending' as const },
+      { key: 'installDependencies' as const, label: "📥 Bağımlılıklar yükleniyor (bu biraz zaman alabilir)...", status: 'pending' as const },
+      { key: 'runMigrations' as const, label: "🔄 Veritabanı tabloları oluşturuluyor...", status: 'pending' as const },
+      { key: 'buildApplications' as const, label: "🏗️ Uygulamalar derleniyor...", status: 'pending' as const },
+      { key: 'configureServices' as const, label: "🚀 Servisler yapılandırılıyor...", status: 'pending' as const },
+      { key: 'finalize' as const, label: "✅ Kurulum tamamlanıyor...", status: 'pending' as const },
     ];
     setSteps(initialSteps);
 

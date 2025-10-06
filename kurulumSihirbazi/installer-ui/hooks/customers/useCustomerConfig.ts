@@ -11,6 +11,7 @@ export interface EnvConfig {
 export interface CustomerEnvConfig {
   customerId: string;
   domain: string;
+  buildHeapMB?: number;
   ports: {
     backend: number;
     admin: number;
