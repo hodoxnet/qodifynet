@@ -154,9 +154,9 @@ setupRouter.post("/test-database", requireScopes(SCOPES.SETUP_RUN), async (req, 
 // Adım 3: Redis bağlantısını test et
 setupRouter.post("/test-redis", requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
-    const { host = "localhost", port = 6379 } = req.body;
+    const { host = "localhost", port = 6379, password } = req.body;
 
-    const result = await setupService.testRedisConnection(host, Number(port));
+    const result = await setupService.testRedisConnection(host, Number(port), password);
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ ok: false, message: error.message || "Redis test hatası" });
@@ -256,7 +256,7 @@ setupRouter.post("/prepare-git", setupLimiter, requireScopes(SCOPES.SETUP_RUN), 
 setupRouter.post("/configure-environment", setupLimiter, requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
     const domain = sanitizeDomain(req.body?.domain);
-    const { dbName, dbUser, dbPassword, dbHost, dbPort, redisHost, redisPort, storeName } = req.body;
+    const { dbName, dbUser, dbPassword, dbHost, dbPort, redisHost, redisPort, redisPassword, storeName } = req.body;
 
     if (!domain || !dbName || !dbUser || !dbPassword || !storeName) {
       res.status(400).json({ ok: false, message: "Tüm yapılandırma bilgileri gerekli" });
@@ -279,6 +279,7 @@ setupRouter.post("/configure-environment", setupLimiter, requireScopes(SCOPES.SE
       dbPort: dbPort || 5432,
       redisHost: redisHost || "localhost",
       redisPort: redisPort || 6379,
+      redisPassword,
       ports,
       storeName
     });

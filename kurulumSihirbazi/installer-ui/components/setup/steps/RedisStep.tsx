@@ -26,7 +26,7 @@ export function RedisStep({ config, onConfigUpdate, onNext, onBack }: RedisStepP
   const { testResult, loading, testRedis } = useRedisConnection();
 
   const handleTest = async () => {
-    await testRedis(config.redisHost, config.redisPort);
+    await testRedis(config.redisHost, config.redisPort, config.redisPassword);
   };
 
   return (
@@ -64,6 +64,20 @@ export function RedisStep({ config, onConfigUpdate, onNext, onBack }: RedisStepP
               placeholder="6379"
             />
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="redis-password">Şifre (Opsiyonel)</Label>
+          <Input
+            id="redis-password"
+            type="password"
+            value={config.redisPassword || ""}
+            onChange={(e) => onConfigUpdate({ redisPassword: e.target.value })}
+            placeholder="Redis şifreniz varsa girin"
+          />
+          <p className="text-xs text-gray-500">
+            Redis şifre korumalı değilse boş bırakabilirsiniz
+          </p>
         </div>
 
         <Button

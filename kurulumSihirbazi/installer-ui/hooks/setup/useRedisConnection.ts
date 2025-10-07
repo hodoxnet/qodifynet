@@ -37,14 +37,14 @@ export function useRedisConnection() {
     return headers;
   }, []);
 
-  const testRedis = useCallback(async (host: string, port: number) => {
+  const testRedis = useCallback(async (host: string, port: number, password?: string) => {
     setLoading(true);
 
     try {
       await ensureCsrfToken();
       const response = await axios.post(
         `${API_URL}/api/setup/test-redis`,
-        { host, port },
+        { host, port, password },
         { headers: getAuthHeaders(), withCredentials: true }
       );
 
@@ -64,7 +64,7 @@ export function useRedisConnection() {
     } finally {
       setLoading(false);
     }
-  }, [API_URL, getAuthHeaders]);
+  }, [API_URL, getAuthHeaders, ensureCsrfToken]);
 
   return {
     testResult,

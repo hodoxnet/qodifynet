@@ -19,6 +19,7 @@ export interface SetupConfig {
   // Redis
   redisHost: string;
   redisPort: number;
+  redisPassword?: string;
 
   // Site bilgileri
   domain: string;
@@ -130,6 +131,7 @@ export const DEFAULT_CONFIG: SetupConfig = {
   appDbPassword: "qodify_pass",
   redisHost: "localhost",
   redisPort: 6379,
+  redisPassword: "",
   domain: "",
   storeName: "",
   templateVersion: "latest",

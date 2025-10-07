@@ -42,31 +42,44 @@ export class GitService {
 
   private async backupProtectedFiles(customerPath: string): Promise<Array<{ fullPath: string; content: Buffer }>> {
     const backups: Array<{ fullPath: string; content: Buffer }> = [];
+    console.log(`[GitService] Protected files backup başlıyor: ${customerPath}`);
+
     for (const rel of this.protectedFiles) {
       const fullPath = path.join(customerPath, rel);
       try {
         if (await fs.pathExists(fullPath)) {
           const stat = await fs.stat(fullPath);
           if (stat.isFile()) {
-            backups.push({ fullPath, content: await fs.readFile(fullPath) });
+            const content = await fs.readFile(fullPath);
+            backups.push({ fullPath, content });
+            console.log(`[GitService] ✅ Yedeklendi: ${fullPath} (${content.length} bytes)`);
           }
+        } else {
+          console.log(`[GitService] ⚠️ Dosya bulunamadı: ${fullPath}`);
         }
       } catch (err) {
-        console.warn(`Protected dosya yedeklenemedi (${fullPath}):`, err);
+        console.warn(`[GitService] ❌ Protected dosya yedeklenemedi (${fullPath}):`, err);
       }
     }
+
+    console.log(`[GitService] Toplam ${backups.length} dosya yedeklendi`);
     return backups;
   }
 
   private async restoreProtectedFiles(backups: Array<{ fullPath: string; content: Buffer }>) {
+    console.log(`[GitService] Protected files restore başlıyor: ${backups.length} dosya`);
+
     for (const backup of backups) {
       try {
         await fs.ensureDir(path.dirname(backup.fullPath));
         await fs.writeFile(backup.fullPath, backup.content);
+        console.log(`[GitService] ✅ Geri yüklendi: ${backup.fullPath} (${backup.content.length} bytes)`);
       } catch (err) {
-        console.warn(`Protected dosya geri yüklenemedi (${backup.fullPath}):`, err);
+        console.warn(`[GitService] ❌ Protected dosya geri yüklenemedi (${backup.fullPath}):`, err);
       }
     }
+
+    console.log(`[GitService] Protected files restore tamamlandı`);
   }
 
   private sanitizeDomain(domain: string): string {

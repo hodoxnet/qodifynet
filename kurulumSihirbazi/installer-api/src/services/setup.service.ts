@@ -163,14 +163,14 @@ export class SetupService {
   }
 
   // Adım 3: Redis bağlantısını test et
-  async testRedisConnection(host: string, port: number): Promise<{ ok: boolean; message: string; version?: string }> {
+  async testRedisConnection(host: string, port: number, password?: string): Promise<{ ok: boolean; message: string; version?: string }> {
     try {
-      const result = await this.systemService.testRedisConnection(host, port);
+      const result = await this.systemService.testRedisConnection(host, port, password);
 
       if (result.ok) {
         // Versiyon bilgisini al
-        const password = process.env.REDIS_PASSWORD || "";
-        const authFlag = password ? `-a "${password}"` : "";
+        const pwd = password || process.env.REDIS_PASSWORD || "";
+        const authFlag = pwd ? `-a "${pwd}"` : "";
         const { stdout } = await execAsync(`redis-cli -h ${host} -p ${port} ${authFlag} INFO server 2>&1`);
         const versionMatch = stdout.match(/redis_version:(\d+\.\d+\.\d+)/);
         const version = versionMatch ? versionMatch[1] : "Unknown";
@@ -427,6 +427,7 @@ export class SetupService {
       dbPort: number;
       redisHost: string;
       redisPort: number;
+      redisPassword?: string;
       ports: { backend: number; admin: number; store: number };
       storeName: string;
     }
@@ -495,6 +496,14 @@ export class SetupService {
         ADMIN_URL: adminUrl,
         STORE_NAME: config.storeName,
       };
+
+      // Redis password - Production'da settings'ten al, yoksa boş bırak
+      if (!isLocal && config.redisPassword) {
+        backendUpdates["REDIS_PASSWORD"] = config.redisPassword;
+      } else if (backendExisting["REDIS_PASSWORD"]) {
+        // Mevcut password varsa koru
+        backendUpdates["REDIS_PASSWORD"] = backendExisting["REDIS_PASSWORD"];
+      }
       // Only generate secrets if missing/too short
       if (tooShort(backendExisting["JWT_ACCESS_SECRET"])) backendUpdates["JWT_ACCESS_SECRET"] = this.generateSecret();
       if (tooShort(backendExisting["JWT_REFRESH_SECRET"])) backendUpdates["JWT_REFRESH_SECRET"] = this.generateSecret();

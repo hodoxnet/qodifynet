@@ -160,11 +160,11 @@ export class SystemService {
     return list;
   }
 
-  async testRedisConnection(host: string, port: number): Promise<{ ok: boolean; message?: string }> {
+  async testRedisConnection(host: string, port: number, password?: string): Promise<{ ok: boolean; message?: string }> {
     try {
       // Prefer redis-cli for simplicity
-      const password = process.env.REDIS_PASSWORD || "";
-      const authFlag = password ? `-a "${password}"` : "";
+      const pwd = password || process.env.REDIS_PASSWORD || "";
+      const authFlag = pwd ? `-a "${pwd}"` : "";
       const { stdout } = await execAsync(`redis-cli -h ${host} -p ${port} ${authFlag} ping 2>&1`);
       if (stdout.trim().includes("PONG")) return { ok: true };
       return { ok: false, message: stdout.trim() };
