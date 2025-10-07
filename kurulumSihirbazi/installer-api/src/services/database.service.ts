@@ -274,6 +274,94 @@ export class DatabaseService {
     }
   }
 
+  /**
+   * Tüm veritabanı objelerinin (tablolar, sequence'ler, view'ler) owner'ını belirtilen kullanıcıya değiştirir
+   * Git güncellemesi sonrası Prisma db push hatalarını önlemek için kullanılır
+   */
+  async fixDatabaseOwnership(dbName: string, appUser: string): Promise<{ success: boolean; message: string; fixed?: number }> {
+    const safeDb = dbName.replace(/[^a-zA-Z0-9_]/g, "_");
+    const safeUser = appUser.replace(/[^a-zA-Z0-9_]/g, "_");
+
+    const client = new Client({
+      host: this.pgConfig.host,
+      port: this.pgConfig.port,
+      user: this.pgConfig.user,
+      password: this.pgConfig.password,
+      database: safeDb,
+    } as any);
+
+    try {
+      await client.connect();
+
+      let fixedCount = 0;
+
+      // 1. Tabloların owner'ını değiştir
+      const tablesResult = await client.query(
+        `SELECT tablename FROM pg_tables WHERE schemaname = 'public'`
+      );
+
+      for (const row of tablesResult.rows) {
+        try {
+          await client.query(`ALTER TABLE public."${row.tablename}" OWNER TO "${safeUser}"`);
+          fixedCount++;
+        } catch (e) {
+          console.warn(`Could not alter table ${row.tablename}:`, e);
+        }
+      }
+
+      // 2. Sequence'lerin owner'ını değiştir
+      const sequencesResult = await client.query(
+        `SELECT sequencename FROM pg_sequences WHERE schemaname = 'public'`
+      );
+
+      for (const row of sequencesResult.rows) {
+        try {
+          await client.query(`ALTER SEQUENCE public."${row.sequencename}" OWNER TO "${safeUser}"`);
+          fixedCount++;
+        } catch (e) {
+          console.warn(`Could not alter sequence ${row.sequencename}:`, e);
+        }
+      }
+
+      // 3. View'lerin owner'ını değiştir
+      const viewsResult = await client.query(
+        `SELECT viewname FROM pg_views WHERE schemaname = 'public'`
+      );
+
+      for (const row of viewsResult.rows) {
+        try {
+          await client.query(`ALTER VIEW public."${row.viewname}" OWNER TO "${safeUser}"`);
+          fixedCount++;
+        } catch (e) {
+          console.warn(`Could not alter view ${row.viewname}:`, e);
+        }
+      }
+
+      // 4. Schema ownership'i de düzelt
+      try {
+        await client.query(`ALTER SCHEMA public OWNER TO "${safeUser}"`);
+      } catch (e) {
+        console.warn("Could not alter schema:", e);
+      }
+
+      console.log(`Fixed ownership for ${fixedCount} database objects in ${safeDb}`);
+
+      return {
+        success: true,
+        message: `${fixedCount} veritabanı nesnesi başarıyla güncellendi`,
+        fixed: fixedCount
+      };
+    } catch (error: any) {
+      console.error("Failed to fix database ownership:", error);
+      return {
+        success: false,
+        message: `Ownership fix başarısız: ${error.message}`
+      };
+    } finally {
+      try { await client.end(); } catch {}
+    }
+  }
+
   private async applySchemaPrivileges(dbName: string, appUser: string) {
     const safeDb = dbName.replace(/[^a-zA-Z0-9_]/g, "_");
     const safeUser = appUser.replace(/[^a-zA-Z0-9_]/g, "_");

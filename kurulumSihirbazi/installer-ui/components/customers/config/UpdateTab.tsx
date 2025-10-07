@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { GitBranch, RefreshCw, Hammer, Database as DatabaseIcon, Loader2 } from "lucide-react";
+import { GitBranch, RefreshCw, Hammer, Database as DatabaseIcon, Loader2, Shield } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ export function UpdateTab({ customerId, domain, defaultHeapMB }: UpdateTabProps)
     reinstallDependencies,
     buildApplications,
     prismaPush,
+    fixDatabaseOwnership,
   } = useCustomerUpdate(customerId);
 
   const [branch, setBranch] = useState<string>("");
@@ -68,6 +69,10 @@ export function UpdateTab({ customerId, domain, defaultHeapMB }: UpdateTabProps)
 
   const handlePrismaPush = async () => {
     await prismaPush();
+  };
+
+  const handleFixOwnership = async () => {
+    await fixDatabaseOwnership();
   };
 
   return (
@@ -164,24 +169,40 @@ export function UpdateTab({ customerId, domain, defaultHeapMB }: UpdateTabProps)
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <Button
-              onClick={handleBuild}
-              disabled={operation !== null}
-              className="gap-2"
-            >
-              {operation === 'build' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Hammer className="h-4 w-4" />}
-              Build Çalıştır
-            </Button>
-            <Button
-              onClick={handlePrismaPush}
-              variant="outline"
-              disabled={operation !== null}
-              className="gap-2"
-            >
-              {operation === 'prisma' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseIcon className="h-4 w-4" />}
-              Prisma DB Push
-            </Button>
+          <Button
+            onClick={handleBuild}
+            disabled={operation !== null}
+            className="gap-2 w-full"
+          >
+            {operation === 'build' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Hammer className="h-4 w-4" />}
+            Build Çalıştır
+          </Button>
+
+          <div className="space-y-2">
+            <Label>Veritabanı İşlemleri</Label>
+            <div className="grid gap-2 md:grid-cols-2">
+              <Button
+                onClick={handlePrismaPush}
+                variant="outline"
+                disabled={operation !== null}
+                className="gap-2"
+              >
+                {operation === 'prisma' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseIcon className="h-4 w-4" />}
+                Prisma DB Push
+              </Button>
+              <Button
+                onClick={handleFixOwnership}
+                variant="outline"
+                disabled={operation !== null}
+                className="gap-2"
+              >
+                {operation === 'prisma' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+                DB Yetkilerini Düzelt
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500">
+              Prisma hatası alırsanız, DB Yetkilerini Düzelt butonunu kullanarak veritabanı ownership&apos;lerini düzeltebilirsiniz.
+            </p>
           </div>
         </CardContent>
       </Card>

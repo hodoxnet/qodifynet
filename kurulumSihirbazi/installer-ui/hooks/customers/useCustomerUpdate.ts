@@ -123,6 +123,31 @@ export function useCustomerUpdate(customerId: string) {
     }, 'Veritabanı şeması güncellendi');
   }, [customerId, runOperation]);
 
+  const fixDatabaseOwnership = useCallback(async () => {
+    if (operation) return;
+    setOperation('prisma'); // Prisma operation type kullanıyoruz
+    try {
+      const res = await apiFetch(`/api/customers/${customerId}/database/fix-ownership`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.message || 'Database ownership fix başarısız');
+      }
+      const result = await res.json().catch(() => ({}));
+      if (result?.message) appendLog(result.message);
+      toast.success('Veritabanı yetkileri düzeltildi');
+      return result;
+    } catch (error: any) {
+      console.error('Database ownership fix failed:', error);
+      toast.error(error?.message || 'Yetki düzeltme başarısız');
+      throw error;
+    } finally {
+      setOperation(null);
+    }
+  }, [customerId, operation, appendLog]);
+
   return {
     info,
     loading,
@@ -133,5 +158,6 @@ export function useCustomerUpdate(customerId: string) {
     reinstallDependencies,
     buildApplications,
     prismaPush,
+    fixDatabaseOwnership,
   };
 }

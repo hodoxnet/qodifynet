@@ -10,6 +10,8 @@ import { HealthService } from "./health.service";
 import { PrismaAdminService } from "./prisma-admin.service";
 import { GitService, GitUpdateOptions, DeploymentMetadata } from "./git.service";
 import { SetupService } from "./setup.service";
+import { DatabaseService } from "./database.service";
+import { SettingsService } from "./settings.service";
 
 export class CustomerService {
   private readonly customersPath: string;
@@ -21,6 +23,7 @@ export class CustomerService {
   private readonly prismaAdminService: PrismaAdminService;
   private readonly gitService: GitService;
   private readonly setupService: SetupService;
+  private readonly settingsService: SettingsService;
 
   constructor() {
     this.customersPath = process.env.CUSTOMERS_PATH || path.join(process.cwd(), "../customers");
@@ -32,6 +35,21 @@ export class CustomerService {
     this.prismaAdminService = new PrismaAdminService();
     this.gitService = new GitService();
     this.setupService = new SetupService();
+    this.settingsService = new SettingsService();
+  }
+
+  /**
+   * SettingsService'ten veya environment'tan admin DB config'i alır
+   * Production'da settings önceliklidir
+   */
+  private async getAdminDbConfig() {
+    const settings = await this.settingsService.getSettings();
+    return {
+      host: process.env.DB_HOST || settings.db?.host || "localhost",
+      port: parseInt(process.env.DB_PORT || String(settings.db?.port || 5432)),
+      user: process.env.DB_USER || settings.db?.user || "postgres",
+      password: process.env.DB_PASSWORD || settings.db?.password || "postgres",
+    };
   }
 
   async getAllCustomers(): Promise<Customer[]> {
@@ -263,6 +281,29 @@ export class CustomerService {
     const customer = await this.getCustomerById(customerId);
     if (!customer) throw new Error("Customer not found");
 
+    // Prisma db push öncesi ownership'leri otomatik düzelt
+    if (customer.db?.name && customer.db?.user) {
+      try {
+        console.log(`Fixing database ownership for ${customer.domain}...`);
+
+        // Admin DB config'i settings'ten al
+        const adminDbConfig = await this.getAdminDbConfig();
+        const databaseService = new DatabaseService(adminDbConfig);
+
+        const fixResult = await databaseService.fixDatabaseOwnership(
+          customer.db.name,
+          customer.db.user
+        );
+        if (fixResult.success) {
+          console.log(`Ownership fixed: ${fixResult.message}`);
+        } else {
+          console.warn(`Ownership fix warning: ${fixResult.message}`);
+        }
+      } catch (error: any) {
+        console.warn("Ownership fix failed, continuing with db push:", error.message);
+      }
+    }
+
     return await this.prismaAdminService.runPrismaDbPush(customer.domain, true);
   }
 
@@ -323,5 +364,44 @@ export class CustomerService {
       undefined,
       options
     );
+  }
+
+  /**
+   * Veritabanı ownership'lerini manuel olarak düzeltir
+   * Git güncellemesi sonrası Prisma hatalarını çözmek için kullanılır
+   */
+  async fixDatabaseOwnership(customerId: string): Promise<any> {
+    const customer = await this.getCustomerById(customerId);
+    if (!customer) throw new Error("Customer not found");
+
+    if (!customer.db?.name || !customer.db?.user) {
+      return {
+        success: false,
+        message: "Veritabanı bilgileri eksik"
+      };
+    }
+
+    try {
+      // Admin DB config'i settings'ten al
+      const adminDbConfig = await this.getAdminDbConfig();
+      const databaseService = new DatabaseService(adminDbConfig);
+
+      const result = await databaseService.fixDatabaseOwnership(
+        customer.db.name,
+        customer.db.user
+      );
+
+      return {
+        success: result.success,
+        message: result.message,
+        fixed: result.fixed
+      };
+    } catch (error: any) {
+      console.error("Database ownership fix failed:", error);
+      return {
+        success: false,
+        message: error.message || "Ownership fix başarısız"
+      };
+    }
   }
 }

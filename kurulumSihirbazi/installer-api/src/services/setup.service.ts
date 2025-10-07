@@ -30,7 +30,6 @@ export interface SystemRequirement {
 export class SetupService {
   private systemService: SystemService;
   private settingsService: SettingsService;
-  private databaseService?: DatabaseService;
   private improvedSetupService: ImprovedSetupService;
   private gitService: GitService;
 
@@ -136,8 +135,8 @@ export class SetupService {
   // Adım 2: Veritabanı bağlantısını test et
   async testDatabaseConnection(config: PgAdminConfig): Promise<{ ok: boolean; message: string; version?: string }> {
     try {
-      this.databaseService = new DatabaseService(config);
-      const result = await this.databaseService.testConnection(config);
+      const databaseService = new DatabaseService(config);
+      const result = await databaseService.testConnection(config);
 
       if (result.ok) {
         // Versiyon bilgisini al
@@ -200,11 +199,9 @@ export class SetupService {
     appPassword: string
   ): Promise<{ ok: boolean; message: string }> {
     try {
-      if (!this.databaseService) {
-        this.databaseService = new DatabaseService(dbConfig);
-      }
-
-      await this.databaseService.createDatabase(dbName, appUser, appPassword);
+      // Her çağrıda fresh DatabaseService instance yarat
+      const databaseService = new DatabaseService(dbConfig);
+      await databaseService.createDatabase(dbName, appUser, appPassword);
 
       return {
         ok: true,
@@ -641,7 +638,7 @@ export class SetupService {
   }
 
   // Adım 9: Migration'ları çalıştır
-  async runMigrations(customerDomain: string): Promise<{ ok: boolean; message: string }> {
+  async runMigrations(customerDomain: string, dbName?: string, appUser?: string): Promise<{ ok: boolean; message: string }> {
     try {
       const customerPath = path.join(this.customersPath, customerDomain.replace(/\./g, "-"));
       const backendPath = path.join(customerPath, "backend");
@@ -655,6 +652,27 @@ export class SetupService {
 
       // Prisma migrate
       await execAsync(`npx prisma migrate deploy`, { cwd: backendPath, env });
+
+      // Migration sonrası ownership'leri düzelt
+      if (dbName && appUser) {
+        try {
+          // Admin DB config'i settings'ten al
+          const settings = await this.settingsService.getSettings();
+          const adminDbConfig = {
+            host: process.env.DB_HOST || settings.db?.host || "localhost",
+            port: parseInt(process.env.DB_PORT || String(settings.db?.port || 5432)),
+            user: process.env.DB_USER || settings.db?.user || "postgres",
+            password: process.env.DB_PASSWORD || settings.db?.password || "postgres",
+          };
+
+          const databaseService = new DatabaseService(adminDbConfig);
+          const fixResult = await databaseService.fixDatabaseOwnership(dbName, appUser);
+          console.log(`Post-migration ownership fix: ${fixResult.message}`);
+        } catch (error: any) {
+          console.warn("Post-migration ownership fix warning:", error.message);
+          // Ownership fix başarısız olsa bile migration başarılı sayılır
+        }
+      }
 
       return {
         ok: true,

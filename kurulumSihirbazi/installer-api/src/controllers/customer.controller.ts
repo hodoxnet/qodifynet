@@ -347,3 +347,17 @@ customerRouter.post("/:id/update/build", authorize("ADMIN", "SUPER_ADMIN"), asyn
     res.status(500).json({ ok: false, message: error?.message || "Build işlemi başarısız" });
   }
 });
+
+// Database ownership fix işlemi
+customerRouter.post("/:id/database/fix-ownership", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const result = await customerService.fixDatabaseOwnership(req.params.id);
+    if (!result?.success) {
+      res.status(500).json(result);
+      return;
+    }
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error?.message || "Database ownership fix başarısız" });
+  }
+});
