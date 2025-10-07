@@ -497,11 +497,15 @@ export class SetupService {
         STORE_NAME: config.storeName,
       };
 
-      // Redis password - Production'da settings'ten al, yoksa boş bırak
-      if (!isLocal && config.redisPassword) {
+      // Redis password - Öncelik sırası: config > env > existing
+      if (config.redisPassword && config.redisPassword.trim() !== "") {
+        // Config'den gelen şifreyi kullan
         backendUpdates["REDIS_PASSWORD"] = config.redisPassword;
+      } else if (process.env.REDIS_PASSWORD) {
+        // Sistem environment variable'ından al
+        backendUpdates["REDIS_PASSWORD"] = process.env.REDIS_PASSWORD;
       } else if (backendExisting["REDIS_PASSWORD"]) {
-        // Mevcut password varsa koru
+        // Mevcut .env'deki şifreyi koru
         backendUpdates["REDIS_PASSWORD"] = backendExisting["REDIS_PASSWORD"];
       }
       // Only generate secrets if missing/too short

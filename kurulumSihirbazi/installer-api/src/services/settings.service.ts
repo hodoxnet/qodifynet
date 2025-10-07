@@ -13,6 +13,7 @@ export type InstallerSettings = {
     host?: string;
     port?: number;
     prefix?: string;
+    password?: string;
   };
   paths?: {
     templates?: string;

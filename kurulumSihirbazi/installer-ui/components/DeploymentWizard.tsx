@@ -59,7 +59,7 @@ export function DeploymentWizard({ onBack, onComplete }: DeploymentWizardProps) 
   const domain = watch("domain");
   const [defaultsLoaded, setDefaultsLoaded] = useState(false);
   const [defaultDb, setDefaultDb] = useState<{ host?: string; port?: number; user?: string; password?: string }>({});
-  const [defaultRedis, setDefaultRedis] = useState<{ host?: string; port?: number; prefix?: string }>({});
+  const [defaultRedis, setDefaultRedis] = useState<{ host?: string; port?: number; prefix?: string; password?: string }>({});
 
   useEffect(() => {
     // Prefill advanced inputs with saved defaults
