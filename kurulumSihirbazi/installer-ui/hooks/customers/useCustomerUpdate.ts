@@ -193,6 +193,20 @@ export function useCustomerUpdate(customerId: string, domain?: string) {
     }, 'Build işlemi tamamlandı');
   }, [customerId, runOperation, appendLog]);
 
+  const prismaGenerate = useCallback(async () => {
+    return runOperation('prisma', async () => {
+      const res = await apiFetch(`/api/customers/${customerId}/database/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.message || 'Prisma generate başarısız');
+      }
+      return res.json().catch(() => ({}));
+    }, 'Prisma Client oluşturuldu');
+  }, [customerId, runOperation]);
+
   const prismaPush = useCallback(async () => {
     return runOperation('prisma', async () => {
       const res = await apiFetch(`/api/customers/${customerId}/database/push`, {
@@ -241,6 +255,7 @@ export function useCustomerUpdate(customerId: string, domain?: string) {
     gitUpdate,
     reinstallDependencies,
     buildApplications,
+    prismaGenerate,
     prismaPush,
     fixDatabaseOwnership,
   };

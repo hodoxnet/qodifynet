@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { useCustomerUpdate } from "@/hooks/customers/useCustomerUpdate";
 
 interface UpdateTabProps {
@@ -26,6 +27,7 @@ export function UpdateTab({ customerId, domain, defaultHeapMB }: UpdateTabProps)
     gitUpdate,
     reinstallDependencies,
     buildApplications,
+    prismaGenerate,
     prismaPush,
     fixDatabaseOwnership,
   } = useCustomerUpdate(customerId, domain);
@@ -73,6 +75,10 @@ export function UpdateTab({ customerId, domain, defaultHeapMB }: UpdateTabProps)
 
   const handleBuild = async () => {
     await buildApplications({ heapMB: heapLimit, skipTypeCheck });
+  };
+
+  const handlePrismaGenerate = async () => {
+    await prismaGenerate();
   };
 
   const handlePrismaPush = async () => {
@@ -134,61 +140,132 @@ export function UpdateTab({ customerId, domain, defaultHeapMB }: UpdateTabProps)
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Güncelleme İşlemleri</CardTitle>
+          <p className="text-sm text-gray-500 mt-2">
+            Güncellemeleri aşağıdaki sırayla yapmanız önerilir
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          {/* Adım 1: Git Güncelleme */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Badge variant="default" className="w-8 h-8 rounded-full flex items-center justify-center">1</Badge>
+              <Label className="text-base font-semibold">Git&apos;ten Güncelle</Label>
+              {!isGitSource && <Badge variant="secondary">Sadece Git için</Badge>}
+            </div>
+            <p className="text-xs text-gray-500 ml-10">
+              Kod değişikliklerini çeker. Branch değiştirmek için yukarıdan seçin.
+            </p>
             <Button
               onClick={handleGitUpdate}
               disabled={operation !== null || !isGitSource}
-              className="gap-2"
+              className="gap-2 ml-10"
             >
               {operation === 'git' ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitBranch className="h-4 w-4" />}
-              Git&apos;ten Güncelle
+              Git Güncelle
             </Button>
+          </div>
+
+          <Separator />
+
+          {/* Adım 2: Prisma Generate */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Badge variant="default" className="w-8 h-8 rounded-full flex items-center justify-center">2</Badge>
+              <Label className="text-base font-semibold">Prisma Client Oluştur</Label>
+            </div>
+            <p className="text-xs text-gray-500 ml-10">
+              <strong>Önemli:</strong> Schema değiştiyse mutlaka çalıştırın! TypeScript type&apos;larını günceller.
+            </p>
+            <Button
+              onClick={handlePrismaGenerate}
+              variant="outline"
+              disabled={operation !== null}
+              className="gap-2 ml-10"
+            >
+              {operation === 'prisma' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Prisma Generate
+            </Button>
+          </div>
+
+          <Separator />
+
+          {/* Adım 3: Bağımlılıklar */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Badge variant="default" className="w-8 h-8 rounded-full flex items-center justify-center">3</Badge>
+              <Label className="text-base font-semibold">Bağımlılıkları Güncelle</Label>
+              <Badge variant="secondary">Opsiyonel</Badge>
+            </div>
+            <p className="text-xs text-gray-500 ml-10">
+              package.json değiştiyse çalıştırın. Yeni kütüphaneler yüklenir.
+            </p>
             <Button
               onClick={handleDependencies}
               variant="outline"
               disabled={operation !== null}
-              className="gap-2"
+              className="gap-2 ml-10"
             >
               {operation === 'deps' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               Bağımlılıkları Güncelle
             </Button>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="heap-limit">Build Bellek Limiti (MB)</Label>
-              <Input
-                id="heap-limit"
-                type="number"
-                min={2048}
-                step={256}
-                value={heapLimit}
-                onChange={(e) => setHeapLimit(Number(e.target.value) || heapLimit)}
-              />
+          <Separator />
+
+          {/* Adım 4: Build */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Badge variant="default" className="w-8 h-8 rounded-full flex items-center justify-center">4</Badge>
+              <Label className="text-base font-semibold">Uygulamaları Derle</Label>
             </div>
-            <div className="space-y-2 flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-800 p-3">
-              <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Tip Kontrolünü Atla</p>
-                <p className="text-xs text-gray-500">Next.js build sırasında typescript kontrolü devre dışı kalır.</p>
+            <p className="text-xs text-gray-500 ml-10">
+              Backend, Admin ve Store uygulamalarını production için derler.
+            </p>
+
+            <div className="grid gap-4 md:grid-cols-2 ml-10">
+              <div className="space-y-2">
+                <Label htmlFor="heap-limit">Build Bellek Limiti (MB)</Label>
+                <Input
+                  id="heap-limit"
+                  type="number"
+                  min={2048}
+                  step={256}
+                  value={heapLimit}
+                  onChange={(e) => setHeapLimit(Number(e.target.value) || heapLimit)}
+                />
               </div>
-              <Switch checked={skipTypeCheck} onCheckedChange={setSkipTypeCheck} />
+              <div className="space-y-2 flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-800 p-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Tip Kontrolünü Atla</p>
+                  <p className="text-xs text-gray-500">Build hızlandırır ama hataları gizleyebilir.</p>
+                </div>
+                <Switch checked={skipTypeCheck} onCheckedChange={setSkipTypeCheck} />
+              </div>
             </div>
+
+            <Button
+              onClick={handleBuild}
+              disabled={operation !== null}
+              className="gap-2 ml-10"
+            >
+              {operation === 'build' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Hammer className="h-4 w-4" />}
+              Build Çalıştır
+            </Button>
           </div>
 
-          <Button
-            onClick={handleBuild}
-            disabled={operation !== null}
-            className="gap-2 w-full"
-          >
-            {operation === 'build' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Hammer className="h-4 w-4" />}
-            Build Çalıştır
-          </Button>
+          <Separator />
 
+          {/* Adım 5: İlave DB İşlemleri */}
           <div className="space-y-2">
-            <Label>Veritabanı İşlemleri</Label>
-            <div className="grid gap-2 md:grid-cols-2">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="w-8 h-8 rounded-full flex items-center justify-center">5</Badge>
+              <Label className="text-base font-semibold">İlave Veritabanı İşlemleri</Label>
+              <Badge variant="secondary">Opsiyonel</Badge>
+            </div>
+            <p className="text-xs text-gray-500 ml-10">
+              Sorun çıkarsa bu işlemleri kullanın.
+            </p>
+            <div className="grid gap-2 md:grid-cols-2 ml-10">
               <Button
                 onClick={handlePrismaPush}
                 variant="outline"
@@ -208,8 +285,8 @@ export function UpdateTab({ customerId, domain, defaultHeapMB }: UpdateTabProps)
                 DB Yetkilerini Düzelt
               </Button>
             </div>
-            <p className="text-xs text-gray-500">
-              Prisma hatası alırsanız, DB Yetkilerini Düzelt butonunu kullanarak veritabanı ownership&apos;lerini düzeltebilirsiniz.
+            <p className="text-xs text-gray-500 ml-10">
+              <strong>DB Push:</strong> Veritabanı tablolarını günceller (dikkatli kullanın!). <strong>Yetkileri Düzelt:</strong> Prisma bağlantı hatalarını çözer.
             </p>
           </div>
         </CardContent>
