@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { io as socketIO, Socket } from "socket.io-client";
 
 export interface DeploymentInfo {
   source?: 'git' | 'template';
@@ -15,11 +16,14 @@ export interface DeploymentInfo {
 
 type UpdateOperation = 'git' | 'deps' | 'build' | 'prisma';
 
-export function useCustomerUpdate(customerId: string) {
+export function useCustomerUpdate(customerId: string, domain?: string) {
   const [info, setInfo] = useState<DeploymentInfo | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [operation, setOperation] = useState<UpdateOperation | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
+  const socketRef = useRef<Socket | null>(null);
+
+  const API_URL = process.env.NEXT_PUBLIC_INSTALLER_API_URL || "http://localhost:3031";
 
   const appendLog = useCallback((message: string) => {
     setLogs(prev => [...prev, `[${new Date().toLocaleTimeString('tr-TR')}] ${message}`]);
@@ -47,6 +51,76 @@ export function useCustomerUpdate(customerId: string) {
 
   useEffect(() => { fetchInfo(); }, [fetchInfo]);
 
+  // Socket.io bağlantısını kur ve build loglarını dinle
+  useEffect(() => {
+    if (!domain) return;
+
+    const socket = socketIO(API_URL, {
+      transports: ["websocket", "polling"],
+      withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+    });
+
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      // Domain'e özel room'a katıl
+      socket.emit("subscribe-deployment", domain);
+      console.log(`[Socket.io] Subscribed to deployment-${domain}`);
+    });
+
+    socket.on("connect_error", (err: any) => {
+      console.error("Socket connect_error:", err?.message || err);
+    });
+
+    // Build output (stdout/stderr) event'lerini dinle
+    socket.on("build-output", (data: {
+      service: string;
+      output: string;
+      type: 'stdout' | 'stderr';
+      isError?: boolean;
+      errorType?: 'heap' | 'syntax' | 'module' | 'other';
+    }) => {
+      const lines = data.output.split('\n').filter(line => line.trim());
+      lines.forEach(line => {
+        let prefix = '';
+        if (data.type === 'stderr') {
+          prefix = '❌';
+        } else if (line.includes('ERROR') || line.includes('Error')) {
+          prefix = '🔴';
+        } else if (line.includes('WARNING') || line.includes('Warning')) {
+          prefix = '🟡';
+        } else if (line.includes('SUCCESS') || line.includes('✓')) {
+          prefix = '🟢';
+        } else {
+          prefix = '🔹';
+        }
+
+        const logMessage = `${prefix} [BUILD:${data.service.toUpperCase()}] ${line}`;
+        appendLog(logMessage);
+      });
+    });
+
+    // Build progress event'lerini dinle
+    socket.on("setup-progress", (data: { message: string; step?: string; percent?: number }) => {
+      if (data.step === 'build') {
+        appendLog(data.message);
+      }
+    });
+
+    // Build metrics (RAM kullanımı)
+    socket.on("build-metrics", (data: { service: string; memoryMB: number }) => {
+      appendLog(`📈 [${data.service.toUpperCase()}] RAM: ${data.memoryMB} MB`);
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [domain, API_URL, appendLog]);
+
   const runOperation = useCallback(async (key: UpdateOperation, handler: () => Promise<any>, successMessage: string) => {
     if (operation) return;
     setOperation(key);
@@ -66,6 +140,9 @@ export function useCustomerUpdate(customerId: string) {
   }, [operation, appendLog, fetchInfo]);
 
   const gitUpdate = useCallback(async (payload: { branch?: string; accessToken?: string; username?: string }) => {
+    setLogs([]);
+    appendLog('Git deposu güncelleniyor...');
+
     return runOperation('git', async () => {
       const res = await apiFetch(`/api/customers/${customerId}/update/git`, {
         method: 'POST',
@@ -78,9 +155,12 @@ export function useCustomerUpdate(customerId: string) {
       }
       return res.json().catch(() => ({}));
     }, 'Git deposu güncellendi');
-  }, [customerId, runOperation]);
+  }, [customerId, runOperation, appendLog]);
 
   const reinstallDependencies = useCallback(async () => {
+    setLogs([]);
+    appendLog('Bağımlılıklar yükleniyor...');
+
     return runOperation('deps', async () => {
       const res = await apiFetch(`/api/customers/${customerId}/update/install-dependencies`, {
         method: 'POST',
@@ -92,9 +172,13 @@ export function useCustomerUpdate(customerId: string) {
       }
       return res.json().catch(() => ({}));
     }, 'Bağımlılıklar güncellendi');
-  }, [customerId, runOperation]);
+  }, [customerId, runOperation, appendLog]);
 
   const buildApplications = useCallback(async (payload: { heapMB?: number; skipTypeCheck?: boolean }) => {
+    // Build başlamadan önce logları temizle
+    setLogs([]);
+    appendLog('Build işlemi başlatılıyor...');
+
     return runOperation('build', async () => {
       const res = await apiFetch(`/api/customers/${customerId}/update/build`, {
         method: 'POST',
@@ -107,7 +191,7 @@ export function useCustomerUpdate(customerId: string) {
       }
       return res.json().catch(() => ({}));
     }, 'Build işlemi tamamlandı');
-  }, [customerId, runOperation]);
+  }, [customerId, runOperation, appendLog]);
 
   const prismaPush = useCallback(async () => {
     return runOperation('prisma', async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GitBranch, RefreshCw, Hammer, Database as DatabaseIcon, Loader2, Shield } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,17 +28,25 @@ export function UpdateTab({ customerId, domain, defaultHeapMB }: UpdateTabProps)
     buildApplications,
     prismaPush,
     fixDatabaseOwnership,
-  } = useCustomerUpdate(customerId);
+  } = useCustomerUpdate(customerId, domain);
 
   const [branch, setBranch] = useState<string>("");
   const [heapLimit, setHeapLimit] = useState<number>(defaultHeapMB || 4096);
   const [skipTypeCheck, setSkipTypeCheck] = useState<boolean>(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!branch && info?.branch) {
       setBranch(info.branch);
     }
   }, [info, branch]);
+
+  // Logs değiştiğinde TextArea'yı en alta scroll et
+  useEffect(() => {
+    if (textareaRef.current && logs.length > 0) {
+      textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+    }
+  }, [logs]);
 
   const lastCommitShort = useMemo(() => {
     if (!info?.lastCommit) return null;
@@ -213,6 +221,7 @@ export function UpdateTab({ customerId, domain, defaultHeapMB }: UpdateTabProps)
         </CardHeader>
         <CardContent>
           <Textarea
+            ref={textareaRef}
             value={logs.join("\n")}
             readOnly
             className="min-h-[200px] font-mono text-sm"
