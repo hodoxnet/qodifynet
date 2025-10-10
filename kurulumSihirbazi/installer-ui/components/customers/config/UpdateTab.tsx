@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCustomerUpdate } from "@/hooks/customers/useCustomerUpdate";
 
 interface UpdateTabProps {
@@ -24,6 +25,9 @@ export function UpdateTab({ customerId, domain, defaultHeapMB }: UpdateTabProps)
     loading,
     operation,
     logs,
+    branches,
+    loadingBranches,
+    fetchBranches,
     gitUpdate,
     reinstallDependencies,
     buildApplications,
@@ -42,6 +46,13 @@ export function UpdateTab({ customerId, domain, defaultHeapMB }: UpdateTabProps)
       setBranch(info.branch);
     }
   }, [info, branch]);
+
+  // Git source ise branch listesini yükle
+  useEffect(() => {
+    if (info?.source === 'git' && branches.length === 0 && !loadingBranches) {
+      fetchBranches();
+    }
+  }, [info?.source, branches.length, loadingBranches, fetchBranches]);
 
   // Logs değiştiğinde TextArea'yı en alta scroll et
   useEffect(() => {
@@ -113,13 +124,37 @@ export function UpdateTab({ customerId, domain, defaultHeapMB }: UpdateTabProps)
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="branch">Branch</Label>
-                  <Input
-                    id="branch"
-                    value={branch}
-                    onChange={(e) => setBranch(e.target.value)}
-                    placeholder="main"
-                  />
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="branch">Branch</Label>
+                    {loadingBranches && (
+                      <span className="text-xs text-gray-500 flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Yükleniyor...
+                      </span>
+                    )}
+                  </div>
+                  {branches.length > 0 ? (
+                    <Select value={branch} onValueChange={setBranch}>
+                      <SelectTrigger id="branch">
+                        <SelectValue placeholder="Branch seçin" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches.map((b) => (
+                          <SelectItem key={b} value={b}>
+                            {b}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      id="branch"
+                      value={branch}
+                      onChange={(e) => setBranch(e.target.value)}
+                      placeholder="main"
+                      disabled={loadingBranches}
+                    />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Son Senkron</Label>

@@ -404,4 +404,14 @@ export class CustomerService {
       };
     }
   }
+
+  /**
+   * Remote Git repository'deki branch listesini getirir
+   */
+  async listGitBranches(customerId: string): Promise<string[]> {
+    const customer = await this.getCustomerById(customerId);
+    if (!customer) throw new Error("Customer not found");
+
+    return await this.gitService.listRemoteBranches(customer.domain);
+  }
 }

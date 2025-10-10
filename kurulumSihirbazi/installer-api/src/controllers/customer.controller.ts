@@ -361,3 +361,13 @@ customerRouter.post("/:id/database/fix-ownership", authorize("ADMIN", "SUPER_ADM
     res.status(500).json({ success: false, message: error?.message || "Database ownership fix başarısız" });
   }
 });
+
+// Git remote branch listesi
+customerRouter.get("/:id/git/branches", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
+  try {
+    const branches = await customerService.listGitBranches(req.params.id);
+    res.json({ success: true, branches });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error?.message || "Branch listesi alınamadı" });
+  }
+});

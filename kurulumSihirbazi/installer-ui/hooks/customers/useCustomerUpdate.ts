@@ -21,6 +21,8 @@ export function useCustomerUpdate(customerId: string, domain?: string) {
   const [loading, setLoading] = useState<boolean>(true);
   const [operation, setOperation] = useState<UpdateOperation | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
+  const [branches, setBranches] = useState<string[]>([]);
+  const [loadingBranches, setLoadingBranches] = useState<boolean>(false);
   const socketRef = useRef<Socket | null>(null);
 
   const API_URL = process.env.NEXT_PUBLIC_INSTALLER_API_URL || "http://localhost:3031";
@@ -246,12 +248,35 @@ export function useCustomerUpdate(customerId: string, domain?: string) {
     }
   }, [customerId, operation, appendLog]);
 
+  const fetchBranches = useCallback(async () => {
+    setLoadingBranches(true);
+    try {
+      const res = await apiFetch(`/api/customers/${customerId}/git/branches`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.message || 'Branch listesi alınamadı');
+      }
+      const data = await res.json();
+      if (data?.success && Array.isArray(data.branches)) {
+        setBranches(data.branches);
+      }
+    } catch (error: any) {
+      console.error('Fetch branches failed:', error);
+      toast.error(error?.message || 'Branch listesi alınamadı');
+    } finally {
+      setLoadingBranches(false);
+    }
+  }, [customerId]);
+
   return {
     info,
     loading,
     operation,
     logs,
+    branches,
+    loadingBranches,
     refresh: fetchInfo,
+    fetchBranches,
     gitUpdate,
     reinstallDependencies,
     buildApplications,

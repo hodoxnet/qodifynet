@@ -269,12 +269,26 @@ export class GitService {
       await this.runGit(customerPath, ["remote", "set-url", "origin", remote]);
 
       const targetBranch = merged.branch || metadata.branch || "main";
-      await this.runGit(customerPath, ["fetch", "origin", targetBranch]);
 
+      // Hedef branch'i explicit olarak remote tracking branch'e fetch et
+      // Bu, --single-branch ile clone edilmiş repository'lerde de çalışır
+      await this.runGit(customerPath, ["fetch", "origin", `${targetBranch}:refs/remotes/origin/${targetBranch}`]);
+
+      // Local branch var mı kontrol et
+      let localBranchExists = false;
       try {
-        await this.runGit(customerPath, ["checkout", targetBranch]);
+        await this.runGit(customerPath, ["rev-parse", "--verify", targetBranch]);
+        localBranchExists = true;
       } catch {
-        await this.runGit(customerPath, ["checkout", "-B", targetBranch, `origin/${targetBranch}`]);
+        localBranchExists = false;
+      }
+
+      // Branch'e geç
+      if (localBranchExists) {
+        await this.runGit(customerPath, ["checkout", targetBranch]);
+      } else {
+        // Local branch yoksa oluştur
+        await this.runGit(customerPath, ["checkout", "-b", targetBranch, `origin/${targetBranch}`]);
       }
 
       if (merged.reset === false) {
@@ -316,5 +330,49 @@ export class GitService {
       lastSyncAt: new Date().toISOString(),
       ...data,
     });
+  }
+
+  /**
+   * Remote repository'deki branch listesini getirir
+   */
+  async listRemoteBranches(domain: string): Promise<string[]> {
+    await this.ensureGit();
+    const customerPath = this.getCustomerPath(domain);
+
+    if (!(await fs.pathExists(customerPath))) {
+      throw new Error("Müşteri klasörü bulunamadı");
+    }
+
+    const metadata = await this.readMetadataFile(customerPath);
+    if (!metadata || metadata.source !== 'git' || !metadata.repoUrl) {
+      throw new Error("Git kaynak bilgisi bulunamadı");
+    }
+
+    // Settings'ten token bilgisini al
+    const merged = await this.applyUpdateDefaults({ repoUrl: metadata.repoUrl });
+    const remote = this.buildRemoteUrl(merged.repoUrl!, merged.accessToken, merged.username);
+
+    try {
+      // Remote URL'i güncelle (token değişmiş olabilir)
+      await this.runGit(customerPath, ["remote", "set-url", "origin", remote]);
+
+      // ls-remote ile branch listesini al
+      const { stdout } = await this.runGit(customerPath, ["ls-remote", "--heads", "origin"]);
+
+      // Parse: "hash\trefs/heads/branch-name" formatında gelir
+      const branches = stdout
+        .split('\n')
+        .filter(line => line.trim())
+        .map(line => {
+          const match = line.match(/refs\/heads\/(.+)$/);
+          return match ? match[1] : null;
+        })
+        .filter((b): b is string => b !== null);
+
+      return branches;
+    } catch (error: any) {
+      console.error('[GitService] Remote branch listesi alınamadı:', error.message);
+      throw new Error(`Remote branch'ler alınamadı: ${error.message}`);
+    }
   }
 }
