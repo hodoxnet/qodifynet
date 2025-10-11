@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -103,60 +104,54 @@ export function CustomerInfoDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Server className="h-5 w-5" />
-            Müşteri Bilgileri
-          </DialogTitle>
-          <div className="flex items-center gap-2 mt-1.5">
-            <Globe className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-            <span className="text-sm text-gray-600 dark:text-gray-400">
+      <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0">
+        {/* Sabit Header */}
+        <DialogHeader className="space-y-4 px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="flex items-center gap-3 text-2xl">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                <Server className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              Müşteri Bilgileri
+            </DialogTitle>
+            <div className="flex items-center gap-2">
+              {isLocalCustomer && (
+                <Badge variant="secondary" className="px-3 py-1">
+                  Local
+                </Badge>
+              )}
+              {customer.mode === "production" && (
+                <Badge variant="default" className="px-3 py-1">
+                  Production
+                </Badge>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Globe className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            <span className="text-lg font-medium text-gray-700 dark:text-gray-300">
               {customer.domain}
             </span>
-            {isLocalCustomer && (
-              <Badge variant="secondary" className="ml-2">
-                Local
-              </Badge>
-            )}
-            {customer.mode === "production" && (
-              <Badge variant="default" className="ml-2">
-                Production
-              </Badge>
-            )}
           </div>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Port Bilgileri */}
-          <Card>
-            <CardContent className="pt-4">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                Uygulama Portları
-              </h3>
-              <div className="flex gap-4 text-sm">
-                <span className="text-gray-600 dark:text-gray-400">
-                  Backend: <span className="font-mono">{customer.ports.backend}</span>
-                </span>
-                <span className="text-gray-600 dark:text-gray-400">
-                  Admin: <span className="font-mono">{customer.ports.admin}</span>
-                </span>
-                <span className="text-gray-600 dark:text-gray-400">
-                  Store: <span className="font-mono">{customer.ports.store}</span>
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Servis Sağlığı */}
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  Servis Sağlığı
-                </h3>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
+        {/* Scroll Edilebilir İçerik */}
+        <div className="flex-1 overflow-y-auto px-6 py-6">
+          <div className="space-y-6">
+          {/* Servis Sağlığı - En Üstte ve Geniş */}
+          <Card className="border-2 shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                    <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    Servis Sağlığı
+                  </h3>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
                     {loading
                       ? "Kontrol ediliyor..."
                       : lastChecked
@@ -164,21 +159,23 @@ export function CustomerInfoDialog({
                       : "Henüz kontrol edilmedi"}
                   </span>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     onClick={() => checkHealth()}
                     disabled={loading}
+                    className="px-4"
                   >
                     {loading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     ) : (
-                      <RefreshCw className="h-4 w-4" />
+                      <RefreshCw className="h-4 w-4 mr-2" />
                     )}
+                    Yenile
                   </Button>
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {(["backend", "admin", "store"] as const).map((service) => {
                   const status = getServiceStatus(service);
                   const Icon = status.icon;
@@ -186,60 +183,66 @@ export function CustomerInfoDialog({
                   return (
                     <div
                       key={service}
-                      className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                      className="p-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl border border-gray-200 dark:border-gray-700"
                     >
-                      <div className="flex items-center gap-2">
-                        <Icon className={cn("h-4 w-4", status.color)} />
-                        <span className="capitalize font-medium text-sm">
-                          {service}:
-                        </span>
-                        <span
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Icon className={cn("h-5 w-5", status.color)} />
+                          <span className="capitalize font-semibold text-base text-gray-900 dark:text-gray-100">
+                            {service}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div
                           className={cn(
-                            "text-xs",
-                            status.color.replace("text-", "text-opacity-80 text-")
+                            "text-sm font-medium",
+                            status.color
                           )}
                         >
                           {status.label}
-                        </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onOpenLogs(service)}
+                          className="w-full justify-start h-8 text-xs"
+                        >
+                          <Terminal className="h-3 w-3 mr-2" />
+                          Log Görüntüle
+                        </Button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onOpenLogs(service)}
-                        className="h-7"
-                      >
-                        <Terminal className="h-3 w-3 mr-1" />
-                        Logs
-                      </Button>
                     </div>
                   );
                 })}
 
-                {/* Redis Health Check */}
+                {/* Redis Health Check Card */}
                 {customer.redis && health?.redis && (
-                  <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      {health.redis.status === "healthy" ? (
-                        <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400 mt-0.5 flex-shrink-0" />
-                      ) : (
-                        <AlertCircle className="h-4 w-4 text-red-500 dark:text-red-400 mt-0.5 flex-shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="capitalize font-medium text-sm">
-                            Redis:
-                          </span>
-                          {health.redis.status === "healthy" && (
-                            <span className="text-xs text-green-500 dark:text-green-400">
-                              Bağlı ({health.redis.url})
-                            </span>
-                          )}
-                        </div>
-                        {health.redis.status !== "healthy" && health.redis.error && (
-                          <div className="mt-1 text-xs text-red-600 dark:text-red-400 break-words">
-                            {health.redis.error}
-                          </div>
+                  <div className="p-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        {health.redis.status === "healthy" ? (
+                          <CheckCircle className="h-5 w-5 text-green-500 dark:text-green-400" />
+                        ) : (
+                          <AlertCircle className="h-5 w-5 text-red-500 dark:text-red-400" />
                         )}
+                        <span className="font-semibold text-base text-gray-900 dark:text-gray-100">
+                          Redis
+                        </span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {health.redis.status === "healthy" ? (
+                        <div className="text-sm font-medium text-green-500 dark:text-green-400">
+                          Bağlı
+                        </div>
+                      ) : (
+                        <div className="text-xs text-red-600 dark:text-red-400 break-words">
+                          {health.redis.error}
+                        </div>
+                      )}
+                      <div className="text-xs text-gray-600 dark:text-gray-400 font-mono">
+                        {health.redis.url}
                       </div>
                     </div>
                   </div>
@@ -248,90 +251,188 @@ export function CustomerInfoDialog({
             </CardContent>
           </Card>
 
-          {/* Direkt URL'ler */}
-          <Card>
-            <CardContent className="pt-4">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                Direkt URL&apos;ler
-              </h3>
-              <div className="flex items-center gap-3">
-                {Object.entries(urls).map(([key, url]) => (
-                  <a
-                    key={key}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                  >
-                    {key.charAt(0).toUpperCase() + key.slice(1)}
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Veritabanı Bilgileri */}
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Database className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  Veritabanı
-                </h3>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Host: </span>
-                  <span className="font-mono">{customer.db?.host || "-"}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Port: </span>
-                  <span className="font-mono">{customer.db?.port ?? "-"}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Veritabanı: </span>
-                  <span className="font-mono">{customer.db?.name || "-"}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Kullanıcı: </span>
-                  <span className="font-mono">{customer.db?.user || "-"}</span>
-                </div>
-                <div className="col-span-2">
-                  <span className="text-gray-600 dark:text-gray-400">Şema: </span>
-                  <span className="font-mono">{customer.db?.schema || "public"}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Redis Bilgileri */}
-          {customer.redis && (
-            <Card>
-              <CardContent className="pt-4">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                  Redis
-                </h3>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-gray-600 dark:text-gray-400">Host: </span>
-                    <span className="font-mono">{customer.redis.host}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600 dark:text-gray-400">Port: </span>
-                    <span className="font-mono">{customer.redis.port}</span>
-                  </div>
-                  {customer.redis.prefix && (
-                    <div className="col-span-2">
-                      <span className="text-gray-600 dark:text-gray-400">Prefix: </span>
-                      <span className="font-mono">{customer.redis.prefix}</span>
+          {/* İki Kolonlu Grid Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Sol Kolon */}
+            <div className="space-y-6">
+              {/* Port Bilgileri */}
+              <Card className="shadow-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                      <Server className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                      Uygulama Portları
+                    </h3>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Backend</span>
+                      <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">
+                        {customer.ports.backend}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Admin</span>
+                      <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">
+                        {customer.ports.admin}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Store</span>
+                      <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">
+                        {customer.ports.store}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Veritabanı Bilgileri */}
+              <Card className="shadow-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                      <Database className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                      PostgreSQL
+                    </h3>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Host</div>
+                      <div className="font-mono text-sm text-gray-900 dark:text-gray-100">
+                        {customer.db?.host || "-"}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Port</div>
+                        <div className="font-mono text-sm text-gray-900 dark:text-gray-100">
+                          {customer.db?.port ?? "-"}
+                        </div>
+                      </div>
+                      <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Şema</div>
+                        <div className="font-mono text-sm text-gray-900 dark:text-gray-100">
+                          {customer.db?.schema || "public"}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Veritabanı</div>
+                      <div className="font-mono text-sm text-gray-900 dark:text-gray-100">
+                        {customer.db?.name || "-"}
+                      </div>
+                    </div>
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Kullanıcı</div>
+                      <div className="font-mono text-sm text-gray-900 dark:text-gray-100">
+                        {customer.db?.user || "-"}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Sağ Kolon */}
+            <div className="space-y-6">
+              {/* Direkt URL'ler */}
+              <Card className="shadow-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                      <ExternalLink className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                      Hızlı Erişim
+                    </h3>
+                  </div>
+                  <div className="space-y-3">
+                    {Object.entries(urls).map(([key, url]) => (
+                      <a
+                        key={key}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group"
+                      >
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {key.charAt(0).toUpperCase() + key.slice(1)}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate max-w-[200px]">
+                            {url}
+                          </span>
+                          <ExternalLink className="h-4 w-4 text-blue-600 dark:text-blue-400 group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Redis Bilgileri */}
+              {customer.redis && (
+                <Card className="shadow-sm">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                        <Database className="h-5 w-5 text-red-600 dark:text-red-400" />
+                      </div>
+                      <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                        Redis Cache
+                      </h3>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Host</div>
+                        <div className="font-mono text-sm text-gray-900 dark:text-gray-100">
+                          {customer.redis.host}
+                        </div>
+                      </div>
+                      <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Port</div>
+                        <div className="font-mono text-sm text-gray-900 dark:text-gray-100">
+                          {customer.redis.port}
+                        </div>
+                      </div>
+                      {customer.redis.prefix && (
+                        <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Prefix</div>
+                          <div className="font-mono text-sm text-gray-900 dark:text-gray-100">
+                            {customer.redis.prefix}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+          </div>
         </div>
+
+        {/* Sabit Footer */}
+        <DialogFooter className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 flex-shrink-0">
+          <div className="flex items-center justify-between w-full">
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              ID: <span className="font-mono text-xs">{customer.id}</span>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Kapat
+              </Button>
+            </div>
+          </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
