@@ -115,8 +115,56 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("disconnect", () => {
+  // Real-time log streaming subscription
+  socket.on("subscribe-log-stream", async (data: { customerId: string; domain: string; service: string }) => {
+    try {
+      const { customerId, domain, service } = data;
+      if (!customerId || !domain || !service) {
+        console.error("Invalid log stream subscription data:", data);
+        return;
+      }
+
+      // Join the specific log room
+      const roomName = `logs-${customerId}-${service}`;
+      socket.join(roomName);
+      console.log(`[Socket] Client ${socket.id} joined ${roomName}`);
+
+      // Start the log stream
+      const { LogStreamService } = await import("./services/log-stream.service");
+      const logStreamService = LogStreamService.getInstance();
+      await logStreamService.startLogStream(customerId, domain, service);
+
+      socket.emit("stream-started", { service });
+    } catch (error) {
+      console.error("Error starting log stream:", error);
+      socket.emit("stream-error", { error: error instanceof Error ? error.message : "Failed to start stream" });
+    }
+  });
+
+  // Unsubscribe from log streaming
+  socket.on("unsubscribe-log-stream", async (data: { customerId: string; service: string }) => {
+    try {
+      const { customerId, service } = data;
+      if (!customerId || !service) return;
+
+      const roomName = `logs-${customerId}-${service}`;
+      socket.leave(roomName);
+      console.log(`[Socket] Client ${socket.id} left ${roomName}`);
+
+      // Stop or decrement the stream
+      const { LogStreamService } = await import("./services/log-stream.service");
+      const logStreamService = LogStreamService.getInstance();
+      logStreamService.stopLogStream(customerId, service);
+    } catch (error) {
+      console.error("Error stopping log stream:", error);
+    }
+  });
+
+  socket.on("disconnect", async () => {
     console.log("Client disconnected:", socket.id);
+
+    // Clean up any log streams this client was subscribed to
+    // Note: PM2 processes will auto-cleanup when client count reaches 0
   });
 });
 

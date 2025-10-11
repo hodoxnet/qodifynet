@@ -52,12 +52,24 @@ export function CustomerLogViewer({
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const { logs, loading, error, fetchLogs, clearLogs, downloadLogs } = useCustomerLogs({
+  const {
+    logs,
+    loading,
+    error,
+    isStreaming,
+    fetchLogs,
+    clearLogs,
+    downloadLogs,
+    startStreaming,
+    stopStreaming
+  } = useCustomerLogs({
     customerId,
+    customerDomain,
     service,
     lines,
     autoRefresh,
     refreshInterval: 3000,
+    streamingMode: true, // WebSocket streaming aktif
   });
 
   useEffect(() => {
@@ -66,8 +78,12 @@ export function CustomerLogViewer({
     } else {
       setAutoRefresh(false);
       clearLogs();
+      // Modal kapanınca streaming'i durdur
+      if (isStreaming) {
+        stopStreaming();
+      }
     }
-  }, [open, fetchLogs, clearLogs]);
+  }, [open, fetchLogs, clearLogs, isStreaming, stopStreaming]);
 
   useEffect(() => {
     setService(initialService);
@@ -294,9 +310,14 @@ export function CustomerLogViewer({
         {/* Sabit Footer */}
         <DialogFooter className="px-6 py-3 border-t border-gray-200 dark:border-gray-800 flex-shrink-0">
           <div className="flex items-center justify-between w-full">
-            {autoRefresh ? (
-              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+            {isStreaming ? (
+              <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
                 <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+                <span className="font-medium">🔴 Canlı Yayın - Gerçek zamanlı loglar akıyor</span>
+              </div>
+            ) : autoRefresh ? (
+              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse" />
                 <span>Otomatik yenileme aktif (3 saniyede bir)</span>
               </div>
             ) : (
