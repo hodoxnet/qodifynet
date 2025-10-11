@@ -70,6 +70,7 @@ model Customer {
   dbSchema     String?  @default("public")
   redisHost    String?
   redisPort    Int?
+  redisPassword String?
   redisPrefix  String?
   status       String   @default("stopped")
   version      String?

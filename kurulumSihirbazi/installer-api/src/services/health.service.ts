@@ -35,6 +35,11 @@ export class HealthService {
     // HTTP endpoint'lerini kontrol et
     await this.checkHttpEndpoints(customer, health);
 
+    // Redis bağlantısını kontrol et
+    if (customer.redis) {
+      await this.checkCustomerRedisHealth(customer.redis, health);
+    }
+
     // Cache'i güncelle
     this.healthCache.set(cacheKey, {
       data: health,
@@ -118,6 +123,39 @@ export class HealthService {
     }
   }
 
+  private async checkCustomerRedisHealth(redisConfig: any, health: CustomerHealth): Promise<void> {
+    try {
+      const result = await this.checkRedisConnection(redisConfig);
+
+      if (!result.connected) {
+        console.error('[Redis Health Check] Bağlantı başarısız:', {
+          host: redisConfig.host,
+          port: redisConfig.port,
+          error: result.error
+        });
+      }
+
+      health.redis = {
+        status: result.connected ? 'healthy' : 'error',
+        url: `${redisConfig.host}:${redisConfig.port}`,
+        error: result.error || null
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('[Redis Health Check] Beklenmeyen hata:', {
+        host: redisConfig.host,
+        port: redisConfig.port,
+        error: errorMessage
+      });
+
+      health.redis = {
+        status: 'error',
+        url: `${redisConfig.host}:${redisConfig.port}`,
+        error: `Beklenmeyen hata: ${errorMessage}`
+      };
+    }
+  }
+
   async performHealthCheck(url: string): Promise<{
     healthy: boolean;
     statusCode?: number;
@@ -175,18 +213,35 @@ export class HealthService {
     connected: boolean;
     error?: string;
   }> {
+    const { host, port, password } = redisConfig;
+
     try {
-      const { host, port } = redisConfig;
-      const { stdout } = await execAsync(
-        `redis-cli -h ${host} -p ${port} ping`
-      );
-      return {
-        connected: stdout.trim() === 'PONG'
-      };
-    } catch (error) {
+      // Redis password varsa -a parametresi ile ekle
+      const authParam = password ? `-a "${password}"` : '';
+      const command = `redis-cli -h ${host} -p ${port} ${authParam} ping`.trim();
+
+      const { stdout, stderr } = await execAsync(command);
+
+      const response = stdout.trim();
+
+      if (response === 'PONG') {
+        return { connected: true };
+      } else {
+        return {
+          connected: false,
+          error: `Beklenmeyen yanıt: ${response}${stderr ? ` | stderr: ${stderr}` : ''}`
+        };
+      }
+    } catch (error: any) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const stderr = error.stderr ? String(error.stderr).trim() : '';
+      const detailedError = stderr
+        ? `${errorMessage} | ${stderr}`
+        : errorMessage;
+
       return {
         connected: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: `Redis bağlantı hatası (${host}:${port}): ${detailedError}`
       };
     }
   }

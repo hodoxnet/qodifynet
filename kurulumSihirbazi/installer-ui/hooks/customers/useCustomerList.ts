@@ -30,6 +30,7 @@ export interface Customer {
   redis?: {
     host: string;
     port: number;
+    password?: string;
     prefix?: string;
   };
 }

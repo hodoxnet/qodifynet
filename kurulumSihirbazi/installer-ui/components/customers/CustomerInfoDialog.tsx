@@ -214,6 +214,36 @@ export function CustomerInfoDialog({
                     </div>
                   );
                 })}
+
+                {/* Redis Health Check */}
+                {customer.redis && health?.redis && (
+                  <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      {health.redis.status === "healthy" ? (
+                        <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-red-500 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="capitalize font-medium text-sm">
+                            Redis:
+                          </span>
+                          {health.redis.status === "healthy" && (
+                            <span className="text-xs text-green-500 dark:text-green-400">
+                              Bağlı ({health.redis.url})
+                            </span>
+                          )}
+                        </div>
+                        {health.redis.status !== "healthy" && health.redis.error && (
+                          <div className="mt-1 text-xs text-red-600 dark:text-red-400 break-words">
+                            {health.redis.error}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

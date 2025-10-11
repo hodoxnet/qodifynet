@@ -62,7 +62,7 @@ const CustomerCreateSchema = z.object({
   mode: z.enum(["local", "production"]).optional(),
   ports: z.object({ backend: z.number().int().positive(), admin: z.number().int().positive(), store: z.number().int().positive() }),
   db: z.object({ name: z.string(), user: z.string(), host: z.string(), port: z.number().int(), schema: z.string().optional() }).optional(),
-  redis: z.object({ host: z.string(), port: z.number().int(), prefix: z.string().optional() }).optional(),
+  redis: z.object({ host: z.string(), port: z.number().int(), password: z.string().optional(), prefix: z.string().optional() }).optional(),
 });
 
 customerRouter.post("/", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
@@ -82,7 +82,7 @@ customerRouter.post("/", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Pr
       ports: raw.ports,
       resources: { cpu: 0, memory: 0 },
       db: raw.db ? { ...raw.db, name: sanitizeString(raw.db.name, 128), user: sanitizeString(raw.db.user, 128), host: sanitizeString(raw.db.host, 128), schema: raw.db.schema || "public" } : undefined,
-      redis: raw.redis ? { ...raw.redis, host: sanitizeString(raw.redis.host, 128), prefix: raw.redis.prefix ? sanitizeString(raw.redis.prefix, 128) : undefined } : undefined,
+      redis: raw.redis ? { ...raw.redis, host: sanitizeString(raw.redis.host, 128), password: raw.redis.password, prefix: raw.redis.prefix ? sanitizeString(raw.redis.prefix, 128) : undefined } : undefined,
     });
     ok(res, { id });
     return;
@@ -103,7 +103,7 @@ customerRouter.put("/:id", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): 
     if (raw.mode) updates.mode = raw.mode;
     if (raw.ports) updates.ports = raw.ports;
     if (raw.db) updates.db = { ...raw.db, name: raw.db.name ? sanitizeString(raw.db.name, 128) : undefined, user: raw.db.user ? sanitizeString(raw.db.user, 128) : undefined, host: raw.db.host ? sanitizeString(raw.db.host, 128) : undefined };
-    if (raw.redis) updates.redis = { ...raw.redis, host: raw.redis.host ? sanitizeString(raw.redis.host, 128) : undefined, prefix: raw.redis.prefix ? sanitizeString(raw.redis.prefix, 128) : undefined };
+    if (raw.redis) updates.redis = { ...raw.redis, host: raw.redis.host ? sanitizeString(raw.redis.host, 128) : undefined, password: raw.redis.password, prefix: raw.redis.prefix ? sanitizeString(raw.redis.prefix, 128) : undefined };
     const next = await customerService.updateCustomer?.(id, updates as any);
     if (!next) { err(res, 404, "CUSTOMER_NOT_FOUND", "Customer not found"); return; }
     ok(res, { customer: next });

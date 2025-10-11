@@ -493,6 +493,7 @@ setupRouter.post("/finalize", setupLimiter, requireScopes(SCOPES.SETUP_RUN), asy
       dbPort,
       redisHost,
       redisPort,
+      redisPassword,
       storeName,
       isLocal
     } = req.body;
@@ -566,6 +567,7 @@ setupRouter.post("/finalize", setupLimiter, requireScopes(SCOPES.SETUP_RUN), asy
       redis: {
         host: redisHost || "localhost",
         port: redisPort || 6379,
+        password: redisPassword,
         prefix: domain.replace(/\./g, "_")
       },
     });

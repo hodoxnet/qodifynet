@@ -24,6 +24,7 @@ export interface Customer {
   redis?: {
     host: string;
     port: number;
+    password?: string;
     prefix?: string;
   };
 }
@@ -45,6 +46,7 @@ export interface CustomerHealth {
   backend: ServiceHealth;
   admin: ServiceHealth;
   store: ServiceHealth;
+  redis?: ServiceHealth;
 }
 
 export interface ServiceHealth {

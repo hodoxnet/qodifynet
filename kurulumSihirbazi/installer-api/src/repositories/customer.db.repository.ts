@@ -25,6 +25,7 @@ function toEntity(row: any): Customer {
     redis: row.redisHost ? {
       host: row.redisHost,
       port: row.redisPort || 6379,
+      password: row.redisPassword || undefined,
       prefix: row.redisPrefix || undefined,
     } : undefined,
   };
@@ -69,6 +70,7 @@ export class CustomerDbRepository {
       dbSchema: customer.db?.schema || "public",
       redisHost: customer.redis?.host || null,
       redisPort: customer.redis?.port || null,
+      redisPassword: customer.redis?.password || null,
       redisPrefix: customer.redis?.prefix || null,
     };
     await prisma.customer.upsert({ where: { id: customer.id }, update: data, create: { ...data, slug: customer.domain.replace(/\./g, "-"), companyName: null } });

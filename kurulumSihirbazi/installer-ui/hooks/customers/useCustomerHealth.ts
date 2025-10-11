@@ -20,6 +20,11 @@ export interface HealthStatus {
     httpCode?: number;
     error?: string;
   };
+  redis?: {
+    status: "healthy" | "stopped" | "error";
+    url?: string;
+    error?: string;
+  };
 }
 
 interface UseCustomerHealthProps {
