@@ -168,6 +168,27 @@ export class BackupService {
       }
       this.emit(domain, "Dosya kopyalama tamamlandı", { percent: COPY_WEIGHT });
 
+      // uploads klasörü symlink ise kaçırılmaması için açıkça dahil et
+      try {
+        const uploadsSrc = path.join(base, 'backend', 'uploads');
+        if (await fs.pathExists(uploadsSrc)) {
+          const uploadsDst = path.join(workDir, 'backend', 'uploads');
+          await fs.copy(uploadsSrc, uploadsDst, { dereference: true });
+        }
+      } catch {}
+
+      // .env dosyalarını güvenceye al (dotfile kaçırılmalarına karşı)
+      for (const svc of ['backend', 'admin', 'store'] as const) {
+        try {
+          const envSrc = path.join(base, svc, '.env');
+          if (await fs.pathExists(envSrc)) {
+            const envDst = path.join(workDir, svc, '.env');
+            await fs.ensureDir(path.dirname(envDst));
+            await fs.copy(envSrc, envDst);
+          }
+        } catch {}
+      }
+
       // 2) DB dump (custom compressed) — müşteri DB bilgisi yoksa atla
       const settings = await this.settings.getSettings();
       const adminCfg = {
@@ -256,6 +277,16 @@ export class BackupService {
       this.emit(domain, "Arşiv açılıyor...", { percent: EXTRACT_WEIGHT / 2 });
       const zip = new AdmZip(zipPath);
       zip.extractAllTo(workDir, true);
+
+      // 2.1) Hedef servis dizinlerini temizle (mirror restore) – var olmayan dosyalar da silinsin
+      try {
+        for (const svc of ["backend", "admin", "store"]) {
+          const dstRoot = path.join(base, svc);
+          await fs.remove(dstRoot);
+          await fs.ensureDir(dstRoot);
+        }
+        this.emit(domain, "Hedef klasörler temizlendi", { percent: EXTRACT_WEIGHT });
+      } catch {}
 
       // 3) Files overwrite with progress (size-weighted)
       type Item = { src: string; dst: string; size: number };
