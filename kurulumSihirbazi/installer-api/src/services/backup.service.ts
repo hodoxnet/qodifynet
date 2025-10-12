@@ -322,7 +322,7 @@ export class BackupService {
         const hasNodeModules = await fs.pathExists(path.join(cwd, "node_modules"));
         if (!hasNodeModules) {
           this.emit(domain, `${d} bağımlılıkları yükleniyor...`);
-          await execAsync("npm install --production=false --no-audit --no-fund", { cwd, shell: true });
+          await execAsync("npm install --production=false --no-audit --no-fund", { cwd });
         }
       }
 

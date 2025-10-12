@@ -63,7 +63,7 @@ export function BackupsTab({ customerId, domain }: { customerId: string; domain:
           ) : backups.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center text-gray-600">
               <Archive className="h-10 w-10 text-gray-300 mb-3" />
-              Henüz yedek yok. "Yeni Yedek" ile oluşturun.
+              Henüz yedek yok. Yeni Yedek butonuyla oluşturun.
             </div>
           ) : (
             <div className="overflow-x-auto">
