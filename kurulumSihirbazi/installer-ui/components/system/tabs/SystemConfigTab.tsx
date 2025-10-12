@@ -251,6 +251,16 @@ export function SystemConfigTab() {
                 Redis key&apos;leri için önek. Birden fazla uygulama aynı Redis&apos;i kullanıyorsa önemlidir.
               </p>
             </div>
+            <div className="md:col-span-2 space-y-2">
+              <Label htmlFor="redis-password">Şifre (opsiyonel)</Label>
+              <Input
+                id="redis-password"
+                type="password"
+                placeholder="••••••••"
+                value={config.redis?.password || ""}
+                onChange={(e) => updateConfig({ redis: { ...config.redis, password: e.target.value } })}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

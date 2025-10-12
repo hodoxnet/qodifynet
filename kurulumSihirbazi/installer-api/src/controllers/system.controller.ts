@@ -212,8 +212,8 @@ systemRouter.post("/test/db", authorize("SUPER_ADMIN"), async (req, res): Promis
 // Redis connection test
 systemRouter.post("/test/redis", authorize("SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
-    const { host = "localhost", port = 6379 } = req.body || {};
-    const result = await systemService.testRedisConnection(host, Number(port));
+    const { host = "localhost", port = 6379, password } = (req.body || {}) as { host?: string; port?: number; password?: string };
+    const result = await systemService.testRedisConnection(host, Number(port), password);
     if (result.ok) {
       res.json({ ok: true });
       return;
