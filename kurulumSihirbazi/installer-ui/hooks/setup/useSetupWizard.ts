@@ -28,7 +28,7 @@ export function useSetupWizard() {
     }
   }, [config.domain]);
 
-  // Varsayılan Git ayarlarını yükle (yalnızca staff)
+  // Varsayılan sistem ayarlarını yükle (yalnızca staff)
   useEffect(() => {
     if (!isStaff) return;
 
@@ -38,6 +38,8 @@ export function useSetupWizard() {
         if (!res.ok) return;
         const data = await res.json();
         const git = data?.git || {};
+        const db = data?.db || {};
+        const redis = data?.redis || {};
         setConfig(prev => {
           const next = { ...prev };
 
@@ -56,6 +58,17 @@ export function useSetupWizard() {
           if (!prev.gitUsername && git.username) {
             next.gitUsername = git.username;
           }
+
+          // DB varsayılanları
+          if (!prev.dbHost && db.host) next.dbHost = db.host;
+          if (!prev.dbPort && typeof db.port === 'number') next.dbPort = db.port;
+          if (!prev.dbUser && db.user) next.dbUser = db.user;
+          if (!prev.dbPassword && db.password) next.dbPassword = db.password;
+
+          // Redis varsayılanları
+          if (!prev.redisHost && redis.host) next.redisHost = redis.host;
+          if (!prev.redisPort && typeof redis.port === 'number') next.redisPort = redis.port;
+          if (!prev.redisPassword && redis.password) next.redisPassword = redis.password;
 
           return next;
         });

@@ -43,6 +43,7 @@ function buildSettingsResponse(saved: InstallerSettings) {
       host: saved.redis?.host ?? envDefaults.redis.host,
       port: saved.redis?.port ?? envDefaults.redis.port,
       prefix: saved.redis?.prefix ?? envDefaults.redis.prefix,
+      password: saved.redis?.password ?? undefined,
     },
     paths: {
       templates: saved.paths?.templates ?? envDefaults.paths.templates,

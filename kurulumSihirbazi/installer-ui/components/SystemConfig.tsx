@@ -7,7 +7,7 @@ import { apiFetch } from "@/lib/api";
 
 type Settings = {
   db?: { host?: string; port?: number; user?: string; password?: string };
-  redis?: { host?: string; port?: number; prefix?: string };
+  redis?: { host?: string; port?: number; prefix?: string; password?: string };
   paths?: { templates?: string; customers?: string };
 };
 
@@ -183,6 +183,13 @@ export function SystemConfig() {
               placeholder="Prefix (örn. domain_ veya hodox_)"
               value={settings.redis?.prefix || ""}
               onChange={(e) => setSettings(s => ({ ...s, redis: { ...s.redis, prefix: e.target.value } }))}
+              className="px-3 py-2 border border-gray-300 rounded-lg md:col-span-2"
+            />
+            <input
+              type="password"
+              placeholder="Password (opsiyonel)"
+              value={settings.redis?.password || ""}
+              onChange={(e) => setSettings(s => ({ ...s, redis: { ...s.redis, password: e.target.value } }))}
               className="px-3 py-2 border border-gray-300 rounded-lg md:col-span-2"
             />
           </div>
