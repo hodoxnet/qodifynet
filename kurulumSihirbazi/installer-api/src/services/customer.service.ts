@@ -151,6 +151,39 @@ export class CustomerService {
         // ignore
       }
 
+      // Redis anahtarlarını temizle (prefix bazlı)
+      try {
+        const host = customer.redis?.host || process.env.REDIS_HOST || "localhost";
+        const port = customer.redis?.port || parseInt(process.env.REDIS_PORT || "6379");
+        const password = customer.redis?.password || process.env.REDIS_PASSWORD || undefined;
+        const prefix = customer.redis?.prefix || customer.domain.replace(/\./g, "_");
+        const { default: Redis } = await import('ioredis');
+        const redis = new Redis({ host, port, password, lazyConnect: true, maxRetriesPerRequest: 0, enableOfflineQueue: false, retryStrategy: () => null } as any);
+        await redis.connect().catch(() => {});
+        if (redis.status === 'ready') {
+          const patterns = [
+            `${prefix}:*`,
+            `${prefix}_*`,
+          ];
+          for (const pattern of patterns) {
+            let cursor = '0';
+            do {
+              const [next, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', '1000');
+              cursor = next;
+              if (keys && keys.length) {
+                // pipeline delete for performance
+                const pipe = redis.pipeline();
+                keys.forEach(k => pipe.del(k));
+                await pipe.exec().catch(() => {});
+              }
+            } while (cursor !== '0');
+          }
+        }
+        try { await redis.quit(); } catch {}
+      } catch (e) {
+        console.warn("Redis cleanup failed:", e);
+      }
+
       // Müşteri dizinini kaldır
       const customerPath = path.join(this.customersPath, customer.domain.replace(/\./g, "-"));
       await fs.remove(customerPath);
@@ -314,11 +347,11 @@ export class CustomerService {
     return await this.prismaAdminService.runPrismaMigrate(customer.domain);
   }
 
-  async runSeed(customerId: string): Promise<any> {
+  async runSeed(customerId: string, opts?: { type?: 'essential' | 'demo'; path?: string }): Promise<any> {
     const customer = await this.getCustomerById(customerId);
     if (!customer) throw new Error("Customer not found");
 
-    return await this.prismaAdminService.runSeed(customer.domain);
+    return await this.prismaAdminService.runSeed(customer.domain, opts);
   }
 
   async getDeploymentInfo(customerId: string): Promise<DeploymentMetadata | null> {

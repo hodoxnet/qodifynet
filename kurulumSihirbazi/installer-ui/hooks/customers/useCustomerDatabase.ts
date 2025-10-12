@@ -70,8 +70,51 @@ export function useCustomerDatabase(customerId: string) {
   const runMigrations = useCallback(() =>
     runDatabaseOperation("migrate"), [runDatabaseOperation]);
 
-  const seedDatabase = useCallback(() =>
-    runDatabaseOperation("seed"), [runDatabaseOperation]);
+  const seedEssential = useCallback(async () => {
+    setOperations(prev => ({ ...prev, seeding: true }));
+    try {
+      const res = await apiFetch(`/api/customers/${customerId}/database/seed`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'essential' })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.success === false) {
+        const msg = data?.message || 'Essential seed başarısız';
+        toast.error(msg);
+        return { success: false, error: msg };
+      }
+      toast.success(data?.message || 'Essential seed tamamlandı');
+      setOutput(prev => ({ ...prev, seed: data?.output }));
+      return { success: true, output: data?.output };
+    } catch (e) {
+      toast.error('Essential seed başarısız');
+      return { success: false };
+    } finally {
+      setOperations(prev => ({ ...prev, seeding: false }));
+    }
+  }, [customerId]);
+
+  const seedDemo = useCallback(async () => {
+    setOperations(prev => ({ ...prev, seeding: true }));
+    try {
+      const res = await apiFetch(`/api/customers/${customerId}/database/seed`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'demo' })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.success === false) {
+        const msg = data?.message || 'Demo seed başarısız';
+        toast.error(msg);
+        return { success: false, error: msg };
+      }
+      toast.success(data?.message || 'Demo seed tamamlandı');
+      setOutput(prev => ({ ...prev, seed: data?.output }));
+      return { success: true, output: data?.output };
+    } catch (e) {
+      toast.error('Demo seed başarısız');
+      return { success: false };
+    } finally {
+      setOperations(prev => ({ ...prev, seeding: false }));
+    }
+  }, [customerId]);
 
   const clearOutput = useCallback((operation?: keyof DatabaseOutput) => {
     if (operation) {
@@ -87,7 +130,8 @@ export function useCustomerDatabase(customerId: string) {
     generatePrismaClient,
     pushSchema,
     runMigrations,
-    seedDatabase,
+    seedEssential,
+    seedDemo,
     clearOutput,
   };
 }

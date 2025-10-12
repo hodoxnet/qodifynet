@@ -248,7 +248,7 @@ export class PrismaAdminService {
     }
   }
 
-  async runSeed(domain: string): Promise<any> {
+  async runSeed(domain: string, opts?: { type?: 'essential' | 'demo'; path?: string }): Promise<any> {
     const customerPath = path.join(this.customersPath, domain.replace(/\./g, "-"));
     const backendPath = path.join(customerPath, "backend");
 
@@ -256,21 +256,57 @@ export class PrismaAdminService {
       const env = { ...process.env } as Record<string, any>;
       delete env.DATABASE_URL;
 
-      const result = await execAsync("npm run db:seed", {
-        cwd: backendPath,
-        env
-      });
+      // 1) Dinamik yer keşfi: backend projesi içindeki tipik seed yollarını tarayın
+      // Öncelik: verilen path -> bilinen dizinler
+      const candidates: string[] = [];
+      if (opts?.path) candidates.push(opts.path);
+      const type = opts?.type; // 'essential' | 'demo'
+      if (type) {
+        const rel = [
+          `prisma/seed/seeds/${type}/index.ts`,
+          `prisma/seed/seeds/${type}`,
+          `prisma/seed/${type}/index.ts`,
+          `prisma/seed/${type}`,
+          `prisma/seeds/${type}/index.ts`,
+          `prisma/seeds/${type}`,
+          `src/prisma/seed/seeds/${type}/index.ts`,
+          `src/prisma/seed/${type}/index.ts`,
+        ];
+        for (const r of rel) candidates.push(path.join(backendPath, r));
+      }
+
+      // Uygun ilk script/dizin bulunursa ts-node ile çalıştır
+      for (const c of candidates) {
+        try {
+          const st = await fs.stat(c).catch(() => null);
+          if (!st) continue;
+          const entry = st.isDirectory() ? path.join(c, 'index.ts') : c;
+          const exists = await fs.pathExists(entry);
+          if (!exists) continue;
+          const cmd = `npx ts-node ${entry}`;
+          const result = await execAsync(cmd, { cwd: backendPath, env });
+          return {
+            success: true,
+            message: `Seed script çalıştırıldı (${type || 'custom'})`,
+            output: result.stdout
+          };
+        } catch {}
+      }
+
+      // 2) Aksi halde npm run db:seed çalıştır; tip bilgisini env ile aktar
+      if (opts?.type) env['SEED_TYPE'] = opts.type;
+      const result = await execAsync("npm run db:seed", { cwd: backendPath, env });
 
       return {
         success: true,
-        message: "Seed verileri başarıyla yüklendi",
+        message: `Seed verileri başarıyla yüklendi${opts?.type ? ` (${opts.type})` : ''}`.trim(),
         output: result.stdout
       };
     } catch (error: any) {
       console.error("Error running seed:", error);
       return {
         success: false,
-        message: error.message,
+        message: error.message || 'Seed başarısız',
         error: error.toString()
       };
     }

@@ -6,6 +6,7 @@ import { SCOPES } from "../constants/scopes";
 import { z } from "zod";
 import { sanitizeDomain, sanitizeString } from "../utils/sanitize";
 import { ok, err } from "../utils/http";
+import { enforcePartnerOwnership } from "../middleware/scopes";
 
 export const customerRouter = Router();
 const customerService = new CustomerService();
@@ -289,7 +290,8 @@ customerRouter.post("/:id/database/migrate", authorize("ADMIN", "SUPER_ADMIN"), 
 
 customerRouter.post("/:id/database/seed", authorize("ADMIN", "SUPER_ADMIN"), async (req, res): Promise<void> => {
   try {
-    const result = await customerService.runSeed(req.params.id);
+    const body = (req.body || {}) as { type?: 'essential' | 'demo'; path?: string };
+    const result = await customerService.runSeed(req.params.id, body);
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: "Failed to run seed" });
@@ -371,3 +373,98 @@ customerRouter.get("/:id/git/branches", authorize("ADMIN", "SUPER_ADMIN"), async
     res.status(500).json({ success: false, message: error?.message || "Branch listesi alınamadı" });
   }
 });
+
+// --- Backups ---
+// List backups
+customerRouter.get(
+  "/:id/backups",
+  authorize("ADMIN", "SUPER_ADMIN"),
+  enforcePartnerOwnership((req) => req.params.id),
+  async (req, res): Promise<void> => {
+    try {
+      const { BackupService } = await import("../services/backup.service");
+      const svc = new BackupService();
+      const repo = (await import("../repositories/customer.db.repository")).CustomerDbRepository.getInstance();
+      const c = await repo.getById(req.params.id);
+      if (!c) { err(res, 404, "CUSTOMER_NOT_FOUND", "Customer not found"); return; }
+      const list = await svc.listBackups(c.domain);
+      ok(res, { backups: list });
+    } catch (e: any) {
+      err(res, 500, "BACKUPS_LIST_FAILED", e?.message || "Backups listing failed");
+    }
+  }
+);
+
+// Create backup
+customerRouter.post(
+  "/:id/backups",
+  authorize("ADMIN", "SUPER_ADMIN"),
+  enforcePartnerOwnership((req) => req.params.id),
+  async (req, res): Promise<void> => {
+    try {
+      const body = (req.body || {}) as { includeArtifacts?: boolean; includeLogs?: boolean };
+      const { BackupService } = await import("../services/backup.service");
+      const svc = new BackupService();
+      const result = await svc.createBackup(req.params.id, { includeArtifacts: Boolean(body.includeArtifacts), includeLogs: Boolean(body.includeLogs) });
+      ok(res, result);
+    } catch (e: any) {
+      err(res, 500, "BACKUP_CREATE_FAILED", e?.message || "Backup failed");
+    }
+  }
+);
+
+// Download backup
+customerRouter.get(
+  "/:id/backups/:backupId/download",
+  authorize("ADMIN", "SUPER_ADMIN"),
+  enforcePartnerOwnership((req) => req.params.id),
+  async (req, res): Promise<void> => {
+    try {
+      const { BackupService } = await import("../services/backup.service");
+      const svc = new BackupService();
+      const repo = (await import("../repositories/customer.db.repository")).CustomerDbRepository.getInstance();
+      const c = await repo.getById(req.params.id);
+      if (!c) { err(res, 404, "CUSTOMER_NOT_FOUND", "Customer not found"); return; }
+      const fp = await svc.getBackupFile(c.domain, req.params.backupId);
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="${c.domain}-${req.params.backupId}.zip"`);
+      res.sendFile(fp);
+    } catch (e: any) {
+      err(res, 404, "BACKUP_NOT_FOUND", e?.message || "Backup not found");
+    }
+  }
+);
+
+// Delete backup
+customerRouter.delete(
+  "/:id/backups/:backupId",
+  authorize("ADMIN", "SUPER_ADMIN"),
+  enforcePartnerOwnership((req) => req.params.id),
+  async (req, res): Promise<void> => {
+    try {
+      const { BackupService } = await import("../services/backup.service");
+      const svc = new BackupService();
+      const result = await svc.deleteBackup(req.params.id, req.params.backupId);
+      ok(res, result);
+    } catch (e: any) {
+      err(res, 400, "BACKUP_DELETE_FAILED", e?.message || "Delete failed");
+    }
+  }
+);
+
+// Restore backup
+customerRouter.post(
+  "/:id/backups/:backupId/restore",
+  authorize("ADMIN", "SUPER_ADMIN"),
+  enforcePartnerOwnership((req) => req.params.id),
+  async (req, res): Promise<void> => {
+    try {
+      const { BackupService } = await import("../services/backup.service");
+      const svc = new BackupService();
+      const result = await svc.restoreBackup(req.params.id, req.params.backupId);
+      ok(res, result);
+    } catch (e: any) {
+      err(res, 500, "BACKUP_RESTORE_FAILED", e?.message || "Restore failed");
+    }
+  }
+);

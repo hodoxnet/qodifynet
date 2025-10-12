@@ -513,12 +513,13 @@ export class SetupService {
       if (tooShort(backendExisting["JWT_REFRESH_SECRET"])) backendUpdates["JWT_REFRESH_SECRET"] = this.generateSecret();
       if (tooShort(backendExisting["SESSION_SECRET"])) backendUpdates["SESSION_SECRET"] = this.generateSecret();
       // SMTP defaults only if missing
+      const defaultEmail = isLocal ? "noreply@example.com" : `noreply@${customerDomain}`;
       if (!backendExisting["SMTP_HOST"]) backendUpdates["SMTP_HOST"] = isLocal ? "localhost" : `smtp.${customerDomain}`;
       if (!backendExisting["SMTP_PORT"]) backendUpdates["SMTP_PORT"] = String(isLocal ? 1025 : 587);
       if (!backendExisting["SMTP_SECURE"]) backendUpdates["SMTP_SECURE"] = String(false);
-      if (!backendExisting["SMTP_USER"]) backendUpdates["SMTP_USER"] = `noreply@${customerDomain}`;
+      if (!backendExisting["SMTP_USER"]) backendUpdates["SMTP_USER"] = defaultEmail;
       if (!backendExisting["SMTP_PASS"]) backendUpdates["SMTP_PASS"] = isLocal ? "devpass" : "changeme";
-      if (!backendExisting["SMTP_FROM"]) backendUpdates["SMTP_FROM"] = `noreply@${customerDomain}`;
+      if (!backendExisting["SMTP_FROM"]) backendUpdates["SMTP_FROM"] = defaultEmail;
 
       // Local modda kafa karışıklığını önlemek için LOCAL_DATABASE_URL'ı her zaman aktif DATABASE_URL ile eşitle
       if (isLocal) {
@@ -650,7 +651,7 @@ export class SetupService {
     }
   }
 
-  // Adım 9: Migration'ları çalıştır
+  // Adım 9: Prisma db push + generate + essential seed
   async runMigrations(customerDomain: string, dbName?: string, appUser?: string): Promise<{ ok: boolean; message: string }> {
     try {
       const customerPath = path.join(this.customersPath, customerDomain.replace(/\./g, "-"));
@@ -660,11 +661,29 @@ export class SetupService {
       const env = { ...process.env } as Record<string, any>;
       delete env.DATABASE_URL;
 
-      // Prisma generate
+      // Prisma generate + db push
       await execAsync(`npx prisma generate`, { cwd: backendPath, env });
+      await execAsync(`npx prisma db push --skip-generate`, { cwd: backendPath, env });
 
-      // Prisma migrate
-      await execAsync(`npx prisma migrate deploy`, { cwd: backendPath, env });
+      // Migration history senkronizasyonu: mevcut migration klasörlerini "applied" olarak işaretle
+      try {
+        const migrationsDir = path.join(backendPath, "prisma", "migrations");
+        if (await fs.pathExists(migrationsDir)) {
+          const entries = await fs.readdir(migrationsDir);
+          const dirs: string[] = [];
+          for (const e of entries) {
+            const full = path.join(migrationsDir, e);
+            try { const st = await fs.stat(full); if (st.isDirectory()) dirs.push(e); } catch {}
+          }
+          dirs.sort(); // isim/chronoloji sırası
+          for (const mig of dirs) {
+            // resolve applied; SQL çalıştırmadan geçmişe işler
+            await execAsync(`npx prisma migrate resolve --applied ${mig}`, { cwd: backendPath, env });
+          }
+        }
+      } catch (e) {
+        console.warn("Prisma migrate resolve aşamasında uyarı:", (e as any)?.message || e);
+      }
 
       // Migration sonrası ownership'leri düzelt
       if (dbName && appUser) {
@@ -687,14 +706,21 @@ export class SetupService {
         }
       }
 
-      return {
-        ok: true,
-        message: "Migration'lar başarıyla uygulandı"
-      };
+      // Essential seed (zorunlu)
+      try {
+        const { PrismaAdminService } = await import('./prisma-admin.service');
+        const pas = new PrismaAdminService();
+        // Ortamdan özelleştirilebilir, yoksa tip ile npm run db:seed çalışır
+        await pas.runSeed(customerDomain, { type: 'essential' });
+      } catch (e) {
+        console.warn('Essential seed failed or skipped:', (e as any)?.message || e);
+      }
+
+      return { ok: true, message: "DB push ve essential seed uygulandı" };
     } catch (error: any) {
       return {
         ok: false,
-        message: error.message || "Migration hatası"
+        message: error.message || "DB push/seed hatası"
       };
     }
   }

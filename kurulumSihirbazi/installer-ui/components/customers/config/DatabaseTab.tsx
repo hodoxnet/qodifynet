@@ -25,7 +25,8 @@ interface DatabaseTabProps {
   onGeneratePrismaClient: () => Promise<any>;
   onPushSchema: () => Promise<any>;
   onRunMigrations: () => Promise<any>;
-  onSeedDatabase: () => Promise<any>;
+  onSeedEssential: () => Promise<any>;
+  onSeedDemo: () => Promise<any>;
 }
 
 const DATABASE_OPERATIONS = [
@@ -62,17 +63,7 @@ const DATABASE_OPERATIONS = [
     action: "onRunMigrations" as keyof Omit<DatabaseTabProps, "operations" | "output">,
     buttonText: "Migration Uygula",
   },
-  {
-    id: "seed",
-    title: "Seed Verilerini Yükle",
-    description: "Başlangıç verilerini yükler (kategoriler, iller, admin vs.)",
-    command: "npm run db:seed",
-    icon: RefreshCw,
-    color: "orange",
-    loadingKey: "seeding" as keyof DatabaseOperations,
-    action: "onSeedDatabase" as keyof Omit<DatabaseTabProps, "operations" | "output">,
-    buttonText: "Seed Çalıştır",
-  },
+  // Seed işlemleri aşağıda ayrı bölümde
 ];
 
 const getColorClasses = (color: string) => {
@@ -107,13 +98,15 @@ export function DatabaseTab({
   onGeneratePrismaClient,
   onPushSchema,
   onRunMigrations,
-  onSeedDatabase,
+  onSeedEssential,
+  onSeedDemo,
 }: DatabaseTabProps) {
   const actions = {
     onGeneratePrismaClient,
     onPushSchema,
     onRunMigrations,
-    onSeedDatabase,
+    onSeedEssential,
+    onSeedDemo,
   };
 
   return (
@@ -203,6 +196,32 @@ export function DatabaseTab({
           );
         })}
       </div>
+
+      {/* Recommended Steps */}
+      {/* Seed Operations */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Seed İşlemleri</CardTitle>
+          <CardDescription className="mt-1">Zorunlu essential seed’i yükleyin; isterseniz demo seed’i ayrıca uygulayın</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 md:flex-row">
+          <Button
+            onClick={actions.onSeedEssential}
+            disabled={Object.values(operations).some(Boolean)}
+            className="gap-2 bg-orange-600 hover:bg-orange-700 text-white"
+          >
+            <RefreshCw className="h-4 w-4" /> Essential Seed
+          </Button>
+          <Button
+            onClick={actions.onSeedDemo}
+            variant="outline"
+            disabled={Object.values(operations).some(Boolean)}
+            className="gap-2"
+          >
+            <RefreshCw className="h-4 w-4" /> Demo Seed
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Recommended Steps */}
       <Card className="border-dashed">

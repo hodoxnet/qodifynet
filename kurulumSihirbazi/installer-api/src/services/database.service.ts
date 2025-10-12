@@ -182,6 +182,18 @@ export class DatabaseService {
     }
   }
 
+  /**
+   * Create compressed custom-format dump (pg_dump -Fc -Z9)
+   */
+  async backupDatabaseCustom(dbName: string, outFile: string): Promise<void> {
+    const safeName = dbName.replace(/[^a-zA-Z0-9_]/g, "_");
+    const cmd = `pg_dump -U ${this.pgConfig.user} -h ${this.pgConfig.host} -p ${this.pgConfig.port} -d ${safeName} -Fc -Z9 -f "${outFile}"`;
+    await execAsync(cmd, {
+      env: { ...process.env, PGPASSWORD: this.pgConfig.password },
+      maxBuffer: 1024 * 1024 * 512,
+    });
+  }
+
   async restoreDatabase(dbName: string, backupFile: string): Promise<void> {
     const safeName = dbName.replace(/[^a-zA-Z0-9_]/g, "_");
 

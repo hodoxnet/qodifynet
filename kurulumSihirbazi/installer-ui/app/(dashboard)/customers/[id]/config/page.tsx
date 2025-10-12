@@ -34,6 +34,7 @@ import { AdminsTab } from "@/components/customers/config/AdminsTab";
 import { DatabaseTab } from "@/components/customers/config/DatabaseTab";
 import { DemoDataTab } from "@/components/customers/config/DemoDataTab";
 import { UpdateTab } from "@/components/customers/config/UpdateTab";
+import { BackupsTab } from "@/components/customers/config/BackupsTab";
 
 const TAB_CONFIG = [
   { value: "backend", label: "Backend API", icon: Server },
@@ -43,6 +44,7 @@ const TAB_CONFIG = [
   { value: "database", label: "Veritabanı", icon: Database },
   { value: "update", label: "Güncellemeler", icon: GitBranch },
   { value: "demo", label: "Demo Veriler", icon: Upload },
+  { value: "backups", label: "Yedekler", icon: Save },
 ];
 
 export default function CustomerConfigPage() {
@@ -73,7 +75,8 @@ export default function CustomerConfigPage() {
     generatePrismaClient,
     pushSchema,
     runMigrations,
-    seedDatabase,
+    seedEssential,
+    seedDemo,
   } = useCustomerDatabase(customerId);
 
   if (loading) {
@@ -242,7 +245,8 @@ export default function CustomerConfigPage() {
                 onGeneratePrismaClient={generatePrismaClient}
                 onPushSchema={pushSchema}
                 onRunMigrations={runMigrations}
-                onSeedDatabase={seedDatabase}
+                onSeedEssential={seedEssential}
+                onSeedDemo={seedDemo}
               />
             </TabsContent>
 
@@ -258,6 +262,11 @@ export default function CustomerConfigPage() {
             {/* Demo Data Tab */}
             <TabsContent value="demo" className="mt-0">
               <DemoDataTab domain={envConfig.domain} />
+            </TabsContent>
+
+            {/* Backups Tab */}
+            <TabsContent value="backups" className="mt-0">
+              <BackupsTab customerId={customerId} domain={envConfig.domain} />
             </TabsContent>
           </CardContent>
         </Tabs>

@@ -47,15 +47,11 @@ export class PM2Service {
           env: {
             NODE_ENV: devMode ? "development" : "production",
             PORT: ports.backend,
-            // Env kirlenmesini önlemek için kritik anahtarları boşlayıp .env'e bırak
-            JWT_ACCESS_SECRET: "",
-            JWT_REFRESH_SECRET: "",
-            SESSION_SECRET: "",
             HOST: "127.0.0.1",
             // Dotenv'i her zaman doğru dosyadan yüklemek için mutlak yol kullan
             NODE_OPTIONS: "-r dotenv/config",
             DOTENV_CONFIG_PATH: path.join(beCwd, ".env"),
-            // Üst süreçten gelen değişkenleri ezebilmek için override aç
+            // Not: Kritik secret'ları burada tanımlamayın; .env dosyası yüklenecek
             DOTENV_CONFIG_OVERRIDE: "true",
           },
           error_file: path.join(logsDir, `${domain}-backend-error.log`),
