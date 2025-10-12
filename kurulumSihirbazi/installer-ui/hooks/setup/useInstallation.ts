@@ -433,6 +433,7 @@ export function useInstallation() {
         dbPort: config.dbPort,
         redisHost: config.redisHost,
         redisPort: config.redisPort,
+        redisPassword: config.redisPassword,
         storeName: config.storeName,
         isLocal,
         reservationLedgerId

@@ -119,8 +119,15 @@ export class EnvConfigService {
         : 'production';
     }
 
-    // DB/Redis bilgisi zaten varsa atla
-    if (customer.db && customer.redis) return;
+    const hasDbInfo = Boolean(customer.db);
+    const existingRedis = customer.redis || undefined;
+    const hasRedisBasics = Boolean(existingRedis && existingRedis.host);
+    const hasRedisPassword = Boolean(existingRedis && existingRedis.password);
+
+    const needsDb = !hasDbInfo;
+    const needsRedisDetails = !hasRedisBasics || !hasRedisPassword;
+
+    if (!needsDb && !needsRedisDetails) return;
 
     // Backend .env'den parse etmeyi dene
     const customerPath = path.join(customersPath, customer.domain.replace(/\./g, "-"));
@@ -133,7 +140,7 @@ export class EnvConfigService {
 
         // DATABASE_URL'i parse et: postgresql://user:pass@host:port/dbName?schema=public
         const dbUrl = env["DATABASE_URL"];
-        if (dbUrl) {
+        if (dbUrl && needsDb) {
           const parsed = this.parseDatabaseUrl(dbUrl);
           if (parsed) {
             customer.db = {
@@ -149,13 +156,35 @@ export class EnvConfigService {
         // Redis bilgileri
         const rh = env["REDIS_HOST"];
         const rp = env["REDIS_PORT"];
+        const rpass = env["REDIS_PASSWORD"];
         const rpref = env["REDIS_PREFIX"];
-        if (rh || rp || rpref) {
-          customer.redis = {
-            host: rh || "localhost",
-            port: rp ? Number(rp) : 6379,
-            prefix: rpref,
-          };
+        if ((rh || rp || rpass || rpref) && needsRedisDetails) {
+          const mergedRedis = { ...(customer.redis || {}) } as Record<string, any>;
+          let changed = false;
+
+          if (!mergedRedis.host) {
+            mergedRedis.host = rh || "localhost";
+            changed = true;
+          }
+
+          if (!mergedRedis.port) {
+            mergedRedis.port = rp ? Number(rp) : 6379;
+            changed = true;
+          }
+
+          if (!mergedRedis.password && rpass) {
+            mergedRedis.password = rpass;
+            changed = true;
+          }
+
+          if (!mergedRedis.prefix && rpref) {
+            mergedRedis.prefix = rpref;
+            changed = true;
+          }
+
+          if (changed) {
+            customer.redis = mergedRedis;
+          }
         }
       }
     } catch (e) {

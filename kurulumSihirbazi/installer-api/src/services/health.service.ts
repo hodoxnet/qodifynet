@@ -216,13 +216,21 @@ export class HealthService {
     const { host, port, password } = redisConfig;
 
     try {
-      // Redis password varsa -a parametresi ile ekle
-      const authParam = password ? `-a "${password}"` : '';
-      const command = `redis-cli -h ${host} -p ${port} ${authParam} ping`.trim();
+      // Environment variable kullanarak şifreyi güvenli şekilde geç
+      const env = password ? { ...process.env, REDISCLI_AUTH: password } : process.env;
+      const command = `redis-cli -h ${host} -p ${port} ping`;
 
-      const { stdout, stderr } = await execAsync(command);
+      const { stdout, stderr } = await execAsync(command, { env });
 
       const response = stdout.trim();
+
+      // NOAUTH hatası kontrolü
+      if (stderr && stderr.includes('NOAUTH')) {
+        return {
+          connected: false,
+          error: 'Authentication required (NOAUTH)'
+        };
+      }
 
       if (response === 'PONG') {
         return { connected: true };
@@ -235,6 +243,15 @@ export class HealthService {
     } catch (error: any) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const stderr = error.stderr ? String(error.stderr).trim() : '';
+
+      // NOAUTH hatası kontrolü
+      if (stderr.includes('NOAUTH')) {
+        return {
+          connected: false,
+          error: 'Beklenmeyen yanıt: NOAUTH Authentication required.'
+        };
+      }
+
       const detailedError = stderr
         ? `${errorMessage} | ${stderr}`
         : errorMessage;
@@ -299,7 +316,11 @@ export class HealthService {
 
   private async checkRedisHealth(): Promise<boolean> {
     try {
-      const { stdout } = await execAsync('redis-cli ping');
+      // Sistem Redis'i için .env'den şifreyi al
+      const redisPassword = process.env.REDIS_PASSWORD;
+      const env = redisPassword ? { ...process.env, REDISCLI_AUTH: redisPassword } : process.env;
+
+      const { stdout } = await execAsync('redis-cli ping', { env });
       return stdout.trim() === 'PONG';
     } catch {
       return false;
