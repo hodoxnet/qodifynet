@@ -277,7 +277,3 @@ templates/node_modules/
 templates/**/.env
 templates/**/.env.*
 templates/**/*.log
-
-# Backend and Frontend directories (empty for now)
-backend/
-frontend/
