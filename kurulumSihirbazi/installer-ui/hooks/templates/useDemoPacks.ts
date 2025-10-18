@@ -56,28 +56,83 @@ export function useDemoPacks() {
     })();
   }, [detectLatestVersion, refresh]);
 
-  const uploadDemoPack = useCallback(async (file: File, version?: string) => {
+  const uploadDemoPack = useCallback(async (
+    file: File,
+    version?: string,
+    onProgress?: (percent: number) => void
+  ) => {
     if (!file.name.endsWith('.zip')) {
       toast.error("Lütfen ZIP dosyası seçin");
       return false;
     }
-    try {
-      const form = new FormData();
-      form.append('file', file);
-      form.append('version', version || latestVersion || '2.4.0');
-      const res = await apiFetch('/api/templates/demo/upload', { method: 'POST', body: form as any });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j?.error || 'Yükleme başarısız');
+
+    return new Promise<boolean>((resolve) => {
+      try {
+        const form = new FormData();
+        form.append('file', file);
+        form.append('version', version || latestVersion || '2.4.0');
+
+        const xhr = new XMLHttpRequest();
+        const API_URL = process.env.NEXT_PUBLIC_INSTALLER_API_URL || "http://localhost:3031";
+
+        // Get auth token and CSRF token
+        const token = typeof window !== 'undefined' ? localStorage.getItem('qid_access') : null;
+        const csrfToken = typeof window !== 'undefined' ? localStorage.getItem('qid_csrf_token') : null;
+
+        xhr.open('POST', `${API_URL}/api/templates/demo/upload`, true);
+        if (token) {
+          xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        }
+        if (csrfToken) {
+          xhr.setRequestHeader('x-csrf-token', csrfToken);
+        }
+        xhr.withCredentials = true;
+
+        // Progress tracking
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable && onProgress) {
+            const percent = Math.round((e.loaded / e.total) * 100);
+            onProgress(percent);
+          }
+        };
+
+        xhr.onload = async () => {
+          try {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              toast.success('Demo paketi yüklendi');
+              await refresh(version);
+              resolve(true);
+            } else {
+              const data = JSON.parse(xhr.responseText || '{}');
+              throw new Error(data?.error || 'Yükleme başarısız');
+            }
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : 'Yükleme başarısız';
+            toast.error(msg);
+            resolve(false);
+          }
+        };
+
+        xhr.onerror = () => {
+          toast.error('Ağ hatası - yükleme başarısız');
+          resolve(false);
+        };
+
+        xhr.ontimeout = () => {
+          toast.error('Yükleme zaman aşımına uğradı');
+          resolve(false);
+        };
+
+        // 15 dakika timeout (büyük dosyalar için)
+        xhr.timeout = 15 * 60 * 1000;
+
+        xhr.send(form);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Yükleme başarısız';
+        toast.error(msg);
+        resolve(false);
       }
-      toast.success('Demo paketi yüklendi');
-      await refresh(version);
-      return true;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Yükleme başarısız';
-      toast.error(msg);
-      return false;
-    }
+    });
   }, [latestVersion, refresh]);
 
   const deleteDemoPack = useCallback(async (filename: string, version?: string) => {

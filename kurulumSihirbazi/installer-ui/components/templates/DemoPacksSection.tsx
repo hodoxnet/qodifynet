@@ -34,20 +34,19 @@ export function DemoPacksSection() {
       setUploadingFile(file.name);
       setUploadProgress(0);
 
-      // Simulate progress (gerçek progress için XMLHttpRequest kullanılabilir)
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => Math.min(prev + 10, 90));
-      }, 200);
+      const success = await uploadDemoPack(file, latestVersion, (percent) => {
+        setUploadProgress(percent);
+      });
 
-      const success = await uploadDemoPack(file, latestVersion);
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      setTimeout(() => {
+      if (success) {
+        setTimeout(() => {
+          setUploadingFile(null);
+          setUploadProgress(0);
+        }, 500);
+      } else {
         setUploadingFile(null);
         setUploadProgress(0);
-      }, 500);
+      }
     }
   }, [uploadDemoPack, latestVersion]);
 
@@ -57,19 +56,19 @@ export function DemoPacksSection() {
       setUploadingFile(file.name);
       setUploadProgress(0);
 
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => Math.min(prev + 10, 90));
-      }, 200);
+      const success = await uploadDemoPack(file, latestVersion, (percent) => {
+        setUploadProgress(percent);
+      });
 
-      const success = await uploadDemoPack(file, latestVersion);
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      setTimeout(() => {
+      if (success) {
+        setTimeout(() => {
+          setUploadingFile(null);
+          setUploadProgress(0);
+        }, 500);
+      } else {
         setUploadingFile(null);
         setUploadProgress(0);
-      }, 500);
+      }
 
       (e.target as any).value = '';
     }

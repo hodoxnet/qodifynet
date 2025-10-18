@@ -203,9 +203,9 @@ io.on("connection", (socket) => {
 export { io };
 
 // Set server timeout for large file uploads
-httpServer.timeout = 10 * 60 * 1000; // 10 minutes
-httpServer.keepAliveTimeout = 10 * 60 * 1000; // 10 minutes
-httpServer.headersTimeout = 10 * 60 * 1000; // 10 minutes
+httpServer.timeout = 15 * 60 * 1000; // 15 minutes
+httpServer.keepAliveTimeout = 15 * 60 * 1000; // 15 minutes
+httpServer.headersTimeout = 15 * 60 * 1000; // 15 minutes
 
 httpServer.listen(PORT, HOST, async () => {
   console.log(`🚀 Installer API running on http://${HOST}:${PORT}`);

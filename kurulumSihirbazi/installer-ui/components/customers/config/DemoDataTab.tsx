@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useDemoPacks } from "@/hooks/templates/useDemoPacks";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
-import { Loader2, Upload, RefreshCw, Play, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, Upload, RefreshCw, AlertCircle, CheckCircle2 } from "lucide-react";
 import { io as socketIO } from "socket.io-client";
 
 type StepStatus = "idle" | "running" | "success" | "error";
@@ -48,13 +48,8 @@ export function DemoDataTab({ domain }: { domain: string }) {
   const [selected, setSelected] = useState<string>("");
 
   const [step1Status, setStep1Status] = useState<StepStatus>("idle");
-  const [step2Status, setStep2Status] = useState<StepStatus>("idle");
   const [step1Message, setStep1Message] = useState<string>("");
-  const [step2Message, setStep2Message] = useState<string>("");
   const [step1Error, setStep1Error] = useState<string>("");
-  const [step2Error, setStep2Error] = useState<string>("");
-  const [refactorDomain, setRefactorDomain] = useState<string>(domain);
-  const [refactorProgress, setRefactorProgress] = useState<number>(0);
   const [logs, setLogs] = useState<string[]>([]);
   const logContainerRef = useRef<HTMLDivElement | null>(null);
   const socketRef = useRef<ReturnType<typeof socketIO> | null>(null);
@@ -73,38 +68,6 @@ export function DemoDataTab({ domain }: { domain: string }) {
       setSelected(packs[0].name);
     }
   }, [packs, selected]);
-
-  useEffect(() => {
-    setRefactorDomain(domain);
-  }, [domain]);
-
-  useEffect(() => {
-    let tick: ReturnType<typeof setInterval> | undefined;
-    let finish: ReturnType<typeof setTimeout> | undefined;
-
-    if (step2Status === "running") {
-      setRefactorProgress(5);
-      tick = setInterval(() => {
-        setRefactorProgress((prev) => {
-          if (prev >= 90) return prev;
-          const increment = Math.random() * 8 + 3;
-          return Math.min(90, prev + increment);
-        });
-      }, 700);
-    } else if (step2Status === "success") {
-      setRefactorProgress(100);
-      finish = setTimeout(() => setRefactorProgress(0), 2000);
-    } else if (step2Status === "idle") {
-      setRefactorProgress(0);
-    } else if (step2Status === "error") {
-      setRefactorProgress(0);
-    }
-
-    return () => {
-      if (tick) clearInterval(tick);
-      if (finish) clearTimeout(finish);
-    };
-  }, [step2Status]);
 
   useEffect(() => {
     if (!domain) return;
@@ -160,9 +123,6 @@ export function DemoDataTab({ domain }: { domain: string }) {
     setStep1Status("running");
     setStep1Error("");
     setStep1Message("");
-    setStep2Status("idle");
-    setStep2Error("");
-    setStep2Message("");
     setLogs([]);
     appendLog("Demo verileri içe aktarma başlatıldı");
 
@@ -176,7 +136,6 @@ export function DemoDataTab({ domain }: { domain: string }) {
           packName: selected,
           overwriteUploads: true,
           mode: "schema-restore",
-          skipProcessRestart: true,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -194,46 +153,6 @@ export function DemoDataTab({ domain }: { domain: string }) {
       toast.error(message);
     }
   };
-
-  const handleRefactor = async () => {
-    if (!refactorDomain) {
-      toast.error("Domain bilgisi gerekli");
-      return;
-    }
-    setStep2Status("running");
-    setStep2Error("");
-    setStep2Message("");
-    setLogs([]);
-    appendLog("Domain refaktörü başlatıldı");
-
-    try {
-      const payload: Record<string, any> = { domain };
-      if (refactorDomain && refactorDomain !== domain) {
-        payload.targetDomain = refactorDomain;
-      }
-      const res = await apiFetch("/api/setup/import-demo/refactor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.message || data?.error || "Refaktör işlemi başarısız");
-      }
-      setStep2Status("success");
-      const message = data?.message || "Domain refaktörü tamamlandı";
-      setStep2Message(message);
-      toast.success(message);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Refaktör işlemi başarısız";
-      setStep2Status("error");
-      setStep2Error(message);
-      toast.error(message);
-    }
-  };
-
-  const step2Enabled = step1Status === "success";
-  const step2Disabled = !step2Enabled || step2Status === "running";
 
   return (
     <div className="space-y-6">
@@ -255,7 +174,7 @@ export function DemoDataTab({ domain }: { domain: string }) {
       <section className="rounded-lg border p-5 space-y-4 bg-white/40 dark:bg-slate-950/40">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Adım 1</p>
+            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Tek Adım</p>
             <h4 className="text-base font-semibold">Demo verilerini içeri aktar</h4>
             <p className="text-sm text-slate-600 dark:text-slate-400">
               Seçilen demo paketi veritabanına yüklenir ve uploads klasörü kopyalanır.
@@ -305,81 +224,22 @@ export function DemoDataTab({ domain }: { domain: string }) {
             )}
           </div>
         )}
-      </section>
 
-      <section
-        className={`rounded-lg border p-5 space-y-4 transition ${step2Enabled ? "bg-white/60 dark:bg-slate-950/60" : "bg-slate-100/60 dark:bg-slate-950/30"}`}
-      >
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Adım 2</p>
-            <h4 className="text-base font-semibold">Domain uyarlaması ve uygulama refaktörü</h4>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              Demo verilerindeki tüm yükleme bağlantıları yeni domain ile güncellenir, .env dosyaları düzenlenir ve uygulamalar yeniden başlatılır.
-            </p>
-          </div>
-          <StepStatusBadge status={step2Status} />
-        </div>
-
-        <div className={`space-y-4 ${!step2Enabled ? "pointer-events-none select-none opacity-60" : ""}`}>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Yeni domain</label>
-            <input
-              type="text"
-              value={refactorDomain}
-              onChange={(e) => setRefactorDomain(e.target.value)}
-              disabled={step2Disabled}
-              className="w-full max-w-md border rounded-md px-3 py-2 bg-white dark:bg-gray-900"
-              placeholder="ornek.com"
-            />
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Varsayılan olarak müşteri domain’i kullanılır. Farklı bir domain için bu alanı güncelleyin.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <button
-              onClick={handleRefactor}
-              disabled={step2Disabled || !refactorDomain}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-sky-600 to-blue-700 text-white hover:from-sky-500 hover:to-blue-600 disabled:opacity-60"
-            >
-              {step2Status === "running" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-              {step2Status === "running" ? "Refaktör çalışıyor..." : "Refaktörü başlat"}
-            </button>
-
-            {(step2Status === "running" || refactorProgress > 0) && (
-              <div className="h-2 w-full max-w-lg overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-sky-500 via-blue-500 to-sky-600 transition-all duration-500"
-                  style={{ width: `${Math.max(refactorProgress, step2Status === "running" ? 10 : 0)}%` }}
-                />
-              </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Log çıktısı</label>
+          <div
+            ref={logContainerRef}
+            className="max-h-56 overflow-y-auto rounded-lg border bg-slate-950/70 p-3 font-mono text-xs text-slate-100 dark:border-slate-800"
+          >
+            {logs.length === 0 ? (
+              <div className="text-slate-400">Henüz log yok. İşlemi başlattığınızda çıktı burada görünecek.</div>
+            ) : (
+              logs.map((line, idx) => (
+                <div key={`${line}-${idx}`} className="whitespace-pre-wrap">
+                  {line}
+                </div>
+              ))
             )}
-          </div>
-
-          {step2Message && step2Status === "success" && (
-            <p className="text-sm text-emerald-600 dark:text-emerald-400">{step2Message}</p>
-          )}
-          {step2Error && step2Status === "error" && (
-            <p className="text-sm text-rose-600 dark:text-rose-400">{step2Error}</p>
-          )}
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Log çıktısı</label>
-            <div
-              ref={logContainerRef}
-              className="max-h-56 overflow-y-auto rounded-lg border bg-slate-950/70 p-3 font-mono text-xs text-slate-100 dark:border-slate-800"
-            >
-              {logs.length === 0 ? (
-                <div className="text-slate-400">Henüz log yok. İşlemi başlattığınızda çıktı burada görünecek.</div>
-              ) : (
-                logs.map((line, idx) => (
-                  <div key={`${line}-${idx}`} className="whitespace-pre-wrap">
-                    {line}
-                  </div>
-                ))
-              )}
-            </div>
           </div>
         </div>
       </section>

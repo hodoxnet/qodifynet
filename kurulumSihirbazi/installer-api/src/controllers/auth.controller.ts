@@ -40,7 +40,7 @@ const parseRegisterBody: RequestHandler = (req, res, next) => {
   }
 };
 
-const ensureFirstUserOrNext: RequestHandler = async (req, res, next) => {
+const ensureFirstUserOrNext: RequestHandler = async (_req, res, next) => {
   const body = res.locals.registerBody as RegisterBody | undefined;
   if (!body) {
     return res.status(400).json({ error: "Register payload missing" });
@@ -65,7 +65,7 @@ authRouter.post(
   ensureFirstUserOrNext,
   authenticate,
   requireSuperAdmin,
-  async (req, res) => {
+  async (_req, res) => {
     const body = res.locals.registerBody as RegisterBody | undefined;
     if (!body) {
       return res.status(400).json({ error: "Register payload missing" });
