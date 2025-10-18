@@ -14,6 +14,7 @@ import { dnsRouter } from "./controllers/dns.controller";
 import { templateRouter } from "./controllers/template.controller";
 import { authRouter } from "./controllers/auth.controller";
 import { setupRouter } from "./controllers/setup.controller";
+import { setupQueueRouter } from "./controllers/setup-queue.controller";
 import { authenticate } from "./middleware/auth";
 import { authorize } from "./middleware/authorize";
 import { issueCsrfToken, verifyCsrf } from "./middleware/csrf";
@@ -55,6 +56,9 @@ const io = new Server(httpServer, {
 const PORT = Number(process.env.PORT || 3031);
 const HOST = process.env.HOST || '127.0.0.1';
 
+// Trust proxy - we're behind Nginx
+app.set('trust proxy', true);
+
 // Middleware
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use(helmet());
@@ -83,6 +87,7 @@ app.use("/api/customers", authenticate, customerRouter);
 app.use("/api/dns", authenticate, dnsRouter);
 app.use("/api/templates", authenticate, authorize("ADMIN", "SUPER_ADMIN"), templateRouter);
 app.use("/api/setup", authenticate, setupRouter);
+app.use("/api/setup-queue", authenticate, setupQueueRouter);
 
 // Partner yönetimi
 import { partnerRouter } from "./controllers/partner.controller";
@@ -113,6 +118,32 @@ io.on("connection", (socket) => {
     if (typeof domain === "string" && domain.length > 0) {
       socket.join(`deployment-${domain}`);
     }
+  });
+
+  // Job queue subscriptions
+  socket.on("subscribe-job", (jobId: string) => {
+    if (typeof jobId === "string" && jobId.length > 0) {
+      socket.join(`job-${jobId}`);
+      console.log(`[Socket] Client ${socket.id} subscribed to job ${jobId}`);
+    }
+  });
+
+  socket.on("unsubscribe-job", (jobId: string) => {
+    if (typeof jobId === "string" && jobId.length > 0) {
+      socket.leave(`job-${jobId}`);
+      console.log(`[Socket] Client ${socket.id} unsubscribed from job ${jobId}`);
+    }
+  });
+
+  // Active jobs subscription
+  socket.on("subscribe-active-jobs", () => {
+    socket.join("active-jobs");
+    console.log(`[Socket] Client ${socket.id} subscribed to active jobs`);
+  });
+
+  socket.on("unsubscribe-active-jobs", () => {
+    socket.leave("active-jobs");
+    console.log(`[Socket] Client ${socket.id} unsubscribed from active jobs`);
   });
 
   // Real-time log streaming subscription
@@ -176,7 +207,17 @@ httpServer.timeout = 10 * 60 * 1000; // 10 minutes
 httpServer.keepAliveTimeout = 10 * 60 * 1000; // 10 minutes
 httpServer.headersTimeout = 10 * 60 * 1000; // 10 minutes
 
-httpServer.listen(PORT, HOST, () => {
+httpServer.listen(PORT, HOST, async () => {
   console.log(`🚀 Installer API running on http://${HOST}:${PORT}`);
   console.log(`CORS origins: ${ALLOWED_ORIGINS.join(', ')}`);
+
+  // Sync existing customer ports to Redis on startup
+  try {
+    const { SetupQueueService } = await import('./services/setup-queue.service');
+    const setupQueueService = SetupQueueService.getInstance();
+    const result = await setupQueueService.syncCustomerPortsToRedis();
+    console.log(`✅ Port sync completed: ${result.synced} customers, ${result.ports.length} ports`);
+  } catch (error) {
+    console.error('❌ Failed to sync customer ports:', error);
+  }
 });

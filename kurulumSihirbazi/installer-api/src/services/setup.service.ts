@@ -32,6 +32,7 @@ export class SetupService {
   private settingsService: SettingsService;
   private improvedSetupService: ImprovedSetupService;
   private gitService: GitService;
+  private jobContexts = new Map<string, string>();
 
   private templatesPath = process.env.TEMPLATES_PATH || "/var/qodify/templates";
   private customersPath = process.env.CUSTOMERS_PATH || "/var/qodify/customers";
@@ -832,6 +833,32 @@ export class SetupService {
     // Uyum için her iki odaya da yayınla
     io.to(`deployment-${domain}`).emit("setup-progress", payload);
     io.to(`setup-${domain}`).emit("setup-progress", payload);
+
+    const jobId = this.jobContexts.get(domain);
+    if (jobId) {
+      io.to(`job-${jobId}`).emit(`job-${jobId}-progress`, payload);
+      io.to(`job-${jobId}`).emit(`job-${jobId}-log`, {
+        timestamp: payload.timestamp,
+        level: extra?.status === 'error' ? 'error' : 'info',
+        message,
+        step,
+        percent: extra?.percent,
+        status: extra?.status,
+        substep: extra?.substep
+      });
+    }
+  }
+
+  registerJobContext(domain: string, jobId: string) {
+    this.jobContexts.set(domain, jobId);
+  }
+
+  unregisterJobContext(domain: string, jobId?: string) {
+    const current = this.jobContexts.get(domain);
+    if (!current) return;
+    if (!jobId || current === jobId) {
+      this.jobContexts.delete(domain);
+    }
   }
 
   // Not: Kullanılmayan yardımcı metodlar temizlendi.

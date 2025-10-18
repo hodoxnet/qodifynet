@@ -80,9 +80,6 @@ export default function LoginPage() {
               {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
             </Button>
           </form>
-          <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-4">
-            İlk kullanıcı kayıt için API: POST /api/auth/register
-          </p>
         </CardContent>
       </Card>
     </div>

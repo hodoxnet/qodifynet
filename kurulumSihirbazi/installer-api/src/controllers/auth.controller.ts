@@ -1,8 +1,9 @@
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import { AuthService } from "../services/auth.service";
 import { verifyRefreshToken, verifyAccessToken, type JwtPayload } from "../utils/jwt";
 import rateLimit from "express-rate-limit";
+import { authenticate, requireSuperAdmin } from "../middleware/auth";
 
 export const authRouter = Router();
 const auth = new AuthService();
@@ -28,33 +29,56 @@ const RegisterSchema = z.object({
   name: z.string().optional(),
 });
 
-authRouter.post("/register", async (req, res) => {
+type RegisterBody = z.infer<typeof RegisterSchema>;
+
+const parseRegisterBody: RequestHandler = (req, res, next) => {
   try {
-    const body = RegisterSchema.parse(req.body || {});
-    // First user bootstrap: if no users exist, allow register as SUPER_ADMIN
+    res.locals.registerBody = RegisterSchema.parse(req.body || {});
+    next();
+  } catch (e: any) {
+    res.status(400).json({ error: e?.message || "Register failed" });
+  }
+};
+
+const ensureFirstUserOrNext: RequestHandler = async (req, res, next) => {
+  const body = res.locals.registerBody as RegisterBody | undefined;
+  if (!body) {
+    return res.status(400).json({ error: "Register payload missing" });
+  }
+
+  try {
     const createdFirst = await auth.ensureFirstUser(body.email, body.password, body.name);
     if (createdFirst) {
-      return res.json({ user: { id: createdFirst.id, email: createdFirst.email, role: createdFirst.role } });
+      res.json({ user: { id: createdFirst.id, email: createdFirst.email, role: createdFirst.role } });
+      return;
     }
-    // Otherwise: require existing SUPER_ADMIN via Authorization header
-    try {
-      const header = req.headers["authorization"] || "";
-      if (!header || typeof header !== "string" || !header.startsWith("Bearer ")) {
-        return res.status(403).json({ error: "Forbidden" });
-      }
-      const payload = verifyAccessToken(header.slice(7));
-      if (payload.role !== "SUPER_ADMIN") {
-        return res.status(403).json({ error: "Forbidden" });
-      }
-    } catch {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-    const user = await auth.register(body.email, body.password, body.role || "VIEWER", body.name);
-    return res.json({ user: { id: user.id, email: user.email, role: user.role } });
+
+    return next();
   } catch (e: any) {
-    return res.status(400).json({ error: e?.message || "Register failed" });
+    res.status(400).json({ error: e?.message || "Register failed" });
   }
-});
+};
+
+authRouter.post(
+  "/register",
+  parseRegisterBody,
+  ensureFirstUserOrNext,
+  authenticate,
+  requireSuperAdmin,
+  async (req, res) => {
+    const body = res.locals.registerBody as RegisterBody | undefined;
+    if (!body) {
+      return res.status(400).json({ error: "Register payload missing" });
+    }
+
+    try {
+      const user = await auth.register(body.email, body.password, body.role || "VIEWER", body.name);
+      return res.json({ user: { id: user.id, email: user.email, role: user.role } });
+    } catch (e: any) {
+      return res.status(400).json({ error: e?.message || "Register failed" });
+    }
+  }
+);
 
 authRouter.post("/login", async (req, res) => {
   try {

@@ -188,6 +188,18 @@ export class CustomerService {
       const customerPath = path.join(this.customersPath, customer.domain.replace(/\./g, "-"));
       await fs.remove(customerPath);
 
+      // Setup job kayıtlarını temizle
+      try {
+        const { PrismaClient } = await import("@prisma/client");
+        const prisma = new PrismaClient();
+        await prisma.setupJob.deleteMany({
+          where: { domain: customer.domain }
+        });
+        await prisma.$disconnect();
+      } catch (e) {
+        console.warn("Failed to clean setup job records:", e);
+      }
+
       // Veritabanından kaldır
       await this.customerRepository.delete(id);
 

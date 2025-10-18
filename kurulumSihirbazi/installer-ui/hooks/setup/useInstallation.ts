@@ -59,9 +59,164 @@ export function useInstallation() {
            domain.startsWith('local');
   }, []);
 
+  const cancelReservation = useCallback(async (keepalive: boolean = false) => {
+    try {
+      const body = JSON.stringify({ ledgerId: ledgerRef.current });
+      const headers = getAuthHeaders();
+      await fetch(`${API_URL}/api/setup/cancel-reservation`, {
+        method: 'POST',
+        headers,
+        body,
+        credentials: 'include',
+        keepalive,
+      });
+    } catch {}
+  }, [API_URL, getAuthHeaders]);
+
   const startInstallation = useCallback(async (config: SetupConfig) => {
     setInstallStatus("running");
     setInstallProgress([]);
+    setReservationLedgerId(undefined);
+    // Job Queue'ya kurulum ekle
+    try {
+      await ensureCsrfToken();
+
+      const isLocal = isLocalDomain(config.domain);
+      let ledgerId: string | undefined;
+
+      setInstallProgress(prev => [...prev, '💳 Kredi/oturum rezervasyonu yapılıyor...']);
+      try {
+        const reserveResponse = await axios.post(`${API_URL}/api/setup/reserve-credits`, {
+          domain: config.domain,
+          isLocal
+        }, {
+          headers: getAuthHeaders(),
+          withCredentials: true
+        });
+
+        ledgerId = reserveResponse.data?.ledgerId;
+        setReservationLedgerId(ledgerId);
+
+        if (ledgerId) {
+          setInstallProgress(prev => [...prev, '✅ Kredi rezervasyonu tamamlandı']);
+        } else {
+          setInstallProgress(prev => [...prev, '✅ Oturum kilidi alındı']);
+        }
+      } catch (reserveError: any) {
+        const reserveMessage = reserveError.response?.data?.message || reserveError.message || 'Kredi rezervasyonu başarısız';
+        setInstallProgress(prev => [...prev, `❌ ${reserveMessage}`]);
+
+        if (reserveError?.response?.status === 402) {
+          toast.error('Kredi yetersiz. Lütfen bakiyenizi kontrol edin.');
+        } else if (reserveError?.response?.status === 409) {
+          toast.error(reserveMessage || 'Devam eden bir kurulum var');
+        } else {
+          toast.error(reserveMessage);
+        }
+
+        setInstallStatus('error');
+        console.error('Kredi rezervasyon hatası:', reserveError);
+        return;
+      }
+
+      setInstallProgress(prev => [...prev, "🚀 Kurulum kuyruğa ekleniyor..."]);
+
+      // Prepare job configuration
+      const jobConfig = {
+        storeName: config.storeName,
+        adminEmail: config.adminEmail || '',
+        adminPassword: config.adminPassword || '',
+        templateVersion: config.templateVersion || 'latest',
+        version: config.templateVersion || 'latest',
+        initialData: config.initialData || 'empty',
+        dbPrefix: config.dbPrefix,
+        dbConfig: {
+          host: config.dbHost,
+          port: config.dbPort,
+          user: config.dbUser,
+          password: config.dbPassword,
+        },
+        redisConfig: {
+          host: config.redisHost,
+          port: config.redisPort,
+          password: config.redisPassword,
+        },
+        isLocal,
+        sslEnable: config.sslEnable || false,
+        sslEmail: config.sslEmail || config.adminEmail || '',
+        importDemo: config.importDemo || false,
+        demoPackName: config.demoPackName,
+
+        // Git specific
+        repoUrl: config.gitRepoUrl,
+        branch: config.gitBranch,
+        accessToken: config.gitAccessToken,
+        username: config.gitUsername,
+        depth: config.gitDepth,
+        commit: config.gitCommit,
+      };
+
+      // Create job in queue
+      const response = await axios.post(`${API_URL}/api/setup-queue/queue`, {
+        domain: config.domain,
+        type: config.installSource === 'git' ? 'git' : 'template',
+        config: jobConfig,
+        reservationLedgerId: ledgerId
+      }, {
+        headers: getAuthHeaders(),
+        withCredentials: true
+      });
+
+      if (!response.data.jobId) {
+        throw new Error('Job oluşturulamadı');
+      }
+
+      const jobId = response.data.jobId;
+
+      setInstallProgress(prev => [...prev, "✅ Kurulum başarıyla kuyruğa eklendi!"]);
+      setInstallProgress(prev => [...prev, `📋 Job ID: ${jobId}`]);
+      setInstallProgress(prev => [...prev, "⏳ Kurulumunuz sırada bekliyor..."]);
+      setInstallProgress(prev => [...prev, "🔄 Kurulum detay sayfasına yönlendiriliyorsunuz..."]);
+
+      toast.success('Kurulum kuyruğa eklendi! Detay sayfasına yönlendiriliyorsunuz...', {
+        duration: 3000
+      });
+      setInstallStatus("completed");
+
+      // Redirect to job detail page after 1 second (smoother transition)
+      setTimeout(() => {
+        window.location.href = `/setup/${jobId}`;
+      }, 1000);
+
+      return;
+
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || "Kurulum kuyruğa eklenemedi";
+      setInstallProgress(prev => [...prev, `❌ HATA: ${errorMessage}`]);
+
+      await cancelReservation();
+      setReservationLedgerId(undefined);
+
+      if (errorMessage.includes('JOB_EXISTS')) {
+        toast.error('Bu domain için zaten aktif bir kurulum var!');
+        // Redirect to active setups
+        setTimeout(() => {
+          window.location.href = '/setup/active';
+        }, 2000);
+      } else if (error.response?.status === 402) {
+        toast.error('Kredi yetersiz. Lütfen bakiyenizi kontrol edin.');
+      } else if (error.response?.status === 429) {
+        toast.error('Çok fazla istek. Lütfen bir süre sonra tekrar deneyin.');
+      } else {
+        toast.error(errorMessage);
+      }
+
+      setInstallStatus("error");
+      console.error(error);
+      return;
+    }
+
+    // Eski kod aşağıda kalsın ama çalışmayacak (return edildi yukarıda)
     const usingGit = config.installSource === 'git';
 
     // Adım listesi başlangıç durumu
@@ -113,16 +268,20 @@ export function useInstallation() {
         reconnectionDelay: 1000,
       });
 
-      socket.on("connect", () => {
+      if (!socket) {
+        throw new Error("WebSocket bağlantısı kurulamadı");
+      }
+
+      socket!.on("connect", () => {
         socket!.emit("subscribe-deployment", config.domain);
       });
 
       // Hata tanılamayı kolaylaştır
-      socket.on("connect_error", (err: any) => {
+      socket!.on("connect_error", (err: any) => {
         console.error("Socket connect_error:", err?.message || err);
       });
 
-      socket.on("setup-progress", (data: { message: string; step?: string; percent?: number; type?: string; details?: any }) => {
+      socket!.on("setup-progress", (data: { message: string; step?: string; percent?: number; type?: string; details?: any }) => {
         // Log mesajına timestamp ekle
         const timestamp = new Date().toLocaleTimeString('tr-TR');
         const formattedMessage = `[${timestamp}] ${data.message}`;
@@ -151,7 +310,7 @@ export function useInstallation() {
       });
 
       // Backend build log detayları için özel event
-      socket.on("build-log", (data: { service: string; message: string; type: 'stdout' | 'stderr' }) => {
+      socket!.on("build-log", (data: { service: string; message: string; type: 'stdout' | 'stderr' }) => {
         const prefix = data.type === 'stderr' ? '⚠️' : '▶';
         const serviceTag = `[${data.service.toUpperCase()}]`;
         const logMessage = `${prefix} ${serviceTag} ${data.message}`;
@@ -167,7 +326,7 @@ export function useInstallation() {
       });
 
       // Build output (stdout/stderr) için detaylı event
-      socket.on("build-output", (data: {
+      socket!.on("build-output", (data: {
         service: string;
         output: string;
         type: 'stdout' | 'stderr';
@@ -213,7 +372,7 @@ export function useInstallation() {
       });
 
       // Build metrics (RAM) – throttled
-      socket.on("build-metrics", (data: { service: string; memoryMB: number; timestamp?: number }) => {
+      socket!.on("build-metrics", (data: { service: string; memoryMB: number; timestamp?: number }) => {
         const now = Date.now();
         const last = lastMetricsAt[data.service] || 0;
         if (now - last < 2000) return; // 2s throttling to avoid flooding
@@ -223,7 +382,7 @@ export function useInstallation() {
       });
 
       // Dependency installation detayları
-      socket.on("dependency-log", (data: { package: string; version?: string; status: 'installing' | 'installed' | 'error' }) => {
+      socket!.on("dependency-log", (data: { package: string; version?: string; status: 'installing' | 'installed' | 'error' }) => {
         const statusIcon = data.status === 'installed' ? '✅' : data.status === 'error' ? '❌' : '📦';
         const versionInfo = data.version ? `@${data.version}` : '';
         const logMessage = `${statusIcon} ${data.package}${versionInfo} - ${data.status}`;
@@ -231,7 +390,7 @@ export function useInstallation() {
       });
 
       // Database operation logs
-      socket.on("database-log", (data: { operation: string; table?: string; status: 'success' | 'error'; message?: string }) => {
+      socket!.on("database-log", (data: { operation: string; table?: string; status: 'success' | 'error'; message?: string }) => {
         const statusIcon = data.status === 'success' ? '✅' : '❌';
         const tableInfo = data.table ? ` [${data.table}]` : '';
         const logMessage = `${statusIcon} DB: ${data.operation}${tableInfo} ${data.message || ''}`;
@@ -258,7 +417,7 @@ export function useInstallation() {
           mark('checkTemplates', 'error', msg);
           setInstallStatus('error');
           toast.error('Kredi yetersiz. Lütfen bakiyenizi artırın.');
-          if (socket) socket.disconnect();
+          socket?.disconnect();
           return;
         } else if (e?.response?.status === 409) {
           const msg = e?.response?.data?.message || 'Devam eden kurulum var';
@@ -266,7 +425,7 @@ export function useInstallation() {
           mark('checkTemplates', 'error', msg);
           setInstallStatus('error');
           toast.error(msg);
-          if (socket) socket.disconnect();
+          socket?.disconnect();
           return;
         } else {
           console.error('Kredi rezervasyon hatası:', e);
@@ -448,7 +607,7 @@ export function useInstallation() {
       // Hata anında o an koşan adımı 'error' yapmaya çalış
       const lastRunning = steps.find(s => s.status === 'running');
       if (lastRunning) {
-        mark(lastRunning.key, 'error', error.response?.data?.message || error.message || 'Bilinmeyen hata');
+        mark(lastRunning!.key, 'error', error.response?.data?.message || error.message || 'Bilinmeyen hata');
       }
 
       // Hata loglarını ekle
@@ -467,26 +626,9 @@ export function useInstallation() {
       toast.error(errorMessage);
       console.error(error);
     } finally {
-      if (socket) {
-        socket.disconnect();
-      }
+      socket?.disconnect();
     }
-  }, [API_URL, getAuthHeaders, isLocalDomain, steps]);
-
-  // Rezervasyon iptali helper
-  const cancelReservation = useCallback(async (keepalive: boolean = false) => {
-    try {
-      const body = JSON.stringify({ ledgerId: ledgerRef.current });
-      const headers = getAuthHeaders();
-      await fetch(`${API_URL}/api/setup/cancel-reservation`, {
-        method: 'POST',
-        headers,
-        body,
-        credentials: 'include',
-        keepalive,
-      });
-    } catch {}
-  }, [API_URL, getAuthHeaders]);
+  }, [API_URL, cancelReservation, ensureCsrfToken, getAuthHeaders, isLocalDomain, steps]);
 
   // Rezervasyon iptali: kullanıcı ayrılırsa veya sayfa kapanırsa
   useEffect(() => {

@@ -31,6 +31,18 @@ export interface SetupConfig {
   gitDepth?: number;
   gitAccessToken?: string;
   gitUsername?: string;
+  gitCommit?: string;
+
+  // Admin kullanıcı
+  adminEmail?: string;
+  adminPassword?: string;
+
+  // Demo data
+  initialData?: 'empty' | 'demo' | 'import';
+  importDemo?: boolean;
+  demoPackName?: string;
+  dbPrefix?: string;
+
   // Build seçenekleri
   buildHeapMB?: number; // NODE_OPTIONS --max-old-space-size
   skipTypeCheckFrontend?: boolean; // Next.js build'de tip kontrolünü atla

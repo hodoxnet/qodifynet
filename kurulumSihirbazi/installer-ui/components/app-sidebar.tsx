@@ -20,6 +20,9 @@ import {
   Package,
   Rocket,
   Database,
+  ListChecks,
+  Plus,
+  Clock,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -52,9 +55,21 @@ const data = {
       isActive: true,
     },
     {
-      title: "Kurulum Sihirbazı",
+      title: "Kurulum Yönetimi",
       url: "/setup",
       icon: Rocket,
+      items: [
+        {
+          title: "Yeni Kurulum",
+          url: "/setup",
+          icon: Plus,
+        },
+        {
+          title: "Aktif Kurulumlar",
+          url: "/setup/active",
+          icon: ListChecks,
+        },
+      ],
     },
     {
       title: "Müşteriler",

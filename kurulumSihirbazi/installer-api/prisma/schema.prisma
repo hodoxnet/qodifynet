@@ -190,3 +190,42 @@ model GitSettings {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
+
+// --- Job Queue Models ---
+
+model SetupJob {
+  id           String   @id @default(cuid())
+  jobId        String   @unique
+  domain       String
+  type         String   // 'template' | 'git'
+  status       String   // 'waiting' | 'active' | 'completed' | 'failed' | 'cancelled'
+  progress     Int      @default(0)
+  currentStep  String?
+  config       Json
+  error        String?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdBy    String?
+  partnerId    String?
+  customerId   String?
+  reservationLedgerId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([domain])
+  @@index([partnerId])
+}
+
+model SetupCleanup {
+  id         String   @id @default(cuid())
+  domain     String
+  resources  Json     // {database, files, redis, pm2, nginx}
+  status     String   // 'pending' | 'completed' | 'failed'
+  error      String?
+  createdAt  DateTime @default(now())
+  completedAt DateTime?
+
+  @@index([status, createdAt])
+  @@index([domain])
+}
