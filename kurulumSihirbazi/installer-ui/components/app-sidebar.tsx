@@ -15,7 +15,6 @@ import {
   SquareTerminal,
   Users,
   Server,
-  FileCode,
   Activity,
   Package,
   Rocket,
@@ -23,6 +22,7 @@ import {
   ListChecks,
   Plus,
   Clock,
+  FileCode,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -89,7 +89,7 @@ const data = {
       icon: Server,
     },
     {
-      title: "Template Dosyaları",
+      title: "Demo & Git Yönetimi",
       url: "/templates",
       icon: FileCode,
     },
@@ -129,7 +129,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const navSecondaryItems = React.useMemo(() => {
     if (!mounted) return data.navSecondary
-    // Sistem Durumu ve Template Dosyaları sadece SUPER_ADMIN için
+    // Sistem Durumu sadece SUPER_ADMIN için
     if (authUser?.role === 'SUPER_ADMIN') {
       return data.navSecondary
     }

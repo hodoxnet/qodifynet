@@ -15,7 +15,7 @@ const CANCELLED_ERROR = 'CANCELLED_BY_USER';
 
 export interface SetupJobData {
   domain: string;
-  type: 'template' | 'git';
+  type: 'git';
   cancelled?: boolean;
   config: {
     // Common
@@ -34,9 +34,6 @@ export interface SetupJobData {
     isLocal?: boolean;
     sslEnable?: boolean;
     sslEmail?: string;
-
-    // Template specific
-    version?: string;
 
     // Git specific
     repoUrl?: string;
@@ -155,15 +152,11 @@ export class SetupQueueService {
         await this.updateJobStatus(job.id.toString(), 'active', { startedAt: new Date() });
         await this.refreshPartnerLock(job);
 
-        let customerId: string | undefined;
-
-        if (type === 'git') {
-          const result = await this.processGitSetup(job);
-          customerId = result.customerId;
-        } else {
-          const result = await this.processTemplateSetup(job);
-          customerId = result.customerId;
+        if (type !== 'git') {
+          throw new Error(`Unsupported setup type: ${type}`);
         }
+
+        const { customerId } = await this.processGitSetup(job);
 
         await this.commitPartnerReservation(job, customerId);
 
@@ -329,166 +322,6 @@ export class SetupQueueService {
         console.error(`[SetupQueue] Failed to handle stalled job ${job.id}:`, error);
       }
     });
-  }
-
-  private async processTemplateSetup(job: Queue.Job<SetupJobData>): Promise<{ customerId: string }> {
-    const { domain, config } = job.data;
-    const jobId = job.id.toString();
-
-    this.setupService.registerJobContext(domain, jobId);
-
-    try {
-      const onProgress = (step: string, message: string, percent?: number) => {
-        const progressData = { step, message, percent: percent || 0 };
-        job.progress(progressData);
-
-        // Emit detailed log to WebSocket
-        io.to(`job-${jobId}`).emit(`job-${jobId}-log`, {
-          timestamp: new Date().toISOString(),
-          level: 'info',
-          message: message,
-          step: step,
-          percent: percent
-        });
-      };
-
-      this.ensureNotCancelled(job);
-
-      // Step 1: DNS Check (10%)
-      onProgress('dns', 'DNS doğrulaması yapılıyor...', 5);
-      // DNS check implementation...
-
-      // Step 2: Extract Templates (20%)
-      this.ensureNotCancelled(job);
-      onProgress('extract', 'Template dosyaları çıkarılıyor...', 10);
-      await this.setupService.extractTemplates(domain, config.version || 'latest', (msg) => {
-        onProgress('extract', msg, 15);
-      });
-
-      // Step 3: Database Setup (30%)
-      this.ensureNotCancelled(job);
-      onProgress('database', 'Veritabanı oluşturuluyor...', 20);
-      const dbName = `hodox_customer_${domain.replace(/\./g, '_')}`;
-      const dbUser = `qodify_${domain.replace(/\./g, '_')}`;
-      const dbPassword = this.generatePassword();
-
-      if (config.dbConfig) {
-        this.ensureNotCancelled(job);
-        await this.setupService.createDatabase(
-          config.dbConfig,
-          dbName,
-          dbUser,
-          dbPassword
-        );
-      }
-
-      // Step 4: Port Allocation (35%)
-      this.ensureNotCancelled(job);
-      onProgress('ports', 'Port tahsisi yapılıyor...', 30);
-      const ports = await this.allocatePorts(domain);
-
-      // Step 5: Configure Environment (40%)
-      this.ensureNotCancelled(job);
-      onProgress('environment', 'Ortam değişkenleri yapılandırılıyor...', 35);
-      await this.setupService.configureEnvironment(domain, {
-        dbName,
-        dbUser,
-        dbPassword,
-        dbHost: config.dbConfig?.host || 'localhost',
-        dbPort: config.dbConfig?.port || 5432,
-        redisHost: config.redisConfig?.host || 'localhost',
-        redisPort: config.redisConfig?.port || 6379,
-        redisPassword: config.redisConfig?.password,
-        ports,
-        storeName: config.storeName
-      });
-
-      // Step 6: Install Dependencies (50%)
-      this.ensureNotCancelled(job);
-      onProgress('dependencies', 'Bağımlılıklar yükleniyor...', 40);
-      await this.setupService.installDependencies(domain, (msg) => {
-        onProgress('dependencies', msg, 45);
-      });
-
-      // Step 7: Run Migrations (60%)
-      this.ensureNotCancelled(job);
-      onProgress('migrations', 'Veritabanı migration\'ları çalıştırılıyor...', 50);
-      await this.setupService.runMigrations(domain, dbName, dbUser);
-
-      // Step 8: Build Applications (70%)
-      this.ensureNotCancelled(job);
-      onProgress('build', 'Uygulamalar derleniyor...', 60);
-      await this.setupService.buildApplications(domain, config.isLocal || false, (msg) => {
-        onProgress('build', msg, 65);
-      });
-
-      // Step 9: Configure Services (80%)
-      this.ensureNotCancelled(job);
-      onProgress('services', 'PM2 ve Nginx yapılandırılıyor...', 70);
-      const customerPath = this.setupService.getCustomerPath(domain);
-
-      if (config.isLocal) {
-        try {
-          this.ensureNotCancelled(job);
-          await this.pm2Service.createEcosystem(domain, customerPath, ports, { devMode: true });
-        } catch (e) {
-          console.log('PM2 not available in local mode');
-        }
-      } else {
-        this.ensureNotCancelled(job);
-        await this.pm2Service.createEcosystem(domain, customerPath, ports, { devMode: false });
-        await this.nginxService.createConfig(domain, ports, false);
-
-        if (config.sslEnable && config.sslEmail) {
-          try {
-            this.ensureNotCancelled(job);
-            onProgress('services', 'SSL sertifikası alınıyor...', 75);
-            await this.nginxService.obtainSSLCertificate(domain, config.sslEmail);
-          } catch (e) {
-            console.warn('SSL certificate failed:', e);
-          }
-        }
-      }
-
-      // Step 10: Start Services (90%)
-      this.ensureNotCancelled(job);
-      onProgress('start', 'Servisler başlatılıyor...', 80);
-      if (!config.isLocal || await this.checkPM2Available()) {
-        await this.pm2Service.startCustomer(domain, customerPath);
-      }
-
-      // Step 11: Create Customer Record (95%)
-      this.ensureNotCancelled(job);
-      onProgress('finalize', 'Müşteri kaydı oluşturuluyor...', 90);
-      const customerId = await this.createCustomerRecord(job.data, {
-        dbName, dbUser, dbHost: config.dbConfig?.host || 'localhost',
-        dbPort: config.dbConfig?.port || 5432,
-        ports
-      });
-
-      // Update job with customerId
-      await this.updateJobStatus(job.id.toString(), 'active', { customerId });
-
-      // Step 12: Import Demo Data (optional)
-      if (config.importDemo) {
-        this.ensureNotCancelled(job);
-        onProgress('demo', 'Demo veriler içe aktarılıyor...', 95);
-        await this.demoService.importDemo({
-          domain,
-          packName: config.demoPackName,
-          packPath: config.demoPackPath,
-          overwriteUploads: true,
-          mode: 'strict' as any,
-          skipProcessRestart: false
-        });
-      }
-
-      onProgress('completed', 'Kurulum tamamlandı!', 100);
-
-      return { customerId };
-    } finally {
-      this.setupService.unregisterJobContext(domain, jobId);
-    }
   }
 
   private async processGitSetup(job: Queue.Job<SetupJobData>): Promise<{ customerId: string }> {

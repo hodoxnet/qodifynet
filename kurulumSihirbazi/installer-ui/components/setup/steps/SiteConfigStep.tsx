@@ -12,7 +12,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { SetupConfig } from '@/lib/types/setup';
@@ -45,11 +44,7 @@ export function SiteConfigStep({ config, onConfigUpdate, onNext, onBack }: SiteC
     checkDNS(config.domain);
   };
 
-  const installSource = config.installSource || 'template';
-
-  const sourceValid = installSource === 'git'
-    ? Boolean(config.gitRepoUrl)
-    : Boolean(config.templateVersion);
+  const sourceValid = Boolean(config.gitRepoUrl);
 
   const isFormValid = (isPartner
     ? Boolean(config.domain && config.storeName)
@@ -209,100 +204,67 @@ export function SiteConfigStep({ config, onConfigUpdate, onNext, onBack }: SiteC
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="install-source">Kurulum Kaynağı</Label>
-            <Select
-              value={installSource}
-              onValueChange={(value) => onConfigUpdate({ installSource: value as SetupConfig['installSource'] })}
-            >
-              <SelectTrigger id="install-source">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="template">Hazır Template Paketleri</SelectItem>
-                <SelectItem value="git">Git Deposu</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="git-repo">Git Depo URL</Label>
+            <Input
+              id="git-repo"
+              type="text"
+              value={config.gitRepoUrl || ''}
+              onChange={(e) => onConfigUpdate({ gitRepoUrl: e.target.value })}
+              placeholder="https://github.com/qodify/example-repo.git"
+            />
+            <p className="text-xs text-gray-500">Kurulum yalnızca Git deposu üzerinden desteklenir.</p>
           </div>
 
-          {installSource === 'template' ? (
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="template-version">Template Versiyonu</Label>
-              <Select
-                value={config.templateVersion}
-                onValueChange={(value) => onConfigUpdate({ templateVersion: value })}
-              >
-                <SelectTrigger id="template-version">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="latest">En Güncel (v2.4.0)</SelectItem>
-                  <SelectItem value="2.3.0">v2.3.0</SelectItem>
-                  <SelectItem value="2.2.0">v2.2.0</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="git-branch">Branch</Label>
+              <Input
+                id="git-branch"
+                type="text"
+                value={config.gitBranch || ''}
+                onChange={(e) => onConfigUpdate({ gitBranch: e.target.value })}
+                placeholder="main"
+              />
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="git-repo">Git Depo URL</Label>
-                <Input
-                  id="git-repo"
-                  type="text"
-                  value={config.gitRepoUrl || ''}
-                  onChange={(e) => onConfigUpdate({ gitRepoUrl: e.target.value })}
-                  placeholder="https://github.com/qodify/example-repo.git"
-                />
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="git-branch">Branch</Label>
-                  <Input
-                    id="git-branch"
-                    type="text"
-                    value={config.gitBranch || ''}
-                    onChange={(e) => onConfigUpdate({ gitBranch: e.target.value })}
-                    placeholder="main"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="git-depth">Clone Derinliği</Label>
-                  <Input
-                    id="git-depth"
-                    type="number"
-                    min={1}
-                    value={config.gitDepth ?? 1}
-                    onChange={(e) => onConfigUpdate({ gitDepth: Number(e.target.value) || 1 })}
-                  />
-                </div>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="git-username">Git Kullanıcı Adı (opsiyonel)</Label>
-                  <Input
-                    id="git-username"
-                    type="text"
-                    value={config.gitUsername || ''}
-                    onChange={(e) => onConfigUpdate({ gitUsername: e.target.value })}
-                    placeholder="deploy-user"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="git-token">Erişim Token&apos;ı (opsiyonel)</Label>
-                  <Input
-                    id="git-token"
-                    type="password"
-                    value={config.gitAccessToken || ''}
-                    onChange={(e) => onConfigUpdate({ gitAccessToken: e.target.value })}
-                    placeholder="ghp_..."
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-gray-500">
-                Özel depolara erişim için gerekli varsayılan tokenı Git Ayarları sekmesinden tanımlayabilirsiniz.
-                Buraya gireceğiniz değer yalnızca bu kurulum için geçici olarak kullanılır.
-              </p>
+            <div className="space-y-2">
+              <Label htmlFor="git-depth">Clone Derinliği</Label>
+              <Input
+                id="git-depth"
+                type="number"
+                min={1}
+                value={config.gitDepth ?? 1}
+                onChange={(e) => onConfigUpdate({ gitDepth: Number(e.target.value) || 1 })}
+              />
             </div>
-          )}
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="git-username">Git Kullanıcı Adı (opsiyonel)</Label>
+              <Input
+                id="git-username"
+                type="text"
+                value={config.gitUsername || ''}
+                onChange={(e) => onConfigUpdate({ gitUsername: e.target.value })}
+                placeholder="deploy-user"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="git-token">Erişim Token&apos;ı (opsiyonel)</Label>
+              <Input
+                id="git-token"
+                type="password"
+                value={config.gitAccessToken || ''}
+                onChange={(e) => onConfigUpdate({ gitAccessToken: e.target.value })}
+                placeholder="ghp_..."
+              />
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-500">
+            Özel depolara erişim için gerekli varsayılan tokenı Git Ayarları sekmesinden tanımlayabilirsiniz.
+            Buraya gireceğiniz değer yalnızca bu kurulum için geçici olarak kullanılır.
+          </p>
         </div>
 
         <div className="flex justify-between">

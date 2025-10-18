@@ -16,7 +16,6 @@ import {
   Zap,
   Shield,
   Server,
-  FolderOpen,
   Terminal,
   GitBranch
 } from 'lucide-react';
@@ -41,10 +40,8 @@ interface BuildProgressProps {
 }
 
 const defaultIcons: Record<string, React.ReactNode> = {
-  'checkTemplates': <Package className="h-4 w-4" />,
   'prepareGit': <GitBranch className="h-4 w-4" />,
   'createDatabase': <Database className="h-4 w-4" />,
-  'extractTemplates': <FolderOpen className="h-4 w-4" />,
   'configureEnvironment': <Settings className="h-4 w-4" />,
   'installDependencies': <Package className="h-4 w-4" />,
   'runMigrations': <Database className="h-4 w-4" />,

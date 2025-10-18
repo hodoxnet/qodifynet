@@ -24,8 +24,6 @@ export interface SetupConfig {
   // Site bilgileri
   domain: string;
   storeName: string;
-  templateVersion: string;
-  installSource: 'template' | 'git';
   gitRepoUrl?: string;
   gitBranch?: string;
   gitDepth?: number;
@@ -91,10 +89,8 @@ export type InstallStatus = "idle" | "running" | "completed" | "error";
 
 // Kurulum adımları için tipler
 export type InstallStepKey =
-  | "checkTemplates"
   | "prepareGit"
   | "createDatabase"
-  | "extractTemplates"
   | "configureEnvironment"
   | "installDependencies"
   | "runMigrations"
@@ -146,8 +142,6 @@ export const DEFAULT_CONFIG: SetupConfig = {
   redisPassword: "",
   domain: "",
   storeName: "",
-  templateVersion: "latest",
-  installSource: "template",
   gitRepoUrl: "",
   gitBranch: "main",
   gitDepth: 1,

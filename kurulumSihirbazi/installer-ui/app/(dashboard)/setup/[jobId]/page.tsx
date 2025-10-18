@@ -541,7 +541,7 @@ export default function JobDetailPage() {
           <div>
             <h1 className="text-3xl font-bold">{job.domain}</h1>
             <p className="text-muted-foreground">
-              Job ID: {jobId} • {job.type === 'git' ? 'Git Repository' : 'Template'}
+              Job ID: {jobId} • {job.type === 'template' ? 'Legacy Template' : 'Git Repository'}
             </p>
           </div>
         </div>
@@ -724,7 +724,7 @@ export default function JobDetailPage() {
 
                 <div>
                   <label className="text-sm font-medium">Kurulum Tipi</label>
-                  <p className="mt-1 text-sm">{job.type === 'git' ? 'Git Repository' : 'Template'}</p>
+                  <p className="mt-1 text-sm">{job.type === 'template' ? 'Legacy Template' : 'Git Repository'}</p>
                 </div>
 
                 {job.type === 'git' && job.config?.gitUrl && (

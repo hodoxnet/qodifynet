@@ -133,7 +133,8 @@ setupQueueRouter.use('/dashboard', authenticate, requireScopes(SCOPES.SETUP_RUN)
 setupQueueRouter.post('/queue', setupQueueLimiter, requireScopes(SCOPES.SETUP_RUN), async (req, res): Promise<void> => {
   try {
     const user = req.user!;
-    const { domain: rawDomain, type, config } = req.body;
+    const { domain: rawDomain, config } = req.body;
+    const type = (req.body?.type || 'git') as 'git';
 
     // Validate input
     if (!rawDomain || !type || !config) {
@@ -141,8 +142,8 @@ setupQueueRouter.post('/queue', setupQueueLimiter, requireScopes(SCOPES.SETUP_RU
       return;
     }
 
-    if (type !== 'template' && type !== 'git') {
-      err(res, 400, 'INVALID_TYPE', 'Type "template" veya "git" olmalı');
+    if (type !== 'git') {
+      err(res, 400, 'INVALID_TYPE', 'Kurulum yalnızca "git" kaynağıyla destekleniyor');
       return;
     }
 
@@ -182,7 +183,7 @@ setupQueueRouter.post('/queue', setupQueueLimiter, requireScopes(SCOPES.SETUP_RU
     // Prepare job data
     const jobData: SetupJobData = {
       domain,
-      type,
+      type: 'git',
       config,
       userId: user.id,
       partnerId: user.partnerId,
@@ -196,7 +197,7 @@ setupQueueRouter.post('/queue', setupQueueLimiter, requireScopes(SCOPES.SETUP_RU
       jobId,
       message: 'Kurulum job\'ı oluşturuldu',
       domain,
-      type
+      type: 'git'
     });
 
   } catch (error: any) {

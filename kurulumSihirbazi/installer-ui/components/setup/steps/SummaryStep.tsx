@@ -80,19 +80,9 @@ export function SummaryStep({
     { label: "Mağaza Adı", value: config.storeName },
     // Partner kullanıcılar için veritabanı bilgisini gizle
     ...(!isPartner ? [{ label: "Veritabanı", value: config.dbName }] : []),
-    ...(config.installSource === 'git'
-      ? [
-          { label: "Kaynak", value: "Git Deposu" },
-          { label: "Repo", value: config.gitRepoUrl || '-' },
-          { label: "Branch", value: config.gitBranch || 'main' }
-        ]
-      : [
-          {
-            label: "Template",
-            value: config.templateVersion === "latest" ? "v2.4.0 (En Güncel)" : `v${config.templateVersion}`
-          }
-        ]
-    ),
+    { label: "Kaynak", value: "Git Deposu" },
+    { label: "Repo", value: config.gitRepoUrl || '-' },
+    { label: "Branch", value: config.gitBranch || 'main' },
     {
       label: "Kurulum Modu",
       value: isLocal ? "Local" : "Production",

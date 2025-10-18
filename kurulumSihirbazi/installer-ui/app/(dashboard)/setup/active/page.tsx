@@ -338,7 +338,7 @@ export default function ActiveSetupsPage() {
                   <div className="flex-1">
                     <CardTitle className="text-lg">{job.domain}</CardTitle>
                     <CardDescription>
-                      {job.type === 'git' ? 'Git Repository' : 'Template'} • {new Date(job.createdAt).toLocaleString('tr-TR')}
+                      {job.type === 'template' ? 'Legacy Template' : 'Git Repository'} • {new Date(job.createdAt).toLocaleString('tr-TR')}
                     </CardDescription>
                   </div>
                   <Badge className={getStatusColor(job.status)}>
